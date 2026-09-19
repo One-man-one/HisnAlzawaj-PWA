@@ -1,0 +1,141 @@
+/* حصن الزواج — أنماط الهيكل.
+ *
+ * ⚠️ الألوان رموزٌ على ‎:root‎ لا قيمٌ منثورة: النمط الداكن يُعيد
+ * تعريفها في موضعٍ واحد، ولونٌ مكتوبٌ مباشرةً في قاعدةٍ ما يبقى فاتحاً
+ * في الداكن بلا أن يشتكي شيء.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  --bg:        #F6F4EF;
+  --surface:   #FFFFFF;
+  --border:    #E2DCD0;
+  --text:      #1B2320;
+  --muted:     #5E6B65;
+  --brand:     #0E5A4A;
+  --brand-ink: #FFFFFF;
+  --accent:    #B9902F;
+  --ok:        #1E7A4A;
+  --warn:      #A4562A;
+
+  --radius: 16px;
+  --gap: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:        #0F1513;
+    --surface:   #18211E;
+    --border:    #2A3A34;
+    --text:      #ECF1EE;
+    --muted:     #9DAEA7;
+    --brand:     #2E8A73;
+    --brand-ink: #06120E;
+    --accent:    #E8C46A;
+    --ok:        #4FC08A;
+    --warn:      #E0A06A;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg:        #0F1513;
+  --surface:   #18211E;
+  --border:    #2A3A34;
+  --text:      #ECF1EE;
+  --muted:     #9DAEA7;
+  --brand:     #2E8A73;
+  --brand-ink: #06120E;
+  --accent:    #E8C46A;
+  --ok:        #4FC08A;
+  --warn:      #E0A06A;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  /* ⚠️ لا خطّ ويبٍ مُنزَّل: الخطّ الأول في القائمة هو خطّ النظام
+   * العربي على كل منصّة. وتنزيل خطٍّ عربي كامل يعني ٣٠٠ كيلوبايت
+   * قبل أوّل حرفٍ يظهر — على شبكةٍ بطيئة هو الفرق بين تطبيقٍ يفتح
+   * وشاشةٍ بيضاء. */
+  font-family: system-ui, -apple-system, "Segoe UI", "Noto Naskh Arabic",
+               "Tahoma", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  /* حشوةٌ جانبية ثابتة — لا تمرير أفقي على أضيق هاتف */
+  padding: max(24px, env(safe-area-inset-top)) 16px
+           max(24px, env(safe-area-inset-bottom));
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+}
+
+.shell {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.brand { text-align: center; margin: 8px 0 4px; }
+.brand__mark { border-radius: 22%; display: block; margin: 0 auto 12px; }
+.brand__name { font-size: 1.6rem; margin: 0 0 4px; letter-spacing: -.01em; }
+.brand__line { margin: 0; color: var(--muted); font-size: .95rem; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+.card__title { margin: 0 0 6px; font-weight: 700; }
+.card__body  { margin: 0; color: var(--muted); font-size: .95rem; }
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  font-size: .9rem;
+  color: var(--muted);
+}
+.status__dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: none;
+}
+.status[data-state="online"]  .status__dot { background: var(--ok); }
+.status[data-state="offline"] .status__dot { background: var(--warn); }
+
+.actions { display: flex; flex-direction: column; gap: 10px; }
+
+.btn {
+  display: block;
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn--primary { background: var(--brand); color: var(--brand-ink); }
+.btn--ghost   { background: transparent; color: var(--text); border-color: var(--border); }
+.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.foot { text-align: center; color: var(--muted); font-size: .85rem; }
+.foot p { margin: 0; }
+
+.notice {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin: 0 0 16px;
+}

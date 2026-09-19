@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>حصن الزواج</title>
+<meta name="description" content="زواج شرعي: تسجيل مفصَّل، مطابقة بدرجة توافق، وخصوصية مبنيّة على الموافقة.">
+
+<!-- ⚠️ الروابط كلُّها نسبيّة بلا شرطة بادئة. الشرح في CLAUDE.md ←
+     «المسارات النسبيّة» — الاستضافة على مسارٍ فرعي تكسر كل مسارٍ مطلق. -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="app.css">
+
+<meta name="theme-color" content="#0E5A4A">
+<!-- ⚠️ iOS لا تقرأ الـmanifest لهذين: بدونهما يفتح التطبيق المثبَّت
+     في سفاري بشريط عنوانٍ كامل، فلا يبدو تطبيقاً إطلاقاً. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="حصن الزواج">
+</head>
+<body>
+
+<noscript>
+  <p class="notice">هذه الصفحة تحتاج جافاسكربت. فعّلها من إعدادات المتصفّح.</p>
+</noscript>
+
+<main class="shell">
+
+  <header class="brand">
+    <img src="icons/icon-192.png" alt="" width="72" height="72" class="brand__mark">
+    <h1 class="brand__name">حصن الزواج</h1>
+    <p class="brand__line">زواج شرعي بخصوصيةٍ مبنيّة على الموافقة</p>
+  </header>
+
+  <!-- ⚠️ هذه بطاقةُ حالةٍ لا محتوى: هيكل التطبيق يعمل اليوم بلا أي
+       API. المحتوى الحقيقي يأتي في مرحلةٍ لاحقة من الخطة. -->
+  <section class="card" aria-live="polite">
+    <p class="card__title">الهيكل يعمل</p>
+    <p class="card__body">
+      هذه النسخة تُثبَّت وتعمل بلا اتصال. ولمّا تُوصَل بعد بخدمة
+      البيانات — التسجيل والمطابقة يأتيان في مرحلةٍ تالية.
+    </p>
+    <p class="status" id="status" data-state="unknown">
+      <span class="status__dot" aria-hidden="true"></span>
+      <span id="status-text">…</span>
+    </p>
+  </section>
+
+  <div class="actions">
+    <!-- ⚠️ يظهر فقط حين يعرض المتصفّح التثبيت فعلاً. الشرح في app.js -->
+    <button id="install" class="btn btn--primary" hidden>تثبيت التطبيق</button>
+
+    <a class="btn btn--ghost" href="https://t.me/HisnAlzawaj_bot" rel="noopener">
+      فتح البوت على تيليجرام
+    </a>
+  </div>
+
+  <footer class="foot">
+    <p>يعمل بلا اتصال · لا يطلب تيليجرام</p>
+  </footer>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
