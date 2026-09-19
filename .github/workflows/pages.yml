@@ -1,0 +1,61 @@
+# نشر الواجهة على GitHub Pages عند كل دفعة إلى main.
+#
+# ⚠️ **ولماذا سير عملٍ لا إعدادٌ من اللوحة:** تفعيل Pages من اللوحة
+# قرارٌ يسكن إعدادات المستودع لا المستودع نفسه — فمن يستنسخ هذا
+# المشروع لا يرى منه شيئاً، ومن ينقله إلى حسابٍ آخر يجد موقعاً لا
+# يُنشر بلا أن يدلّه ملفٌّ واحد على السبب. الملفّ هنا هو الإعداد.
+#
+# ✅ و‎enablement: true‎ أدناه يفعّل Pages من نفسه في أوّل تشغيل، فلا
+# خطوةً يدويّةً أصلاً.
+
+name: نشر الواجهة
+
+on:
+  push:
+    branches: [main]
+
+  # زرّ تشغيل يدويّ — إعادةُ نشرٍ بلا دفعةٍ جديدة.
+  workflow_dispatch:
+
+# ⚠️ الصلاحيات الثلاث كلُّها لازمة، وحذفُ واحدةٍ يُسقط التشغيل بخطأ
+# صلاحيات لا بخطأ نشر: ‎pages‎ للكتابة، و‎id-token‎ لأن ‎deploy-pages‎
+# يوقّع الطلب بـOIDC، و‎contents‎ للقراءة وحدها.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# ⚠️ ‎cancel-in-progress: false‎ بقرار: إلغاء نشرٍ في منتصفه يترك
+# الموقع على نسخةٍ نصفَ منشورة.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: بناء ونشر
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: تهيئة Pages (وتفعيلها إن لم تكن مفعّلة)
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      # ⚠️ المستودع كلّه يُرفع لأنه ساكنٌ بلا خطوة بناء — لا ‎dist/‎
+      # هنا ولا شيء يُولَّد وقت النشر. والأيقونات مرفوعةٌ في المستودع
+      # لهذا السبب بعينه.
+      - name: تجميع الملفّات
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: النشر
+        id: deployment
+        uses: actions/deploy-pages@v4
