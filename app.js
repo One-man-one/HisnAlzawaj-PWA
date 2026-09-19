@@ -16,6 +16,30 @@
   // الشبكة، فتسجيلُه مبكراً يُبطئ أوّل زيارة — وهي الزيارة الوحيدة
   // التي يقرّر فيها الزائر إن كان سيبقى.
   if ('serviceWorker' in navigator) {
+    // ⚠️ **نافذة تبدّل الإصدارات — عطلٌ وقع فعلاً ورآه المستخدم.**
+    //
+    // التنقّل يُجلب من الشبكة أوّلاً، والأصول من الكاش أوّلاً. فأثناء
+    // التحديث يرسم المتصفّح **صفحةً جديدة** بينما يخدمه العامل القديم
+    // **جافاسكربت قديماً** من كاشه: عنصرٌ جديد في الصفحة لا يعرفه
+    // الكود الذي يعمل، فلا يتصرّف فيه أحد.
+    //
+    // وقع هذا حرفياً: ظهر دليل التثبيت اليدويّ داخل تطبيقٍ مثبَّت،
+    // لأن الكود الذي كان يُفترض به إخفاؤه لم يكن قد وصل الجهاز بعد.
+    //
+    // ✅ والعلاج إعادةُ تحميلٍ **واحدة** حين يتسلّم عاملٌ جديد التحكّم،
+    // فتأتي الصفحة والكود من إصدارٍ واحد.
+    var hadController = !!navigator.serviceWorker.controller;
+    var reloading = false;
+
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      // ⚠️ الشرطان معاً لا أحدهما: بلا ‎hadController‎ تُعاد صفحةُ كلّ
+      // زائرٍ جديد بلا سبب (أوّل تسجيلٍ يُبدّل المتحكّم أيضاً)، وبلا
+      // ‎reloading‎ تدخل الصفحة حلقةَ إعادةِ تحميلٍ لا تنتهي.
+      if (!hadController || reloading) return;
+      reloading = true;
+      window.location.reload();
+    });
+
     window.addEventListener('load', function () {
       navigator.serviceWorker.register('sw.js').catch(function (err) {
         // ⚠️ الفشل هنا ليس عطلاً يُوقف شيئاً: التطبيق يعمل بلا عامل
@@ -85,10 +109,21 @@
         || window.navigator.standalone === true;   // سفاري على iOS
   }
 
-  if (isInstalled()) {
-    // ⚠️ إخفاء الدليل هنا مقصود: عرضُ «كيف أثبّته» داخل تطبيقٍ مثبَّت
+  function syncInstalledState() {
+    // ⚠️ إخفاء الدليل مقصود: عرضُ «كيف أثبّته» داخل تطبيقٍ مثبَّت
     // يجعل المستخدم يشكّ أن التثبيت لم ينجح.
-    if (howto) howto.hidden = true;
+    if (howto) howto.hidden = isInstalled();
+  }
+
+  syncInstalledState();
+
+  // ⚠️ ولا يكفي الفحص مرّةً عند الإقلاع: الصفحة نفسها قد تنتقل إلى
+  // الوضع المستقلّ وهي مفتوحة (تثبيتٌ من قائمة المتصفّح)، فتبقى
+  // شاشةُ تطبيقٍ مثبَّت تعرض «كيف أثبّته».
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(display-mode: standalone)');
+    if (mq.addEventListener) mq.addEventListener('change', syncInstalledState);
+    else if (mq.addListener) mq.addListener(syncInstalledState);   // متصفّحات أقدم
   }
 
   window.addEventListener('beforeinstallprompt', function (e) {
