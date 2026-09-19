@@ -47,17 +47,49 @@
   paintStatus();
 
   // ==========================================================
-  // ٣) زرّ التثبيت
+  // ٣) التثبيت
   // ==========================================================
   //
-  // ⚠️ الزرّ مخفيٌّ افتراضاً ولا يُظهره إلا الحدث. وسببُ ذلك أن
-  // المتصفّح وحده يقرّر أهليّة التثبيت (HTTPS، وmanifest صالح، وعامل
-  // خدمة مسجَّل)، و‎iOS لا تُطلق هذا الحدث إطلاقاً‎ — التثبيت هناك
-  // يدويّ من «مشاركة ← إضافة إلى الشاشة الرئيسية».
+  // ⚠️ **العطل الذي جاء منه هذا الكود:** كان الزرّ ينادي ‎prompt()‎ ثم
+  // ينتظر ‎userChoice‎ ولا شيء غير ذلك. وعلى جهازٍ حقيقي (شاومي) ظهر
+  // الزرّ — أي أن الحدث أُطلق فعلاً — ثم **لم تفعل الضغطة شيئاً ولم
+  // تقل شيئاً**. ولا سجلّ يُقرأ ولا رسالة تظهر: مستخدمٌ يظنّ التطبيق
+  // معطَّلاً وهو سليم.
   //
-  // فزرٌّ ظاهرٌ دائماً يعني زرّاً لا يفعل شيئاً عند نصف المستخدمين.
+  // والسبب خارجُ أيدينا: متصفّحات أندرويد كثيرة نسخٌ من Chromium
+  // تُطلق ‎beforeinstallprompt‎ ثم تتجاهل ‎prompt()‎ بصمت. فلا يُصلَح
+  // ذلك بكودٍ «أصحّ» — يُصلَح بأن **يبقى للمستخدم طريقٌ آخر دائماً**،
+  // وأن يُقال له ذلك حين يفشل الأول.
+
   var deferred = null;
   var installBtn = document.getElementById('install');
+  var howto = document.getElementById('howto');
+  var howtoSummary = document.getElementById('howto-summary');
+
+  // ⚠️ مهلةٌ لا اتّكالَ على وعدٍ قد لا يُحسم أبداً: المتصفّح الذي
+  // يتجاهل ‎prompt()‎ لا يرفض ‎userChoice‎ ولا يحسمها — تبقى معلّقة
+  // إلى الأبد، وهو بالضبط شكلُ العطل الذي وقع.
+  var PROMPT_TIMEOUT_MS = 1200;
+
+  function openManual(reason) {
+    if (!howto) return;
+    if (howtoSummary && reason) howtoSummary.textContent = reason;
+    howto.open = true;
+    howto.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // هل هو مفتوحٌ أصلاً كتطبيقٍ مثبَّت؟
+  function isInstalled() {
+    return (window.matchMedia
+            && window.matchMedia('(display-mode: standalone)').matches)
+        || window.navigator.standalone === true;   // سفاري على iOS
+  }
+
+  if (isInstalled()) {
+    // ⚠️ إخفاء الدليل هنا مقصود: عرضُ «كيف أثبّته» داخل تطبيقٍ مثبَّت
+    // يجعل المستخدم يشكّ أن التثبيت لم ينجح.
+    if (howto) howto.hidden = true;
+  }
 
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();          // وإلا عرض المتصفّح نافذته الخاصة
@@ -67,12 +99,45 @@
 
   if (installBtn) {
     installBtn.addEventListener('click', function () {
-      if (!deferred) return;
-      deferred.prompt();
-      deferred.userChoice.finally(function () {
+      if (!deferred) {
+        openManual('المتصفّح لا يعرض التثبيت التلقائي — إليك الطريقة اليدوية');
+        return;
+      }
+
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        openManual('لم يستجب المتصفّح — إليك الطريقة اليدوية');
+      }, PROMPT_TIMEOUT_MS);
+
+      function done(manualReason) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (manualReason) openManual(manualReason);
+      }
+
+      try {
+        deferred.prompt();
+      } catch (err) {
         // ⚠️ الحدث يُستهلك مرّةً واحدة: إعادةُ استعماله ترمي استثناءً.
+        done('تعذّر فتح نافذة التثبيت — إليك الطريقة اليدوية');
         deferred = null;
-        installBtn.hidden = true;
+        return;
+      }
+
+      deferred.userChoice.then(function (choice) {
+        done(choice && choice.outcome === 'accepted'
+             ? null
+             : 'أُلغي التثبيت — ويمكنك فعله يدوياً متى شئت');
+        if (choice && choice.outcome === 'accepted' && installBtn) {
+          installBtn.hidden = true;
+        }
+        deferred = null;
+      }).catch(function () {
+        done('تعذّر إكمال التثبيت — إليك الطريقة اليدوية');
+        deferred = null;
       });
     });
   }
@@ -80,5 +145,7 @@
   window.addEventListener('appinstalled', function () {
     deferred = null;
     if (installBtn) installBtn.hidden = true;
+    if (howto) howto.hidden = true;
   });
+
 })();
