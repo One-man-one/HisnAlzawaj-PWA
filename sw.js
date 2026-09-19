@@ -10,7 +10,7 @@
 // السبب: السيرفر يحمل الجديد، والمستخدم يرى القديم.
 //
 // ✅ فالقاعدة: **كل دفعةٍ تمسّ ملفّاً في ‎SHELL‎ ترفع هذا الرقم.**
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CACHE = 'hisn-shell-' + VERSION;
 
 // ⚠️ مسارات نسبيّة بلا شرطة بادئة — الاستضافة قد تكون على مسارٍ فرعي
@@ -24,6 +24,7 @@ const SHELL = [
   'app.css',
   'app.js',
   'manifest.webmanifest',
+  'brand/logo_mark.png',
   'icons/icon-192.png',
   'icons/favicon-32.png',
 ];

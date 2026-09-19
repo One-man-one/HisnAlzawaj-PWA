@@ -3,6 +3,12 @@
  * ⚠️ الألوان رموزٌ على ‎:root‎ لا قيمٌ منثورة: النمط الداكن يُعيد
  * تعريفها في موضعٍ واحد، ولونٌ مكتوبٌ مباشرةً في قاعدةٍ ما يبقى فاتحاً
  * في الداكن بلا أن يشتكي شيء.
+ *
+ * ⚠️ **والأخضر والذهبيّ مأخوذان من الشعار الرسمي لا مختارَين:**
+ * ‎#1C3834‎ هو أكثر لونٍ تكراراً في حصن ‎brand/logo_mark.png‎،
+ * و‎#C99D61‎ ذهبيُّ إطاره. وكانا قبل ذلك تخميناً (‎#0E5A4A‎ أخضرَ
+ * أفتحَ بدرجتين) فبدت الواجهة قريبةً من الهوية لا منها — وهو فرقٌ
+ * يراه صاحب العلامة في أول نظرة ولا يراه من كتب الكود.
  */
 
 :root {
@@ -13,9 +19,9 @@
   --border:    #E2DCD0;
   --text:      #1B2320;
   --muted:     #5E6B65;
-  --brand:     #0E5A4A;
+  --brand:     #1C3834;
   --brand-ink: #FFFFFF;
-  --accent:    #B9902F;
+  --accent:    #A3763C;
   --ok:        #1E7A4A;
   --warn:      #A4562A;
 
@@ -30,9 +36,9 @@
     --border:    #2A3A34;
     --text:      #ECF1EE;
     --muted:     #9DAEA7;
-    --brand:     #2E8A73;
+    --brand:     #2C5C53;
     --brand-ink: #06120E;
-    --accent:    #E8C46A;
+    --accent:    #C99D61;
     --ok:        #4FC08A;
     --warn:      #E0A06A;
   }
@@ -44,9 +50,9 @@
   --border:    #2A3A34;
   --text:      #ECF1EE;
   --muted:     #9DAEA7;
-  --brand:     #2E8A73;
+  --brand:     #2C5C53;
   --brand-ink: #06120E;
-  --accent:    #E8C46A;
+  --accent:    #C99D61;
   --ok:        #4FC08A;
   --warn:      #E0A06A;
 }
@@ -81,7 +87,7 @@ body {
 }
 
 .brand { text-align: center; margin: 8px 0 4px; }
-.brand__mark { border-radius: 22%; display: block; margin: 0 auto 12px; }
+.brand__mark { display: block; margin: 0 auto 12px; height: auto; }
 .brand__name { font-size: 1.6rem; margin: 0 0 4px; letter-spacing: -.01em; }
 .brand__line { margin: 0; color: var(--muted); font-size: .95rem; }
 

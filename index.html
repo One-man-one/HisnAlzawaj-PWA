@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="app.css">
 
-<meta name="theme-color" content="#0E5A4A">
+<meta name="theme-color" content="#1C3834">
 <!-- ⚠️ iOS لا تقرأ الـmanifest لهذين: بدونهما يفتح التطبيق المثبَّت
      في سفاري بشريط عنوانٍ كامل، فلا يبدو تطبيقاً إطلاقاً. -->
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -28,7 +28,10 @@
 <main class="shell">
 
   <header class="brand">
-    <img src="icons/icon-192.png" alt="" width="72" height="72" class="brand__mark">
+    <!-- ⚠️ العلامة الشفّافة لا أيقونة التطبيق: الأيقونة تحمل خلفيةً
+         فاتحة مطلوبةً على شاشة الهاتف، وهي داخل الصفحة مربّعٌ فاتح
+         يقطع النمط الداكن. -->
+    <img src="brand/logo_mark.png" alt="" width="61" height="90" class="brand__mark">
     <h1 class="brand__name">حصن الزواج</h1>
     <p class="brand__line">زواج شرعي بخصوصيةٍ مبنيّة على الموافقة</p>
   </header>

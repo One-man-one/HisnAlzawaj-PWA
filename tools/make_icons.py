@@ -1,149 +1,112 @@
 # -*- coding: utf-8 -*-
 """
-مولّد أيقونات التطبيق — بلا أي تبعية خارجية.
+مولّد أيقونات التطبيق من **الشعار الرسمي**.
 
-    python tools/make_icons.py
+    python3 tools/make_icons.py
 
-⚠️ **لماذا مولّدٌ لا ملفّات PNG مرفوعة:** الأيقونة تُطلب بأربعة مقاسات
-وبنسختين (عادية وmaskable)، وكلّ تغييرٍ في اللون أو الشكل يعني إعادة
-تصدير ستّة ملفّات يدوياً — وأولُ مرّةٍ يُنسى فيها ملفٌّ واحد تصير
-الأيقونة مختلفةً على جهازٍ دون جهاز، بلا أي خطأ يدلّ على السبب.
-المصدر هنا هو الكود، والملفّات ناتجُه.
+المصدر: ‎brand/logo_mark.png‎ — وهو نسخةٌ من ‎assets/logo_mark.png‎ في
+مستودع البوت (العلامة بلا نصّ: الحصن والزوجان والقلب).
 
-⚠️ **وPillow ليست شرطاً عمداً:** هذا المستودع واجهةٌ ساكنة بلا تبعيات
-(`requirements.txt` لا وجود له أصلاً)، وإضافةُ حزمةٍ ثقيلة لأجل ستّ
-أيقونات تجعل من يستنسخه يحتاج بيئةً بايثونية كاملة ليغيّر لوناً.
-فالكتابة هنا PNG خام: zlib في المكتبة القياسية، وترويسة الملفّ
-أربعةُ أسطر.
+⚠️ **ولماذا العلامة لا الشعار الكامل:** ‎assets/logo.png‎ يحمل الاسم
+مكتوباً تحت العلامة، وأيقونة التطبيق تُعرض في ٤٨ بكسل على شاشة
+الهاتف — فالنصّ هناك ضبابٌ لا يُقرأ، ويسرق من مساحة العلامة نفسها.
+واسمُ التطبيق مكتوبٌ تحت الأيقونة أصلاً في نظام التشغيل.
 
-⚠️ **وmaskable ليست نسخةً مكبّرة:** أندرويد يقصّ الأيقونة بشكلٍ يختاره
-النظام (دائرة، مربّع مستدير، قطرة)، ويضمن ظهور **الثمانين بالمئة
-الوسطى** وحدها. فنسخةٌ عاديةٌ أُعلنت `maskable` تُقصّ أطرافها فعلاً —
-ولذلك الرسم هنا أصغر داخل إطارٍ ممتلئ.
+⚠️ **ونسخةٌ لا رابط، والفرق مقصود:** هذا المستودع واجهةٌ ساكنة تُنشر
+وحدها، ولا تملك مستودع البوت وقت البناء. فالملفّ منسوخٌ هنا —
+و**تحديثُ الشعار في مستودع البوت لا يصل هذه الأيقونات من نفسه**:
+انسخ الملفّ وأعد التوليد.
+
+⚠️ **ومولّدٌ لا ملفّات PNG مرفوعة وحدها:** الأيقونة تُطلب بستّة
+مقاسات ونسختين (عادية وmaskable)، وكلّ تغييرٍ يعني إعادة تصدير ستّة
+ملفّات يدوياً. وأوّل مرّةٍ يُنسى فيها ملفٌّ واحد تصير الأيقونة مختلفةً
+على جهازٍ دون جهاز، بلا أي خطأ يدلّ على السبب. المصدر هنا كود،
+والملفّات ناتجُه — وهي تُرفَع رغم ذلك لأن الاستضافة ساكنة بلا خطوة
+بناء، فما لا يُرفع لا يوجد.
+
+⚠️ **وmaskable ليست نسخةً مكبّرة:** أندرويد يقصّ الأيقونة بشكلٍ
+يختاره النظام (دائرة، مربّع مستدير، قطرة)، ويضمن ظهور **الثمانين
+بالمئة الوسطى** وحدها. فنسخةٌ عاديةٌ أُعلنت ‎maskable‎ يُقصّ حصنُها
+فعلاً — ولذلك العلامة هنا أصغر داخل إطارٍ ممتلئ.
 """
 
 import os
-import struct
-import zlib
 
-# لوحة اللون — الأخضر خلفيةً والذهبيّ علامةً.
-BG = (14, 90, 74)       # #0E5A4A
-FG = (232, 196, 106)    # #E8C46A
+from PIL import Image, ImageDraw
 
-OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'icons')
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.normpath(os.path.join(HERE, '..'))
+SOURCE = os.path.join(ROOT, 'brand', 'logo_mark.png')
+OUT_DIR = os.path.join(ROOT, 'icons')
 
+# ⚠️ خلفيةٌ فاتحة لا خضراء: الحصن نفسه أخضرٌ داكن بإطارٍ ذهبي، ووضعُه
+# على أخضرَ آخر يُذيب حدوده فلا يُقرأ في ٤٨ بكسل. والفاتح يُبرز
+# الذهبيّ والداكن معاً. (نفس ‎--bg‎ في app.css.)
+BG = (246, 244, 239, 255)     # #F6F4EF
 
-def _png(width, height, pixels):
-    """يبني ملفّ PNG من قائمة صفوفٍ، كلُّ صفٍّ قائمةُ (r, g, b, a)."""
-    raw = bytearray()
-    for row in pixels:
-        raw.append(0)  # نوع المرشّح: لا شيء
-        for (r, g, b, a) in row:
-            raw += bytes((r, g, b, a))
-
-    def chunk(tag, data):
-        out = struct.pack('>I', len(data)) + tag + data
-        return out + struct.pack('>I', zlib.crc32(tag + data) & 0xFFFFFFFF)
-
-    ihdr = struct.pack('>IIBBBBB', width, height, 8, 6, 0, 0, 0)
-    return (b'\x89PNG\r\n\x1a\n'
-            + chunk(b'IHDR', ihdr)
-            + chunk(b'IDAT', zlib.compress(bytes(raw), 9))
-            + chunk(b'IEND', b''))
+# ⚠️ الرسم يتمّ في أربعة أضعاف المقاس ثم يُصغَّر: التصغير بمرشّح
+# ‎LANCZOS‎ يُنعّم الحواف المائلة للحصن، أمّا الرسم في المقاس النهائي
+# مباشرةً فيعطي زوايا مسنَّنة تظهر في ١٩٢ بكسل بوضوح.
+SUPERSAMPLE = 4
 
 
-def _cover(dist, edge, softness=1.0):
-    """تغطيةٌ متدرّجة عند الحافة — بها وحدها تبدو الحواف ناعمة."""
-    if dist <= edge - softness:
-        return 1.0
-    if dist >= edge + softness:
-        return 0.0
-    return (edge + softness - dist) / (2.0 * softness)
+def _rounded_mask(size, radius):
+    mask = Image.new('L', (size, size), 0)
+    ImageDraw.Draw(mask).rounded_rectangle(
+        [(0, 0), (size - 1, size - 1)], radius=radius, fill=255)
+    return mask
 
 
-def _blend(base, top, alpha):
-    return tuple(int(round(b + (t - b) * alpha)) for b, t in zip(base, top))
+def render(size, maskable=False, rounded=True):
+    """يركّب العلامة على خلفيةٍ مربّعة بالمقاس المطلوب."""
+    big = size * SUPERSAMPLE
+    canvas = Image.new('RGBA', (big, big), BG)
 
+    mark = Image.open(SOURCE).convert('RGBA')
 
-def render(size, maskable):
-    """
-    حلقتان متشابكتان — رمزُ اقترانٍ يُقرأ في ٤٨ بكسل كما يُقرأ في ٥١٢.
+    # ⚠️ النسبة محكومة بالقصّ لا بالذوق: في ‎maskable‎ يضمن النظام
+    # الثمانين بالمئة الوسطى وحدها، فالعلامة تُصغَّر لتبقى داخلها
+    # بهامش. وفي العادية الزوايا مستديرة فيكفي هامشٌ بصريّ.
+    target_h = big * (0.60 if maskable else 0.74)
+    scale = target_h / mark.height
+    new_size = (max(1, round(mark.width * scale)),
+                max(1, round(mark.height * scale)))
+    mark = mark.resize(new_size, Image.LANCZOS)
 
-    ⚠️ الشكل بسيطٌ بقرار: الأيقونة تُعرض غالباً في ٤٨×٤٨ على شاشة
-    الهاتف، وكلُّ تفصيلٍ أدقّ من ذلك يصير ضباباً.
-    """
-    # ⚠️ نصفُ القطر محكومٌ بالعرض الكلّي لا بالذوق: الشكل يمتدّ
-    # ‎2×offset + 2×radius = 3.24×radius‎ أفقياً، فنصفُ قطرٍ أكبر من
-    # ‎0.27×size‎ يقصّ الحلقتين عند الحافّتين. وقع هذا فعلاً في أول
-    # توليد: بدت الأيقونة حلقتين مقطوعتين لا متشابكتين.
-    # وmaskable أصغر لأن النظام يقصّ الخُمس الخارجيّ فوق ذلك.
-    scale = 0.215 if maskable else 0.265
-    radius = size * scale
-    stroke = max(2.0, size * (0.055 if maskable else 0.06))
-    offset = radius * 0.62
+    # ⚠️ توسيطٌ بصريّ لا حسابيّ: للحصن رايةٌ نحيلة في أعلاه، فالتوسيط
+    # الحسابيّ يجعل الكتلة الثقيلة (جسم الحصن) تبدو هابطة. ورفعُها
+    # ٢٪ يصحّح ما تراه العين.
+    x = (big - mark.width) // 2
+    y = (big - mark.height) // 2 - round(big * 0.02)
 
-    cx1, cy1 = size / 2.0 - offset, size / 2.0
-    cx2, cy2 = size / 2.0 + offset, size / 2.0
+    canvas.alpha_composite(mark, (x, y))
 
-    # زوايا مستديرة للنسخة العادية، وامتلاءٌ كامل للـmaskable.
-    corner = 0.0 if maskable else size * 0.22
+    if rounded and not maskable:
+        canvas.putalpha(_rounded_mask(big, round(big * 0.22)))
 
-    rows = []
-    for y in range(size):
-        row = []
-        py = y + 0.5
-        for x in range(size):
-            px = x + 0.5
-
-            # ١) الخلفية وحدودها المستديرة
-            if corner <= 0:
-                bg_a = 1.0
-            else:
-                dx = max(corner - px, px - (size - corner), 0.0)
-                dy = max(corner - py, py - (size - corner), 0.0)
-                bg_a = _cover((dx * dx + dy * dy) ** 0.5, corner)
-
-            if bg_a <= 0.0:
-                row.append((0, 0, 0, 0))
-                continue
-
-            color = BG
-
-            # ٢) الحلقتان — تغطيةُ أقربِ حافةٍ من الاثنتين
-            ring = 0.0
-            for (cx, cy) in ((cx1, cy1), (cx2, cy2)):
-                d = (((px - cx) ** 2 + (py - cy) ** 2) ** 0.5) - radius
-                ring = max(ring, _cover(abs(d), stroke / 2.0))
-
-            if ring > 0.0:
-                color = _blend(color, FG, ring)
-
-            row.append(color + (int(round(bg_a * 255)),))
-        rows.append(row)
-
-    return _png(size, size, rows)
+    return canvas.resize((size, size), Image.LANCZOS)
 
 
 def main():
-    out = os.path.normpath(OUT_DIR)
-    os.makedirs(out, exist_ok=True)
+    os.makedirs(OUT_DIR, exist_ok=True)
 
     # ⚠️ 192 و512 إلزاميان لتثبيت التطبيق على أندرويد؛ و180 هو
-    # apple-touch-icon الذي تقرؤه iOS وحدها ولا تقرأ الـmanifest له.
+    # ‎apple-touch-icon‎ الذي تقرؤه iOS وحدها ولا تقرأ الـmanifest له
+    # — وiOS تقصّ زواياه بنفسها، فيُسلَّم ممتلئاً بلا استدارة.
     targets = [
-        ('icon-192.png', 192, False),
-        ('icon-512.png', 512, False),
-        ('icon-maskable-192.png', 192, True),
-        ('icon-maskable-512.png', 512, True),
-        ('apple-touch-icon.png', 180, True),
-        ('favicon-32.png', 32, False),
+        ('icon-192.png',          192, False, True),
+        ('icon-512.png',          512, False, True),
+        ('icon-maskable-192.png', 192, True,  False),
+        ('icon-maskable-512.png', 512, True,  False),
+        ('apple-touch-icon.png',  180, False, False),
+        ('favicon-32.png',         32, False, True),
     ]
 
-    for name, size, maskable in targets:
-        path = os.path.join(out, name)
-        with open(path, 'wb') as fh:
-            fh.write(render(size, maskable))
-        print(f'✓ {name}  ({size}×{size})')
+    for name, size, maskable, rounded in targets:
+        render(size, maskable, rounded).save(
+            os.path.join(OUT_DIR, name), 'PNG', optimize=True)
+        kind = 'maskable' if maskable else ('مستديرة' if rounded else 'ممتلئة')
+        print(f'✓ {name}  ({size}×{size}, {kind})')
 
 
 if __name__ == '__main__':
