@@ -935,6 +935,13 @@
     $('chat').hidden = false;
     $('chat-text').value = '';
 
+    // ⚠️ **ويُرفع حارسُ التزامن عند كل فتح.** بدونه: من يغلق
+    // محادثةً وطلبُها في الطريق ثم يفتح أخرى، يجد شاشتَه **فارغة أربع
+    // ثوانٍ** — لأن `pullMessages(true)` ترتدّ على الحارس، ومعها
+    // يضيع `first` (اسمُ الشريك والقفزُ إلى الأسفل). ورفعُه هنا آمن:
+    // ردُّ الطلب القديم يرتدّ على `chatWith !== asked`، والتكرارُ
+    // — إن وقع — يمنعه فحصُ `data-id` أدناه.
+    pulling = false;
     pullMessages(true);
     stopChatPolling();
     chatTimer = setInterval(function () { pullMessages(false); }, CHAT_POLL_MS);
@@ -952,9 +959,16 @@
     if (chatTimer) { clearInterval(chatTimer); chatTimer = null; }
   }
 
+  // ⚠️ **حارسٌ على استطلاعين متزامنين.** الإرسال يستدعي `pullMessages`
+  // فوراً، والمؤقّت يستدعيها كل أربع ثوانٍ — فقد يكون طلبان في الطريق
+  // بنفس `chatLastId`، فيعودان بنفس الصفوف **فتُرسَم الرسالة مرّتين**.
+  // وقع هذا في الإنتاج ورآه صاحب المشروع.
+  var pulling = false;
+
   function pullMessages(first) {
-    if (!chatWith) return;
+    if (!chatWith || pulling) return;
     var asked = chatWith;
+    pulling = true;
 
     api.chatMessages(asked, chatLastId).then(function (data) {
       // ⚠️ **وقد تُغلق الشاشة والطلبُ في الطريق**: الردُّ حينها يرسم
@@ -975,6 +989,11 @@
       var atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
 
       rows.forEach(function (message) {
+        // ⚠️ **وفحصٌ بالمعرّف مهما كان مصدر التكرار.** الحارس أعلاه
+        // يمنع السببَ المعروف، وهذا يمنع **الأثر** أياً كان سببه —
+        // تكرارٌ في الردّ، أو رسمٌ بعد عودةٍ إلى الشاشة. والرسالةُ
+        // المكرّرة في محادثةٍ عطلٌ يراه المستخدم ويظنّه إرسالاً مضاعفاً.
+        if (log.querySelector('[data-id="' + message.id + '"]')) return;
         log.appendChild(bubble(message));
         if (message.id > chatLastId) chatLastId = message.id;
       });
@@ -985,7 +1004,7 @@
     }).catch(function (err) {
       if (err.code === 'unauthorized') { stopChatPolling(); boot(); }
       // وعطلُ شبكةٍ عابر لا يُغلق شيئاً: الدورةُ التالية تحاول.
-    });
+    }).then(function () { pulling = false; });
   }
 
   // ⚠️ **تُبنى عقدةَ نصٍّ لا `innerHTML`**: محتواها كتبه **إنسانٌ آخر**،
@@ -1044,15 +1063,22 @@
       if (!text || !chatWith) return;
 
       var target = chatWith;
+      var button = this.querySelector('button[type="submit"]');
       input.value = '';
       input.disabled = true;
+      // ⚠️ **والزرُّ يُعطَّل مع الحقل لا الحقلُ وحده.** كان الحقل وحده
+      // يُعطَّل، والزرُّ يبقى قابلاً للنقر — فنقرتان سريعتان على هاتف
+      // (وهو ما يفعله من لا يرى استجابةً فورية) تُرسلان **رسالتين**.
+      if (button) button.disabled = true;
 
       api.sendMessage(target, text).then(function () {
         input.disabled = false;
+        if (button) button.disabled = false;
         input.focus();
         pullMessages(false);
       }).catch(function (err) {
         input.disabled = false;
+        if (button) button.disabled = false;
         // ⚠️ **ويُعاد النصُّ إلى الحقل عند الفشل**: من كتب سطرين ثم
         // انقطعت شبكتُه يجب ألّا يفقدهما — وإفراغُ الحقل قبل نجاح
         // الإرسال هو ما يُفقدهما.
