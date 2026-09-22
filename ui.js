@@ -888,6 +888,8 @@
         boot();
       });
       view.appendChild(out);
+
+      view.appendChild(deleteBlock());
     }).catch(function (err) {
       if (err.code === 'unauthorized') return boot();
       view.textContent = '';
@@ -896,6 +898,70 @@
       line.textContent = errorText(err);
       view.appendChild(line);
     });
+  }
+
+  // ⚠️ **حذفُ الحساب بخطوتين في الصفحة، وبكلمةٍ في المسار.** الزرّ
+  // الأوّل لا يحذف شيئاً — يكشف تأكيداً. والخادم نفسه يشترط
+  // `confirm=delete` فلا يكفي سطرُ `fetch` عارض، ولا تكفي ضغطةٌ واحدة
+  // على هاتفٍ في جيب. ولا رجعةَ بعدها: لا سلّةَ محذوفات ولا استرجاع.
+  function deleteBlock() {
+    var box = document.createElement('div');
+    box.className = 'danger';
+
+    var open = document.createElement('button');
+    open.type = 'button';
+    open.className = 'btn btn--danger';
+    open.textContent = T('web.delete_account');
+    box.appendChild(open);
+
+    var confirm = document.createElement('div');
+    confirm.hidden = true;
+    box.appendChild(confirm);
+
+    var warn = document.createElement('p');
+    warn.className = 'danger__warn';
+    warn.textContent = T('web.delete_warn');
+    confirm.appendChild(warn);
+
+    var yes = document.createElement('button');
+    yes.type = 'button';
+    yes.className = 'btn btn--danger';
+    yes.textContent = T('web.delete_yes');
+    confirm.appendChild(yes);
+
+    var no = document.createElement('button');
+    no.type = 'button';
+    no.className = 'btn btn--ghost';
+    no.textContent = T('web.delete_no');
+    confirm.appendChild(no);
+
+    open.addEventListener('click', function () {
+      open.hidden = true;
+      confirm.hidden = false;
+    });
+    no.addEventListener('click', function () {
+      confirm.hidden = true;
+      open.hidden = false;
+    });
+    yes.addEventListener('click', function () {
+      yes.disabled = no.disabled = true;
+      api.deleteAccount().then(function () {
+        // ⚠️ **والخروج محلّيّاً بعدها لا اختياريّ**: التوكن يبقى
+        // موقَّعاً حتى ينتهي أجله (لا سبيل إلى إبطال توكنٍ بلا حالة)،
+        // فلو بقي في التخزين لأقلعت الصفحة عليه ثم رأت 401 — شاشةُ
+        // خطأٍ بدل وداع.
+        api.logout();
+        deck = [];
+        releasePhotos();
+        toast(T('web.delete_done'));
+        boot();
+      }).catch(function (err) {
+        yes.disabled = no.disabled = false;
+        toast(errorText(err));
+      });
+    });
+
+    return box;
   }
 
   function openSheet(card) {

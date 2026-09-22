@@ -136,6 +136,12 @@
       return request('/api/me/profile',
                      { method: 'POST', body: { answers: answers } });
     },
+    // ⚠️ **و`confirm=delete` يشترطه الخادم لا هذه السطور**: طلبٌ بلا
+    // الكلمة يردّه بأربعمئة مهما جاء من أين. فهي هنا تكرارٌ لما هناك
+    // لا مصدرُ الشرط.
+    deleteAccount: function () {
+      return request('/api/me?confirm=delete', { method: 'DELETE' });
+    },
     // ⚠️ الأسئلة وخياراتها من الوسيط لا من الصفحة — الشرح في index.html
     profileSchema: function (lang, gender) {
       return request('/api/profile/schema/' + encodeURIComponent(lang)
