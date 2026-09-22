@@ -142,6 +142,14 @@
     deleteAccount: function () {
       return request('/api/me?confirm=delete', { method: 'DELETE' });
     },
+    // ⚠️ **اللغاتُ من الوسيط لا قائمةً هنا**: هو وحده يعرف أيُّها له
+    // ملفُّ ترجمةٍ فعليّ. وقائمةٌ مكتوبةً في الصفحة تعرض لغةً ترتدّ
+    // إلى العربية بصمت عند من يختارها.
+    languages: function () { return request('/api/languages'); },
+    setLanguage: function (lang) {
+      return request('/api/me/language',
+                     { method: 'POST', body: { lang: lang } });
+    },
     // ⚠️ الأسئلة وخياراتها من الوسيط لا من الصفحة — الشرح في index.html
     profileSchema: function (lang, gender) {
       return request('/api/profile/schema/' + encodeURIComponent(lang)

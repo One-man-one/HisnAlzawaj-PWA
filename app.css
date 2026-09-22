@@ -153,6 +153,19 @@ body {
 .danger > div { display: flex; flex-direction: column; gap: 10px; }
 .danger__warn { margin: 0; color: var(--danger); font-size: .9rem; line-height: 1.6; }
 
+/* منتقي اللغة — على البوّابة وفي «ملفّي». */
+.langpick { display: flex; justify-content: center; margin: 14px 0 4px; }
+.langpick__select {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  max-width: 100%;
+}
+.langpick__select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
 .foot { text-align: center; color: var(--muted); font-size: .85rem; }
 .foot p { margin: 0; }
 

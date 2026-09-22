@@ -126,6 +126,7 @@
   // ملفُّه لا قلّة الناس. والشاشة تقول له ذلك في سطرٍ واحد.
 
   var schemaGender = null;   // آخرُ جنسٍ رُسم به النموذج
+  var SCHEMA = {};           // الوصفُ كما وصل، بالاسم — تقرؤه `fillGrouped`
 
   function showComplete() {
     document.body.classList.remove('is-app');
@@ -153,7 +154,9 @@
     return api.profileSchema(LANG, gender).then(function (data) {
       schemaGender = gender || null;
       host.textContent = '';
+      SCHEMA = {};
       (data.fields || []).forEach(function (spec) {
+        SCHEMA[spec.name] = spec;
         host.appendChild(fieldNode(spec));
       });
     }).catch(function (err) {
@@ -174,8 +177,13 @@
     wrap.className = 'fld';
     wrap.setAttribute('data-field', spec.name);
 
+    // ⚠️ **والعنوان نصٌّ جاهز من الوسيط لا مفتاحٌ يُترجَم هنا.** كان
+    // `T(spec.label_key)`، و`/api/i18n` لا يشحن إلا مفاتيح `web.*` —
+    // فظهر خمسةَ عشرَ عنواناً بمفتاحه الخام على الشاشة
+    // (`lbl.nationality`، `lbl.religion`، `lbl.job`…). والمفاتيح
+    // موجودةٌ في اللغات الستّ، لكنها لا تعبر الشبكة.
     var title = document.createElement('span');
-    title.textContent = T(spec.label_key)
+    title.textContent = spec.label
                         + (spec.required ? '' : ' (' + T('web.optional') + ')');
     wrap.appendChild(title);
 
@@ -186,8 +194,14 @@
       // وهو بالضبط ما جعل «ذكر» يُسجَّل بلا أن يسأله أحد.
       input.appendChild(new Option('—', ''));
       (spec.options || []).forEach(function (o) {
-        input.appendChild(new Option(o.label || T(o.label_key), o.key));
+        input.appendChild(new Option(o.label, o.key));
       });
+      // ⚠️ **والمذهب يتبع الدين كما تتبع المدينةُ الدولة.** وخياراته
+      // تصل مجموعةً (تسعةٌ في المجموع) فلا تحتاج رحلةً ثانية.
+      if (spec.options_by) {
+        input.disabled = true;
+        input.setAttribute('data-grouped', spec.depends_on || '');
+      }
       if (spec.name === 'gender') {
         input.addEventListener('change', function () {
           // الحجاب يظهر للنساء وحدهنّ — والشرط عند الوسيط لا هنا.
@@ -200,6 +214,9 @@
       if (spec.name === 'country') {
         input.addEventListener('change', function () { loadCities(input.value); });
       }
+      if (spec.name === 'religion') {
+        input.addEventListener('change', function () { fillGrouped('religion'); });
+      }
     } else if (spec.kind === 'city') {
       input = document.createElement('select');
       input.appendChild(new Option('—', ''));
@@ -209,7 +226,7 @@
       input.multiple = true;
       input.size = Math.min(6, (spec.options || []).length || 3);
       (spec.options || []).forEach(function (o) {
-        input.appendChild(new Option(o.label || T(o.label_key), o.key));
+        input.appendChild(new Option(o.label, o.key));
       });
     } else if (spec.kind === 'textarea') {
       input = document.createElement('textarea');
@@ -233,6 +250,30 @@
     if (spec.required) input.required = true;
     wrap.appendChild(input);
     return wrap;
+  }
+
+  // يملأ كلَّ حقلٍ خياراتُه مجموعةٌ بمفتاحِ حقلٍ آخر (المذهب بالدين).
+  function fillGrouped(parentName, preselect) {
+    var parent = document.querySelector(
+      '#complete-fields [name="' + parentName + '"]');
+    if (!parent) return;
+
+    document.querySelectorAll(
+      '#complete-fields [data-grouped="' + parentName + '"]').forEach(
+      function (select) {
+        var spec = SCHEMA[select.name] || {};
+        var groups = spec.options_by || {};
+        var options = groups[parent.value] || [];
+        select.textContent = '';
+        select.appendChild(new Option('—', ''));
+        options.forEach(function (o) {
+          select.appendChild(new Option(o.label, o.key));
+        });
+        // ⚠️ **ويبقى معطَّلاً بلا خيارات، لا فارغاً قابلاً للفتح**:
+        // قائمةٌ تُفتح على لا شيء تبدو عطلاً، والحقل هنا اختياريّ أصلاً.
+        select.disabled = options.length === 0;
+        if (preselect) select.value = preselect;
+      });
   }
 
   function loadCities(country, preselect) {
@@ -287,11 +328,13 @@
       }
 
       // ⚠️ والمدينة تُعاد **بعد** أن تصل قائمتُها: إسنادٌ إلى قائمةٍ
-      // فارغة يسقط صامتاً فتعود المدينة فارغةً بلا سبب ظاهر.
-      if (name === 'city') return;
+      // فارغة يسقط صامتاً فتعود المدينة فارغةً بلا سبب ظاهر. والمذهب
+      // مثلُها — قائمتُه تُبنى من الدين لا من المخطَّط.
+      if (name === 'city' || name === 'sect') return;
 
       el.value = kept[name];
       if (name === 'country') loadCities(el.value, kept.city);
+      if (name === 'religion') fillGrouped('religion', kept.sect);
     });
   }
 
@@ -889,6 +932,11 @@
       });
       view.appendChild(out);
 
+      var langRow = document.createElement('div');
+      langRow.className = 'langpick';
+      view.appendChild(langRow);
+      langPicker(langRow);
+
       view.appendChild(deleteBlock());
     }).catch(function (err) {
       if (err.code === 'unauthorized') return boot();
@@ -964,6 +1012,62 @@
     return box;
   }
 
+  // ============================================================
+  // منتقي اللغة
+  // ============================================================
+  // ⚠️ **ولغتان لا واحدة، وهذا بيتُ العطل:** شاشةُ الويب تُترجَم في
+  // المتصفّح (`hisn_lang`)، أمّا **نصُّ البطاقة فيُبنى في الخادم** من
+  // عمود `users.language` — هو نفسه الذي يخاطب به البوت صاحبه. فمن
+  // بدّل الصفحة وحدها رأى **واجهةً إنجليزية وبطاقاتٍ عربية**، وهو عطلٌ
+  // سبق أن شُحن ورآه المتصفّح. فالتبديل يكتب الاثنين معاً.
+  var LANGS = null;
+
+  function langPicker(host, onDone) {
+    if (!host) return;
+    host.textContent = '';
+
+    var load = LANGS ? Promise.resolve({ languages: LANGS })
+                     : api.languages();
+
+    load.then(function (data) {
+      LANGS = data.languages || [];
+      if (LANGS.length < 2) return;      // لغةٌ واحدة لا تُنتقى
+
+      var select = document.createElement('select');
+      select.className = 'langpick__select';
+      select.setAttribute('aria-label', T('web.language'));
+      LANGS.forEach(function (l) {
+        select.appendChild(new Option(l.flag + ' ' + l.name, l.code));
+      });
+      select.value = LANG;
+
+      select.addEventListener('change', function () {
+        var chosen = select.value;
+        if (chosen === LANG) return;
+        select.disabled = true;
+
+        // ⚠️ **والكتابة في الخادم أوّلاً حين يكون ثمّ حساب**: لو أُعيد
+        // التحميل قبلها لضاع الاختيار عند الخادم وبقي في المتصفّح
+        // وحده — فتعود اللغتان تتباعدان.
+        var save = api.isSignedIn()
+          ? api.setLanguage(chosen).catch(function () { /* الصفحة تكفي */ })
+          : Promise.resolve();
+
+        save.then(function () {
+          try { localStorage.setItem('hisn_lang', chosen); } catch (e) { /* تصفّحٌ خاصّ */ }
+          // ⚠️ **وإعادةُ تحميلٍ كاملة لا إعادةَ رسم**: `LANG` تُقرأ مرّةً
+          // عند الإقلاع وتسكن في `config.js`، والاتجاه (rtl/ltr) على
+          // `<html>`، ونصوصُ الشاشة في ذاكرةٍ بمفتاح اللغة. فالتحميل
+          // أصدقُ من ملاحقة ثلاثتها.
+          location.reload();
+        });
+      });
+
+      host.appendChild(select);
+      if (onDone) onDone(select);
+    }).catch(function () { /* تتدهور بصمت: اللغة تبقى كما هي */ });
+  }
+
   function openSheet(card) {
     if (!card) return;
     var body = $('sheet-body');
@@ -1006,6 +1110,7 @@
       }
       showGate();
       renderProviders();
+      langPicker($('gate-lang'));
       if (handoff && handoff.error) {
         providerNote(handoff.error === 'invite' ? T('web.err_invite')
                                                 : T('web.err_generic'));
