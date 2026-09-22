@@ -439,6 +439,14 @@ body.is-app {
   top: calc(64px + env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%) translateY(-140%);
+  /* ⚠️ **والإخفاء بـ`visibility` لا بالإزاحة وحدها — وهذا عطلٌ رآه
+   * صاحب المشروع على شاشته:** الإزاحة نسبةٌ من **ارتفاع العنصر**،
+   * والعنصر فارغٌ في الحالة العادية فارتفاعه حشوتُه وحدها — فلا تكفي
+   * لإخراجه من أعلى الشاشة، فيبقى طرفُه ظاهراً **نقطةً داكنة** فوق
+   * كل شاشةٍ في التطبيق. ولا يظهر ذلك للمطوّر لأنه لا يراه إلا من
+   * ينظر إلى صفحةٍ ساكنة. */
+  visibility: hidden;
+  opacity: 0;
   background: var(--brand);
   color: var(--brand-ink);
   padding: 10px 20px;
@@ -447,10 +455,14 @@ body.is-app {
   font-weight: 600;
   max-width: 88vw;
   text-align: center;
-  transition: transform .25s;
+  transition: transform .25s, opacity .25s, visibility .25s;
   z-index: 600;
 }
-.toast.on { transform: translateX(-50%) translateY(0); }
+.toast.on {
+  transform: translateX(-50%) translateY(0);
+  visibility: visible;
+  opacity: 1;
+}
 
 /* ⚠️ من يطلب «حركةً أقلّ» في إعدادات نظامه يعنيها: الحركة هنا زينة،
  * وفي بعض الناس دوارٌ حقيقي. */
