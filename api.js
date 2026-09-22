@@ -146,6 +146,22 @@
     // ملفُّ ترجمةٍ فعليّ. وقائمةٌ مكتوبةً في الصفحة تعرض لغةً ترتدّ
     // إلى العربية بصمت عند من يختارها.
     languages: function () { return request('/api/languages'); },
+    // ============================================================
+    // الدردشة
+    // ============================================================
+    // ⚠️ **و`after` استطلاعٌ رخيص لا ترقيمُ صفحات**: الشاشة تسأل كلَّ
+    // بضع ثوانٍ «هل جدَّ شيءٌ بعد آخر معرّفٍ عندي؟»، فيخرج الردُّ
+    // فارغاً في أكثر الأحيان بلا أن يُعاد تاريخُ المحادثة كلَّ مرّة.
+    chats: function () { return request('/api/me/chats'); },
+    chatMessages: function (publicId, after) {
+      return request('/api/me/chats/' + encodeURIComponent(publicId)
+                     + '?after=' + (after || 0));
+    },
+    sendMessage: function (publicId, text) {
+      return request('/api/me/chats',
+                     { method: 'POST',
+                       body: { public_id: publicId, text: text } });
+    },
     setLanguage: function (lang) {
       return request('/api/me/language',
                      { method: 'POST', body: { lang: lang } });

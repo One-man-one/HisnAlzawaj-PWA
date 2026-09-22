@@ -113,6 +113,9 @@
   // ٣) البوّابة
   // ==========================================================
   function showGate() {
+    // ⚠️ **ويتوقّف الاستطلاع عند كل مغادرة**: مؤقّتٌ ينجو من الخروج
+    // يسأل الخادمَ بتوكنٍ باطل إلى الأبد.
+    stopChatPolling();
     document.body.classList.remove('is-app');
     $('boot').hidden = true;
     $('app').hidden = true;
@@ -874,6 +877,25 @@
         row.appendChild(main);
 
         row.addEventListener('click', function () { openSheet(card); });
+
+        // ⚠️ **زرٌّ مستقلّ لا نقرةٌ على الصفّ كلِّه**: الصفُّ يفتح
+        // البطاقة، والمراسلةُ فعلٌ آخر — ودمجُهما يجعل من أراد أن
+        // يقرأ الملفَّ يفتح محادثةً بلا قصد.
+        var talk = document.createElement('button');
+        talk.type = 'button';
+        talk.className = 'row__go';
+        talk.textContent = '💬';
+        talk.setAttribute('aria-label', T('web.chat'));
+        talk.addEventListener('click', function (e) {
+          e.stopPropagation();
+          // ⚠️ **`numericId` لا `public_id` خاماً**: البطاقة تحمل
+          // «#4821» للعرض، والوسيط يقبل رقم الصفّ وحده. وتمريرُ النصّ
+          // كما هو يعطي `/api/me/chats/%232` — أي 422 صامتة عند
+          // المستخدم: شاشةٌ تُفتح فارغةً بلا رسالة.
+          openChat(numericId(card.public_id), card.public_id);
+        });
+        row.appendChild(talk);
+
         view.appendChild(row);
       });
     }).catch(function (err) {
@@ -883,6 +905,160 @@
       line.className = 'empty';
       line.textContent = errorText(err);
       view.appendChild(line);
+    });
+  }
+
+  // ==========================================================
+  // ٦ ب) المحادثة
+  // ==========================================================
+  //
+  // ⚠️ **واستطلاعٌ لا دفعٌ فوريّ، بقرارٍ لا كسلاً.** الدفعُ الحقيقيّ
+  // يحتاج WebSocket أو SSE — أي اتصالاً مفتوحاً لكل قارئ على خدمةٍ
+  // بذاكرةٍ محدودة، وطابورَ رسائلَ بين عمليتين. والاستطلاع كلفتُه
+  // استعلامٌ واحد بفهرسٍ كلَّ بضع ثوانٍ، ويتوقّف فورَ إغلاق الشاشة.
+  //
+  // ⚠️ **ولا يعمل إلا والمحادثة مفتوحة**: مؤقّتٌ يبقى بعد الخروج يسأل
+  // الخادمَ إلى الأبد عن شاشةٍ لا يراها أحد — وهو أكثر ما يستنزف
+  // بطارية الهاتف وحصّة الخدمة بلا أن يشتكي شيء.
+
+  var chatWith = null;      // معرّفُ الشريك العامّ، أو null
+  var chatLastId = 0;       // آخرُ رسالةٍ رُسمت — أساسُ الاستطلاع
+  var chatTimer = null;
+
+  var CHAT_POLL_MS = 4000;
+
+  function openChat(publicId, name) {
+    chatWith = publicId;
+    chatLastId = 0;
+    $('chat-name').textContent = name || '';
+    $('chat-log').textContent = '';
+    $('chat').hidden = false;
+    $('chat-text').value = '';
+
+    pullMessages(true);
+    stopChatPolling();
+    chatTimer = setInterval(function () { pullMessages(false); }, CHAT_POLL_MS);
+  }
+
+  function closeChat() {
+    stopChatPolling();
+    chatWith = null;
+    $('chat').hidden = true;
+    // العودةُ تُحدّث الصندوق: عدّادُ غير المقروء تغيّر بالقراءة نفسها.
+    if (!$('view-matches').hidden) loadMutual();
+  }
+
+  function stopChatPolling() {
+    if (chatTimer) { clearInterval(chatTimer); chatTimer = null; }
+  }
+
+  function pullMessages(first) {
+    if (!chatWith) return;
+    var asked = chatWith;
+
+    api.chatMessages(asked, chatLastId).then(function (data) {
+      // ⚠️ **وقد تُغلق الشاشة والطلبُ في الطريق**: الردُّ حينها يرسم
+      // في محادثةٍ أخرى — أو في لا شيء. فيُقارَن الشريك قبل الرسم.
+      if (chatWith !== asked) return;
+
+      if (first && data.partner) $('chat-name').textContent = data.partner;
+
+      // ⚠️ **وتُحدَّث علامةُ القراءة في كل دورة ولو لم تصل رسالة**:
+      // «قرأها» حدثٌ يقع على رسالةٍ **قديمة**، والاستطلاع لا يجلب
+      // القديم — فبلا هذا السطر لا تضيء «✓✓» أبداً.
+      applySeen(data.seen_upto || 0);
+
+      var rows = data.messages || [];
+      if (!rows.length) return;
+
+      var log = $('chat-log');
+      var atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+
+      rows.forEach(function (message) {
+        log.appendChild(bubble(message));
+        if (message.id > chatLastId) chatLastId = message.id;
+      });
+
+      // ⚠️ **ولا يُقفز إلى الأسفل إلا إن كان القارئ هناك أصلاً**: من
+      // يقرأ رسالةً قديمة فوق يُقذف إلى الأسفل مع كل وصولٍ جديد.
+      if (first || atBottom) log.scrollTop = log.scrollHeight;
+    }).catch(function (err) {
+      if (err.code === 'unauthorized') { stopChatPolling(); boot(); }
+      // وعطلُ شبكةٍ عابر لا يُغلق شيئاً: الدورةُ التالية تحاول.
+    });
+  }
+
+  // ⚠️ **تُبنى عقدةَ نصٍّ لا `innerHTML`**: محتواها كتبه **إنسانٌ آخر**،
+  // ولصقُه سلسلةَ HTML يجعل أيَّ وسمٍ فيه كوداً يعمل في متصفّحك —
+  // وهي الثغرة التي تقرأ التوكن من التخزين المحلّي. وهذا الموضع أخطر
+  // من غيره في التطبيق كلّه: هو الوحيد الذي يعرض نصّاً حرّاً من الغير.
+  function bubble(message) {
+    var wrap = document.createElement('div');
+    wrap.className = 'msg' + (message.mine ? ' msg--mine' : '');
+    wrap.setAttribute('data-id', message.id);
+
+    var body = document.createElement('div');
+    body.className = 'msg__text';
+    body.textContent = message.text;
+    wrap.appendChild(body);
+
+    var meta = document.createElement('div');
+    meta.className = 'msg__meta';
+    meta.setAttribute('data-time', shortTime(message.at));
+    meta.textContent = meta.getAttribute('data-time');
+    wrap.appendChild(meta);
+    return wrap;
+  }
+
+  // يُضيء «✓✓» على كل رسالةٍ لي بلغها الطرف الآخر.
+  function applySeen(upto) {
+    if (!upto) return;
+    document.querySelectorAll('#chat-log .msg--mine').forEach(function (node) {
+      if (parseInt(node.getAttribute('data-id'), 10) > upto) return;
+      var meta = node.querySelector('.msg__meta');
+      if (meta && meta.textContent.indexOf('✓✓') < 0) {
+        meta.textContent = meta.getAttribute('data-time') + ' ✓✓';
+      }
+    });
+  }
+
+  function shortTime(iso) {
+    if (!iso) return '';
+    try {
+      // ⚠️ **والخادم يكتب UTC بلا لاحقة** (`datetime.utcnow`)، فبلا
+      // `Z` يقرؤها المتصفّح بتوقيته المحلّي — فتظهر رسالةُ الآن قبل
+      // ساعاتٍ أو بعدها بحسب مكان القارئ.
+      var stamp = /(Z|[+-]\d\d:?\d\d)$/.test(iso) ? iso : iso + 'Z';
+      return new Date(stamp).toLocaleTimeString(LANG, {
+        hour: '2-digit', minute: '2-digit' });
+    } catch (e) { return ''; }
+  }
+
+  function bindChat() {
+    $('chat-back').addEventListener('click', closeChat);
+
+    $('chat-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var input = $('chat-text');
+      var text = input.value.trim();
+      if (!text || !chatWith) return;
+
+      var target = chatWith;
+      input.value = '';
+      input.disabled = true;
+
+      api.sendMessage(target, text).then(function () {
+        input.disabled = false;
+        input.focus();
+        pullMessages(false);
+      }).catch(function (err) {
+        input.disabled = false;
+        // ⚠️ **ويُعاد النصُّ إلى الحقل عند الفشل**: من كتب سطرين ثم
+        // انقطعت شبكتُه يجب ألّا يفقدهما — وإفراغُ الحقل قبل نجاح
+        // الإرسال هو ما يُفقدهما.
+        if (!input.value) input.value = text;
+        toast(errorText(err));
+      });
     });
   }
 
@@ -1172,6 +1348,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     bindGate();
     bindComplete();
+    bindChat();
 
     document.querySelectorAll('.tab').forEach(function (button) {
       button.addEventListener('click', function () {

@@ -181,6 +181,27 @@
   <section class="view view--list" id="view-matches" hidden></section>
   <section class="view view--list" id="view-profile" hidden></section>
 
+  <!-- ============================================================
+       شاشةُ محادثةٍ واحدة — تغطّي التطبيق ولا تكون تبويباً
+       ============================================================
+       ⚠️ **ولماذا غطاءٌ لا تبويبٌ رابع:** شريطُ التبويبات ثلاثةٌ وهو
+       ممتلئ، ومحادثةٌ مفتوحة ليست «مكاناً» تتنقّل إليه بل حالةً تدخلها
+       وتخرج منها بزرّ رجوع — وهو ما يتوقّعه من استعمل أي تطبيق مراسلة.
+  -->
+  <section class="chat" id="chat" hidden>
+    <header class="chat__bar">
+      <button class="chat__back" id="chat-back" type="button" aria-label="رجوع">‹</button>
+      <span class="chat__name" id="chat-name"></span>
+    </header>
+
+    <div class="chat__log" id="chat-log"></div>
+
+    <form class="chat__compose" id="chat-form" autocomplete="off">
+      <input id="chat-text" name="text" autocomplete="off" maxlength="4000">
+      <button class="chat__send" type="submit" aria-label="إرسال">➤</button>
+    </form>
+  </section>
+
   <nav class="tabs">
     <button class="tab on" data-tab="browse" type="button">
       <i aria-hidden="true">🔎</i><span data-i18n="web.tab_browse"></span>

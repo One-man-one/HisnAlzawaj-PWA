@@ -153,6 +153,114 @@ body {
 .danger > div { display: flex; flex-direction: column; gap: 10px; }
 .danger__warn { margin: 0; color: var(--danger); font-size: .9rem; line-height: 1.6; }
 
+/* ============================================================
+   المحادثة
+   ============================================================
+   ⚠️ **غطاءٌ ثابت لا قسمٌ في التدفّق**: لوحةُ المفاتيح على الهاتف
+   ترفع نصفَ الشاشة، وشاشةٌ تتدفّق مع الصفحة يختفي حقلُ الكتابة فيها
+   تحت اللوحة — فيكتب المستخدم ولا يرى ما يكتب. */
+.chat {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+.chat[hidden] { display: none !important; }
+
+.chat__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex: none;
+}
+.chat__back {
+  font-size: 1.6rem;
+  line-height: 1;
+  background: none;
+  border: 0;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0 6px;
+}
+/* ⚠️ والسهمُ ينقلب مع الاتجاه: «‹» في RTL تشير يميناً لا يساراً. */
+[dir="rtl"] .chat__back { transform: scaleX(-1); }
+.chat__name { font-weight: 600; }
+
+.chat__log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.msg {
+  max-width: 78%;
+  align-self: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 9px 12px;
+}
+.msg--mine {
+  align-self: flex-end;
+  background: var(--brand);
+  color: var(--brand-ink);
+  border-color: transparent;
+}
+/* ⚠️ **وكسرُ الكلمة الطويلة شرطٌ لا تجميل**: رابطٌ بلا مسافات يمدّ
+   الفقاعة خارج الشاشة فيظهر شريطُ تمريرٍ أفقيّ للصفحة كلّها. */
+.msg__text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.msg__meta { font-size: .7rem; opacity: .65; margin-top: 4px; text-align: end; }
+
+.chat__compose {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  flex: none;
+  /* حافّةُ الهاتف السفلية (iPhone) لا تبتلع حقل الكتابة. */
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+.chat__compose input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+.chat__send {
+  flex: none;
+  padding: 0 18px;
+  border-radius: 12px;
+  border: 0;
+  background: var(--brand);
+  color: var(--brand-ink);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+[dir="rtl"] .chat__send { transform: scaleX(-1); }
+
+/* زرُّ المراسلة في صفّ التطابق */
+.row__go {
+  flex: none;
+  background: none;
+  border: 0;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 6px 10px;
+}
+
 /* منتقي اللغة — على البوّابة وفي «ملفّي». */
 .langpick { display: flex; justify-content: center; margin: 14px 0 4px; }
 .langpick__select {
