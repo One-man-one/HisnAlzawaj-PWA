@@ -77,11 +77,24 @@
     </label>
 
     <p class="fld__err" id="provider-note" hidden></p>
-    <p class="sep"><span data-i18n="web.or_email"></span></p>
   </section>
 
-  <!-- الدخول -->
-  <form class="card" id="form-login" autocomplete="on">
+  <!-- ============================================================
+       الدخول بالبريد — **مخفيٌّ خلف رابطٍ صغير، لا تسجيل به**
+       ============================================================
+       ⚠️ **التسجيل بالبريد أُسقط بقرار (٢٢ سبتمبر ٢٠٢٦):** الأبواب
+       الثلاثة تغطّيه، وكلٌّ منها يؤكّد البريد نيابةً عنّا. ونموذجُ
+       تسجيلٍ رابع يعني حقلَ كلمة سرٍّ يُنسى، وحقلَ تأكيدٍ لم يُبنَ
+       بعد (المرحلة ٨)، وشاشةً أطول أمام من يريد أن يدخل بضغطة.
+
+       ⚠️ **والدخولُ يبقى، وليس تناقضاً:** حساباتٌ أُنشئت بالبريد قبل
+       هذا القرار موجودةٌ فعلاً — وإسقاطُ النموذج يحبس أصحابها خارج
+       حساباتهم بلا أن يقول لهم أحدٌ لماذا. فهو خلف رابطٍ لا في
+       الواجهة: لا يراه القادم الجديد، ويجده من يبحث عنه.
+  -->
+  <button class="linkbtn" id="show-login" data-i18n="web.have_email_account"></button>
+
+  <form class="card" id="form-login" autocomplete="on" hidden>
     <p class="card__title" data-i18n="web.login_title"></p>
 
     <label class="fld">
@@ -96,64 +109,6 @@
 
     <button class="btn btn--primary" type="submit" data-i18n="web.login_btn"></button>
     <p class="fld__err" data-err hidden></p>
-
-    <button class="linkbtn" type="button" id="to-signup" data-i18n="web.to_signup"></button>
-  </form>
-
-  <!-- التسجيل — ⚠️ برمز دعوةٍ أوّلاً: الباب مغلق بلا رمز صحيح،
-       والخادم هو من يحكم (`invite_code_ok`) لا هذه الصفحة. -->
-  <form class="card" id="form-signup" autocomplete="on" hidden>
-    <p class="card__title" data-i18n="web.signup_title"></p>
-
-    <label class="fld">
-      <span data-i18n="web.invite"></span>
-      <input name="invite_code" autocomplete="off" required>
-    </label>
-
-    <label class="fld">
-      <span data-i18n="web.full_name"></span>
-      <input name="full_name" autocomplete="name" required>
-    </label>
-
-    <label class="fld">
-      <span data-i18n="web.gender"></span>
-      <select name="gender" required>
-        <option value="male" data-i18n="web.gender_male"></option>
-        <option value="female" data-i18n="web.gender_female"></option>
-      </select>
-    </label>
-
-    <label class="fld">
-      <span data-i18n="web.birth_year"></span>
-      <input name="birth_year" type="number" inputmode="numeric" min="1940" max="2010">
-    </label>
-
-    <div class="fld__row">
-      <label class="fld">
-        <span data-i18n="web.country"></span>
-        <input name="country" autocomplete="country-name">
-      </label>
-      <label class="fld">
-        <span data-i18n="web.city"></span>
-        <input name="city" autocomplete="address-level2">
-      </label>
-    </div>
-
-    <label class="fld">
-      <span data-i18n="web.email"></span>
-      <input name="email" type="email" inputmode="email" autocomplete="email" required>
-    </label>
-
-    <label class="fld">
-      <span data-i18n="web.password"></span>
-      <input name="password" type="password" autocomplete="new-password"
-             minlength="8" required>
-    </label>
-
-    <button class="btn btn--primary" type="submit" data-i18n="web.signup_btn"></button>
-    <p class="fld__err" data-err hidden></p>
-
-    <button class="linkbtn" type="button" id="to-login" data-i18n="web.to_login"></button>
   </form>
 
   <div class="actions">

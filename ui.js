@@ -348,32 +348,20 @@
   }
 
   function bindGate() {
-    $('to-signup').addEventListener('click', function () {
-      $('form-login').hidden = true;
-      $('form-signup').hidden = false;
-    });
-    $('to-login').addEventListener('click', function () {
-      $('form-signup').hidden = true;
+    // ⚠️ **لا نموذجَ تسجيلٍ بالبريد بعد ٢٢ سبتمبر ٢٠٢٦**: الأبواب
+    // الثلاثة تغطّيه وكلٌّ منها يؤكّد البريد نيابةً عنّا. والدخول
+    // وحده باقٍ، خلف رابطٍ لا في الواجهة — لأن حساباتٍ أُنشئت به قبل
+    // القرار، وإسقاطُه يحبس أصحابها خارج حساباتهم.
+    $('show-login').addEventListener('click', function () {
       $('form-login').hidden = false;
+      $('show-login').hidden = true;
+      $('form-login').querySelector('input').focus();
     });
 
     $('form-login').addEventListener('submit', function (e) {
       e.preventDefault();
       submit(this, function (data) {
         return api.login(data.email, data.password);
-      });
-    });
-
-    $('form-signup').addEventListener('submit', function (e) {
-      e.preventDefault();
-      submit(this, function (data) {
-        if (data.birth_year) data.birth_year = parseInt(data.birth_year, 10);
-        else delete data.birth_year;
-        // ⚠️ اللغة تُرسَل مع التسجيل وتُحفظ في الصفّ: بطاقاتُ الآخرين
-        // تُبنى بلغة صاحب الحساب لا بلغة الواجهة، فمن سجّل من متصفّحٍ
-        // إنجليزي وبقي عموده عربياً يرى واجهةً بلغةٍ وبطاقاتٍ بأخرى.
-        data.lang = LANG;
-        return api.signup(data);
       });
     });
   }
@@ -437,8 +425,14 @@
 
       // حقلُ الدعوة يظهر مع جوجل وفيسبوك وحدهما: الداخل بتيليجرام
       // مستخدمٌ عندنا أصلاً، فلا دعوةَ تُطلب منه.
-      var needsInvite = names.indexOf('google') >= 0
-                     || names.indexOf('facebook') >= 0;
+      //
+      // ⚠️ **و«هل يلزم رمز» من الوسيط لا من تخمينٍ هنا**: الحالة
+      // تُبدَّل من لوحة الأدمن في ثانية. و`!== false` لا `=== true`:
+      // وسيطٌ قديم لا يرسل الحقل يعني **بقاءَ** الحقل لا إخفاءه —
+      // فالتخلّف إلى الإغلاق لا إلى الفتح.
+      var required = data.invite_required !== false;
+      var needsInvite = required && (names.indexOf('google') >= 0
+                                  || names.indexOf('facebook') >= 0);
       document.getElementById('provider-invite').hidden = !needsInvite;
       document.getElementById('providers').hidden = false;
     }).catch(function () {
