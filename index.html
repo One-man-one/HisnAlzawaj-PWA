@@ -25,7 +25,31 @@
   <p class="notice">هذه الصفحة تحتاج جافاسكربت. فعّلها من إعدادات المتصفّح.</p>
 </noscript>
 
-<main class="shell">
+<!-- ============================================================
+     ⚠️ **ولا نصَّ مترجَماً مكتوباً في هذا الملفّ** — القاعدة في
+     CLAUDE.md ← «لا ترجماتٍ مكتوبةً هنا»: النصوص تأتي من `locales/`
+     في مستودع البوت عبر `/api/i18n/{lang}`، ونسخةٌ ثانية هنا تعني
+     مفتاحاً يُضاف هناك ولا يُضاف هنا — شاشةٌ مختلطة بلا خطأٍ يدلّ
+     على السبب.
+
+     فكلُّ نصٍّ متغيّر يحمل `data-i18n` ويُملأ من الوسيط (أو من نسخةٍ
+     مخزَّنة محلياً، فيعمل بلا اتصال). وما يبقى عربياً هنا ثلاثةُ
+     أسطرٍ لا غير — اسم العلامة، وسطرُ الإقلاع، وسطرُ العطل — لأنها
+     ما يُقرأ **قبل** أن تصل النصوص أو حين لا تصل.
+     ============================================================ -->
+
+<!-- شاشة الإقلاع: تُخفى بمجرّد أن يقرّر الكود أين يذهب المستخدم -->
+<div class="boot" id="boot">
+  <img src="brand/logo_mark.png" alt="" width="61" height="90">
+  <p id="boot-line">لحظة…</p>
+  <button class="btn btn--ghost" id="boot-retry" hidden>أعد المحاولة</button>
+</div>
+
+
+<!-- ============================================================
+     البوّابة — قبل الدخول
+     ============================================================ -->
+<main class="shell" id="gate" hidden>
 
   <header class="brand">
     <!-- ⚠️ العلامة الشفّافة لا أيقونة التطبيق: الأيقونة تحمل خلفيةً
@@ -33,30 +57,91 @@
          يقطع النمط الداكن. -->
     <img src="brand/logo_mark.png" alt="" width="61" height="90" class="brand__mark">
     <h1 class="brand__name">حصن الزواج</h1>
-    <p class="brand__line">زواج شرعي بخصوصيةٍ مبنيّة على الموافقة</p>
+    <p class="brand__line" data-i18n="web.invite_hint"></p>
   </header>
 
-  <!-- ⚠️ هذه بطاقةُ حالةٍ لا محتوى: هيكل التطبيق يعمل اليوم بلا أي
-       API. المحتوى الحقيقي يأتي في مرحلةٍ لاحقة من الخطة. -->
-  <section class="card" aria-live="polite">
-    <p class="card__title">الهيكل يعمل</p>
-    <p class="card__body">
-      هذه النسخة تُثبَّت وتعمل بلا اتصال. ولمّا تُوصَل بعد بخدمة
-      البيانات — التسجيل والمطابقة يأتيان في مرحلةٍ تالية.
-    </p>
-    <p class="status" id="status" data-state="unknown">
-      <span class="status__dot" aria-hidden="true"></span>
-      <span id="status-text">…</span>
-    </p>
-  </section>
+  <!-- الدخول -->
+  <form class="card" id="form-login" autocomplete="on">
+    <p class="card__title" data-i18n="web.login_title"></p>
+
+    <label class="fld">
+      <span data-i18n="web.email"></span>
+      <input type="email" name="email" inputmode="email" autocomplete="email" required>
+    </label>
+
+    <label class="fld">
+      <span data-i18n="web.password"></span>
+      <input type="password" name="password" autocomplete="current-password" required>
+    </label>
+
+    <button class="btn btn--primary" type="submit" data-i18n="web.login_btn"></button>
+    <p class="fld__err" data-err hidden></p>
+
+    <button class="linkbtn" type="button" id="to-signup" data-i18n="web.to_signup"></button>
+  </form>
+
+  <!-- التسجيل — ⚠️ برمز دعوةٍ أوّلاً: الباب مغلق بلا رمز صحيح،
+       والخادم هو من يحكم (`invite_code_ok`) لا هذه الصفحة. -->
+  <form class="card" id="form-signup" autocomplete="on" hidden>
+    <p class="card__title" data-i18n="web.signup_title"></p>
+
+    <label class="fld">
+      <span data-i18n="web.invite"></span>
+      <input name="invite_code" autocomplete="off" required>
+    </label>
+
+    <label class="fld">
+      <span data-i18n="web.full_name"></span>
+      <input name="full_name" autocomplete="name" required>
+    </label>
+
+    <label class="fld">
+      <span data-i18n="web.gender"></span>
+      <select name="gender" required>
+        <option value="male" data-i18n="web.gender_male"></option>
+        <option value="female" data-i18n="web.gender_female"></option>
+      </select>
+    </label>
+
+    <label class="fld">
+      <span data-i18n="web.birth_year"></span>
+      <input name="birth_year" type="number" inputmode="numeric" min="1940" max="2010">
+    </label>
+
+    <div class="fld__row">
+      <label class="fld">
+        <span data-i18n="web.country"></span>
+        <input name="country" autocomplete="country-name">
+      </label>
+      <label class="fld">
+        <span data-i18n="web.city"></span>
+        <input name="city" autocomplete="address-level2">
+      </label>
+    </div>
+
+    <label class="fld">
+      <span data-i18n="web.email"></span>
+      <input name="email" type="email" inputmode="email" autocomplete="email" required>
+    </label>
+
+    <label class="fld">
+      <span data-i18n="web.password"></span>
+      <input name="password" type="password" autocomplete="new-password"
+             minlength="8" required>
+    </label>
+
+    <button class="btn btn--primary" type="submit" data-i18n="web.signup_btn"></button>
+    <p class="fld__err" data-err hidden></p>
+
+    <button class="linkbtn" type="button" id="to-login" data-i18n="web.to_login"></button>
+  </form>
 
   <div class="actions">
     <!-- ⚠️ يظهر فقط حين يعرض المتصفّح التثبيت فعلاً. الشرح في app.js -->
-    <button id="install" class="btn btn--primary" hidden>تثبيت التطبيق</button>
+    <button id="install" class="btn btn--ghost" hidden>تثبيت التطبيق</button>
 
-    <a class="btn btn--ghost" href="https://t.me/HisnAlzawaj_bot" rel="noopener">
-      فتح البوت على تيليجرام
-    </a>
+    <a class="btn btn--ghost" id="bot-link" href="https://t.me/HisnAlzawaj_bot"
+       rel="noopener" data-i18n="web.open_bot"></a>
   </div>
 
   <!-- ⚠️ ظاهرٌ دائماً بقرار، لا يكشفه فشلُ الزرّ وحده: زرُّ التثبيت لا
@@ -81,11 +166,78 @@
   </details>
 
   <footer class="foot">
-    <p>يعمل بلا اتصال · لا يطلب تيليجرام</p>
+    <p class="status" id="status" data-state="unknown">
+      <span class="status__dot" aria-hidden="true"></span>
+      <span id="status-text">…</span>
+    </p>
   </footer>
 
 </main>
 
+
+<!-- ============================================================
+     التطبيق — بعد الدخول
+     ============================================================ -->
+<div class="app" id="app" hidden>
+
+  <header class="top">
+    <b class="top__name">حصن الزواج</b>
+    <span class="top__count" id="counter"></span>
+  </header>
+
+  <!-- التصفّح: رزمةُ بطاقاتٍ واحدةٌ فوق أخرى -->
+  <section class="view view--deck" id="view-browse">
+    <div class="stack" id="stack"></div>
+  </section>
+
+  <!-- ⚠️ الزرّان خارج البطاقة لا داخلها: البطاقة تُسحب وتخرج من
+       الشاشة، وزرٌّ يسافر معها لا يُضغط في اللحظة التي يُحتاج فيها. -->
+  <div class="swipe" id="swipe">
+    <button class="rnd rnd--no" id="btn-skip" type="button" aria-label="تخطٍّ">✕</button>
+    <button class="rnd rnd--yes" id="btn-like" type="button" aria-label="إعجاب">♥</button>
+  </div>
+
+  <section class="view view--list" id="view-matches" hidden></section>
+  <section class="view view--list" id="view-profile" hidden></section>
+
+  <nav class="tabs">
+    <button class="tab on" data-tab="browse" type="button">
+      <i aria-hidden="true">🔎</i><span data-i18n="web.tab_browse"></span>
+    </button>
+    <button class="tab" data-tab="matches" type="button">
+      <i aria-hidden="true">💚</i><span data-i18n="web.tab_matches"></span>
+    </button>
+    <button class="tab" data-tab="profile" type="button">
+      <i aria-hidden="true">👤</i><span data-i18n="web.tab_profile"></span>
+    </button>
+  </nav>
+
+</div>
+
+
+<!-- ورقةُ التفاصيل — تُملأ من الكود -->
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet__panel" role="dialog" aria-modal="true">
+    <div id="sheet-body"></div>
+    <button class="btn btn--ghost" id="sheet-close" type="button" data-i18n="web.close"></button>
+  </div>
+</div>
+
+<!-- إعلان التطابق -->
+<div class="pop" id="pop" hidden>
+  <div class="pop__em" aria-hidden="true">💚</div>
+  <h2 data-i18n="web.matched"></h2>
+  <p data-i18n="web.matched_body"></p>
+  <a class="btn btn--primary" href="https://t.me/HisnAlzawaj_bot" rel="noopener"
+     data-i18n="web.open_bot"></a>
+  <button class="btn btn--ghost" id="pop-close" type="button" data-i18n="web.close"></button>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="config.js"></script>
+<script src="api.js"></script>
 <script src="app.js"></script>
+<script src="ui.js"></script>
 </body>
 </html>
