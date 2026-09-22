@@ -488,3 +488,41 @@ body.is-app {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* فاصلٌ بين طريقَي الدخول */
+.sep {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: .8rem;
+  margin: 14px 0 0;
+}
+.sep::before, .sep::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* زرُّ مزوّدٍ — رابطٌ لا زرّ، لأنه **ملاحةُ صفحة** إلى نطاقٍ آخر */
+.prov {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 16px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.prov i { font-size: 18px; font-style: normal; }
+.prov:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.prov[aria-busy="true"] { opacity: .6; pointer-events: none; }

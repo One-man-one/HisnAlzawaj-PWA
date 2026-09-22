@@ -60,6 +60,26 @@
     <p class="brand__line" data-i18n="web.invite_hint"></p>
   </header>
 
+  <!-- ============================================================
+       الدخول بحسابٍ قائم — المرحلة ٦ ب
+       ⚠️ **أزرارٌ تُبنى من الكود لا تُكتب هنا**: الوسيط وحده يعرف من
+       هو مفعَّل (`/api/auth/providers`)، ومزوّدٌ بلا مفاتيح يجب ألّا
+       يظهر زرُّه أصلاً — زرٌّ يظهر ثم يفشل أسوأ من زرٍّ لا يظهر.
+       ============================================================ -->
+  <section class="card" id="providers" hidden>
+    <div id="provider-buttons"></div>
+
+    <!-- رمزُ الدعوة للمزوّدين — يظهر معهم وحدهم. ⚠️ والخادم هو من
+         يحكم عليه لا هذه الصفحة. -->
+    <label class="fld" id="provider-invite" hidden>
+      <span data-i18n="web.invite"></span>
+      <input name="invite_code" autocomplete="off">
+    </label>
+
+    <p class="fld__err" id="provider-note" hidden></p>
+    <p class="sep"><span data-i18n="web.or_email"></span></p>
+  </section>
+
   <!-- الدخول -->
   <form class="card" id="form-login" autocomplete="on">
     <p class="card__title" data-i18n="web.login_title"></p>

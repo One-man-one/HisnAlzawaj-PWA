@@ -155,6 +155,156 @@
     });
   }
 
+  // ==========================================================
+  // ٣ ب) الدخول بحسابٍ قائم
+  // ==========================================================
+  //
+  // ⚠️ **ولا مكتبةَ مزوّدٍ في هذه الصفحة ولا واحدة** — الشرح في
+  // `api.js`: التوكن في `localStorage`، وكلُّ سكربتٍ يعمل في الصفحة
+  // يقرؤه. فجوجل وفيسبوك **روابط** إلى الوسيط، وتيليجرام مصافحةٌ
+  // يقودها البوت.
+
+  var PROVIDER_ICON = { telegram: '✈️', google: 'G', facebook: 'f' };
+  var pollTimer = null;
+
+  function renderProviders() {
+    api.providers().then(function (data) {
+      var names = (data && data.providers) || [];
+      if (!names.length) return;
+
+      var box = document.getElementById('provider-buttons');
+      box.textContent = '';
+
+      names.forEach(function (name) {
+        var label = T('web.with_' + name);
+        var icon = PROVIDER_ICON[name] || '';
+
+        if (name === 'telegram') {
+          var button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'prov';
+          button.innerHTML = '';
+          var ti = document.createElement('i');
+          ti.textContent = icon;
+          button.appendChild(ti);
+          button.appendChild(document.createTextNode(label));
+          button.addEventListener('click', function () {
+            startTelegram(button);
+          });
+          box.appendChild(button);
+          return;
+        }
+
+        // ⚠️ **رابطٌ لا `fetch`**: هذه ملاحةُ صفحة إلى نطاق المزوّد،
+        // و`fetch` عليها يصطدم بـCORS عنده بلا أي فائدة.
+        var link = document.createElement('a');
+        link.className = 'prov';
+        link.rel = 'noopener';
+        var gi = document.createElement('i');
+        gi.textContent = icon;
+        link.appendChild(gi);
+        link.appendChild(document.createTextNode(label));
+        link.addEventListener('click', function (e) {
+          e.preventDefault();
+          var invite = (document.querySelector('#provider-invite input') || {}).value;
+          window.location.href = api.oauthUrl(name, (invite || '').trim());
+        });
+        box.appendChild(link);
+      });
+
+      // حقلُ الدعوة يظهر مع جوجل وفيسبوك وحدهما: الداخل بتيليجرام
+      // مستخدمٌ عندنا أصلاً، فلا دعوةَ تُطلب منه.
+      var needsInvite = names.indexOf('google') >= 0
+                     || names.indexOf('facebook') >= 0;
+      document.getElementById('provider-invite').hidden = !needsInvite;
+      document.getElementById('providers').hidden = false;
+    }).catch(function () {
+      // ⚠️ وسيطٌ لا يردّ لا يمنع الدخول بالبريد: الكتلة تبقى مخفيّة
+      // ولا رسالة — الفشل الحقيقي سيظهر عند أوّل محاولة دخول.
+    });
+  }
+
+  function providerNote(text) {
+    var note = document.getElementById('provider-note');
+    note.textContent = text;
+    note.hidden = !text;
+  }
+
+  function startTelegram(button) {
+    button.setAttribute('aria-busy', 'true');
+    providerNote(T('web.loading'));
+
+    api.telegramStart().then(function (data) {
+      // ⚠️ **يُفتح في تبويبٍ آخر بقرار**: الصفحة تبقى مفتوحة تسأل،
+      // ومن عاد إليها يجد نفسه داخلاً. ولو انتقلت الصفحة نفسها إلى
+      // تيليجرام لانقطع السؤال ولم يُسلَّم التوكن لأحد.
+      window.open(data.deeplink, '_blank', 'noopener');
+      providerNote(T('web.waiting_telegram'));
+      pollTelegram(data.code, Date.now() + 10 * 60 * 1000, button);
+    }).catch(function (err) {
+      button.removeAttribute('aria-busy');
+      providerNote(errorText(err));
+    });
+  }
+
+  function pollTelegram(code, deadline, button) {
+    clearTimeout(pollTimer);
+
+    // ⚠️ **ومهلةٌ للسؤال لا سؤالٌ إلى الأبد**: من فتح تيليجرام ثم
+    // نسي يترك تبويباً يسأل الخادم كلّ ثانيتين إلى أن يُغلق.
+    if (Date.now() > deadline) {
+      button.removeAttribute('aria-busy');
+      providerNote(T('web.err_expired'));
+      return;
+    }
+
+    pollTimer = setTimeout(function () {
+      api.telegramPoll(code).then(function (data) {
+        if (data && data.token) {
+          api.setToken(data.token);
+          button.removeAttribute('aria-busy');
+          providerNote('');
+          boot();
+          return;
+        }
+        pollTelegram(code, deadline, button);
+      }).catch(function (err) {
+        if (err.code === 'network') {
+          // انقطاعٌ عابر — تُعاد المحاولة، ولا تُلغى المصافحة.
+          pollTelegram(code, deadline, button);
+          return;
+        }
+        button.removeAttribute('aria-busy');
+        providerNote(errorText(err));
+      });
+    }, 2000);
+  }
+
+  // ⚠️ **عودةُ المزوّد تصل في «شظيّة» الرابط لا في مَعلَم استعلام**:
+  // الشظيّة لا تُرسَل إلى أي خادم ولا تُكتب في سجلّاته. وتُمسح فور
+  // قراءتها كي لا تبقى في تاريخ المتصفّح.
+  function consumeHandoff() {
+    var hash = (window.location.hash || '').replace(/^#/, '');
+    if (!hash) return null;
+
+    var params = {};
+    hash.split('&').forEach(function (pair) {
+      var bits = pair.split('=');
+      params[decodeURIComponent(bits[0])] = decodeURIComponent(bits[1] || '');
+    });
+
+    try {
+      window.history.replaceState(null, '',
+        window.location.pathname + window.location.search);
+    } catch (e) { window.location.hash = ''; }
+
+    // ⚠️ **يُعاد الرمز خاماً لا مترجَماً**: هذه الدالّة تعمل في أوّل
+    // سطرٍ من الإقلاع — قبل أن تصل النصوص — فترجمةٌ هنا تعطي اسم
+    // المفتاح نصّاً على الشاشة لمن لا نسخة محلّية عنده.
+    if (params.error) return { error: params.error };
+    return params.code ? { code: params.code } : null;
+  }
+
   function submit(form, run) {
     var box = form.querySelector('[data-err]');
     var button = form.querySelector('button[type="submit"]');
@@ -591,11 +741,29 @@
     var cached = readCache();
     if (cached) { STRINGS = cached; paint(); }
 
+    var handoff = consumeHandoff();
+
     var decide = function () {
       paint();
-      if (api.isSignedIn()) showApp();
-      else showGate();
+      if (api.isSignedIn()) { showApp(); return; }
+      showGate();
+      renderProviders();
+      if (handoff && handoff.error) {
+        providerNote(handoff.error === 'invite' ? T('web.err_invite')
+                                                : T('web.err_generic'));
+      }
     };
+
+    // رمزُ عودةٍ من مزوّد: يُبادَل بتوكن قبل أن يُقرَّر أين يذهب.
+    if (handoff && handoff.code) {
+      api.exchange(handoff.code)
+         .then(function () { handoff = null; decide(); })
+         .catch(function () {
+           handoff = { error: 'generic' };
+           decide();
+         });
+      return;
+    }
 
     // ⚠️ النصوص تُطلب دائماً ولو وُجدت نسخة: مفتاحٌ يُصحَّح في
     // `locales/` لا يصل من يحمل النسخة القديمة أبداً لو اكتُفي بها.

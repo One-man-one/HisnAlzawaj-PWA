@@ -98,6 +98,38 @@
     },
     logout: function () { writeToken(''); },
 
+    // ============================================================
+    // الدخول بحسابٍ قائم — المرحلة ٦ ب
+    // ============================================================
+    // ⚠️ **ولا مكتبةَ مزوّدٍ في هذه الصفحة ولا واحدة.** أزرار «سجّل
+    // بجوجل» الجاهزة سكربتاتٌ مستضافة عند صاحبها، والتوكن هنا في
+    // `localStorage` — فكلُّ سكربتٍ يعمل في الصفحة يقرؤه. فالزرُّ
+    // **رابط**، والوسيط هو من يعرف المفاتيح ويبادل الرموز.
+
+    providers: function () { return request('/api/auth/providers'); },
+
+    // رابطُ الذهاب — لا `fetch`: هذه **ملاحةُ صفحة** إلى نطاقٍ آخر،
+    // و`fetch` عليها يصطدم بـCORS عند المزوّد بلا أي فائدة.
+    oauthUrl: function (provider, invite) {
+      var q = invite ? '?invite=' + encodeURIComponent(invite) : '';
+      return window.HISN.API + '/api/auth/oauth/'
+             + encodeURIComponent(provider) + '/start' + q;
+    },
+
+    telegramStart: function () {
+      return request('/api/auth/telegram/start', { method: 'POST', body: {} });
+    },
+    // ⚠️ تعيد `{status:'pending'}` ما دام البوت لم يؤكّد — و202 ليست
+    // خطأً، فلا تُوقف السؤال.
+    telegramPoll: function (code) {
+      return request('/api/auth/telegram/poll',
+                     { method: 'POST', body: { code: code } });
+    },
+    exchange: function (code) {
+      return request('/api/auth/exchange', { method: 'POST', body: { code: code } })
+        .then(function (data) { writeToken(data.token); return data; });
+    },
+
     me: function () { return request('/api/me'); },
     // ⚠️ **الاثنان ليسا واحداً، والخلط بينهما يكسر المعنى:**
     // `matches` تقترح من **قد** يناسبك، و`mutual` تسرد من تبادلتَ معه
