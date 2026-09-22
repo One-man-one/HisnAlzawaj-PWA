@@ -103,6 +103,9 @@
     if (err.code === 'network') return T('web.err_network');
     if (err.status === 401) return T('web.err_auth');
     if (err.status === 403) return T('web.err_invite');
+    // 400 من مسار الإكمال سببُه سنة الميلاد في الغالب الأعمّ — والخادم
+    // لا يعيد نصّ الخطأ بقرار (قد يحمل القيمة كما أُرسلت).
+    if (err.status === 400) return T('web.err_birth_year');
     return T('web.err_generic');
   }
 
@@ -113,13 +116,190 @@
     document.body.classList.remove('is-app');
     $('boot').hidden = true;
     $('app').hidden = true;
+    $('complete').hidden = true;
     $('gate').hidden = false;
+  }
+
+  // ⚠️ **شاشةٌ ثالثة لا خطوةٌ داخل التطبيق، بقرار:** صاحب الحساب
+  // الناقص **لا يظهر لأحد ولا يُقترح عليه أحد** — فلو أدخلناه إلى
+  // التبويبات لَرأى رزمةً فارغة و«لا مطابقات» ولم يعرف أن السبب هو
+  // ملفُّه لا قلّة الناس. والشاشة تقول له ذلك في سطرٍ واحد.
+
+  var schemaGender = null;   // آخرُ جنسٍ رُسم به النموذج
+
+  function showComplete() {
+    document.body.classList.remove('is-app');
+    $('boot').hidden = true;
+    $('gate').hidden = true;
+    $('app').hidden = true;
+    $('complete').hidden = false;
+    renderSchema();
+  }
+
+  function renderSchema(gender) {
+    var host = $('complete-fields');
+    host.textContent = '';
+    var wait = document.createElement('p');
+    wait.className = 'empty';
+    wait.textContent = T('web.loading');
+    host.appendChild(wait);
+
+    // ⚠️ **ويُعاد الوعد لا يُبتلع** — والسبب عطلٌ وقع: إعادةُ رسم
+    // النموذج بعد اختيار الجنس تجلب المخطَّط من الشبكة، ومن أعاد
+    // القيم المحفوظة بـ`setTimeout(0)` أعادها **قبل** أن تُرسم
+    // الحقول فضاعت كلُّها — ومنها الجنس نفسه. فيمنع المتصفّح الإرسال
+    // لحقلٍ مطلوبٍ فارغ، ولا يعمل معالجُنا، ولا تظهر رسالة: ضغطةٌ لا
+    // تفعل شيئاً ولا تقول شيئاً.
+    return api.profileSchema(LANG, gender).then(function (data) {
+      schemaGender = gender || null;
+      host.textContent = '';
+      (data.fields || []).forEach(function (spec) {
+        host.appendChild(fieldNode(spec));
+      });
+    }).catch(function (err) {
+      if (err.code === 'unauthorized') return boot();
+      host.textContent = '';
+      var line = document.createElement('p');
+      line.className = 'fld__err';
+      line.textContent = errorText(err);
+      host.appendChild(line);
+    });
+  }
+
+  // ⚠️ **يُبنى من وصف الحقل لا من `innerHTML`**: عناوين الخيارات نصٌّ
+  // يأتي من الوسيط، ولصقُه سلسلةَ HTML يجعل أي وسمٍ فيه كوداً يعمل في
+  // الصفحة — وهي الثغرة التي تقرأ التوكن من التخزين المحلّي.
+  function fieldNode(spec) {
+    var wrap = document.createElement('label');
+    wrap.className = 'fld';
+    wrap.setAttribute('data-field', spec.name);
+
+    var title = document.createElement('span');
+    title.textContent = T(spec.label_key)
+                        + (spec.required ? '' : ' (' + T('web.optional') + ')');
+    wrap.appendChild(title);
+
+    var input;
+    if (spec.kind === 'choice') {
+      input = document.createElement('select');
+      // ⚠️ خيارٌ فارغ أوّلاً: بدونه يبدو أوّلُ الخيارات مُجاباً عنه —
+      // وهو بالضبط ما جعل «ذكر» يُسجَّل بلا أن يسأله أحد.
+      input.appendChild(new Option('—', ''));
+      (spec.options || []).forEach(function (o) {
+        input.appendChild(new Option(o.label || T(o.label_key), o.key));
+      });
+      if (spec.name === 'gender') {
+        input.addEventListener('change', function () {
+          // الحجاب يظهر للنساء وحدهنّ — والشرط عند الوسيط لا هنا.
+          if (input.value && input.value !== schemaGender) {
+            var kept = collect();
+            renderSchema(input.value).then(function () { restore(kept); });
+          }
+        });
+      }
+      if (spec.name === 'country') {
+        input.addEventListener('change', function () { loadCities(input.value); });
+      }
+    } else if (spec.kind === 'city') {
+      input = document.createElement('select');
+      input.appendChild(new Option('—', ''));
+      input.disabled = true;
+    } else if (spec.kind === 'multi') {
+      input = document.createElement('select');
+      input.multiple = true;
+      input.size = Math.min(6, (spec.options || []).length || 3);
+      (spec.options || []).forEach(function (o) {
+        input.appendChild(new Option(o.label || T(o.label_key), o.key));
+      });
+    } else if (spec.kind === 'textarea') {
+      input = document.createElement('textarea');
+      input.rows = 3;
+      if (spec.max) input.maxLength = spec.max;
+    } else {
+      input = document.createElement('input');
+      input.type = (spec.kind === 'year' || spec.kind === 'number')
+                   ? 'number' : 'text';
+      if (spec.kind === 'year') {
+        var now = new Date().getFullYear();
+        input.min = now - 80; input.max = now - 19;
+      }
+      if (spec.min !== undefined) input.min = spec.min;
+      if (spec.max !== undefined && spec.kind === 'number') input.max = spec.max;
+      if (spec.max && spec.kind === 'text') input.maxLength = spec.max;
+      if (spec.kind === 'number' || spec.kind === 'year') input.inputMode = 'numeric';
+    }
+
+    input.name = spec.name;
+    if (spec.required) input.required = true;
+    wrap.appendChild(input);
+    return wrap;
+  }
+
+  function loadCities(country, preselect) {
+    var select = document.querySelector('#complete-fields [name="city"]');
+    if (!select) return;
+    select.textContent = '';
+    select.appendChild(new Option('—', ''));
+    select.disabled = true;
+    if (!country) return;
+
+    api.cities(country, LANG).then(function (data) {
+      (data.cities || []).forEach(function (c) {
+        select.appendChild(new Option(c.label, c.key));
+      });
+      select.disabled = false;
+      if (preselect) select.value = preselect;
+    }).catch(function () { /* تبقى معطَّلة، والخادم يرفض الفراغ */ });
+  }
+
+  function collect() {
+    var out = {};
+    document.querySelectorAll('#complete-fields [name]').forEach(function (el) {
+      if (el.multiple) {
+        var picked = [];
+        Array.prototype.forEach.call(el.selectedOptions, function (o) {
+          picked.push(o.value);
+        });
+        if (picked.length) out[el.name] = picked;
+      } else if (el.value !== '') {
+        out[el.name] = el.type === 'number' ? parseInt(el.value, 10) : el.value;
+      }
+    });
+    return out;
+  }
+
+  // ⚠️ **وإعادةُ ما أُدخل ليست تجميلاً**: النموذج يُعاد رسمُه عند اختيار
+  // الجنس (الحجاب)، فما لم يُعَد ضاع — وخمسةٌ وعشرون سؤالاً تُملأ مرّتين
+  // بابٌ يُترك عنده.
+  function restore(values) {
+    var kept = values || {};
+    Object.keys(kept).forEach(function (name) {
+      var el = document.querySelector('#complete-fields [name="' + name + '"]');
+      if (!el) return;
+
+      if (el.multiple) {
+        // الاختيارُ المتعدّد لا يُعاد بإسنادٍ واحد
+        var wanted = kept[name] || [];
+        Array.prototype.forEach.call(el.options, function (o) {
+          o.selected = wanted.indexOf(o.value) !== -1;
+        });
+        return;
+      }
+
+      // ⚠️ والمدينة تُعاد **بعد** أن تصل قائمتُها: إسنادٌ إلى قائمةٍ
+      // فارغة يسقط صامتاً فتعود المدينة فارغةً بلا سبب ظاهر.
+      if (name === 'city') return;
+
+      el.value = kept[name];
+      if (name === 'country') loadCities(el.value, kept.city);
+    });
   }
 
   function showApp() {
     document.body.classList.add('is-app');
     $('boot').hidden = true;
     $('gate').hidden = true;
+    $('complete').hidden = true;
     $('app').hidden = false;
     openTab('browse');
   }
@@ -745,7 +925,19 @@
 
     var decide = function () {
       paint();
-      if (api.isSignedIn()) { showApp(); return; }
+      if (api.isSignedIn()) {
+        // ⚠️ **ولا يُفتح التطبيق قبل سؤال الوسيط**: التوكن يقول «هذا
+        // فلان» ولا يقول «ملفُّه مكتمل». والقرار من `/api/me` وحدها —
+        // فهي المصدر، وأي تخمينٍ في الصفحة يتباعد عنه.
+        api.me().then(function (mine) {
+          if (mine && mine.needs_profile) showComplete();
+          else showApp();
+        }).catch(function (err) {
+          if (err.code === 'unauthorized') { showGate(); renderProviders(); }
+          else showApp();   // عطلُ شبكةٍ عابر — التطبيق يعرض خطأه بنفسه
+        });
+        return;
+      }
       showGate();
       renderProviders();
       if (handoff && handoff.error) {
@@ -782,8 +974,39 @@
     });
   }
 
+  function bindComplete() {
+    $('form-complete').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var form = this;
+      var box = form.querySelector('[data-err]');
+      var button = form.querySelector('button[type="submit"]');
+
+      box.hidden = true;
+      button.disabled = true;
+      api.completeProfile(collect()).then(function () {
+        button.disabled = false;
+        boot();
+      }).catch(function (err) {
+        button.disabled = false;
+        // ⚠️ واسمُ الحقل من الخادم يُبرز موضعَ الخطأ: رسالةٌ عامّة فوق
+        // خمسةٍ وعشرين سؤالاً تترك صاحبها يبحث عن أيّها.
+        var field = err.data && err.data.field;
+        var at = field && document.querySelector('#complete-fields [data-field="' + field + '"]');
+        if (at) at.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        box.textContent = errorText(err);
+        box.hidden = false;
+      });
+    });
+
+    $('complete-out').addEventListener('click', function () {
+      api.logout();
+      boot();
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     bindGate();
+    bindComplete();
 
     document.querySelectorAll('.tab').forEach(function (button) {
       button.addEventListener('click', function () {

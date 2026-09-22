@@ -131,6 +131,20 @@
     },
 
     me: function () { return request('/api/me'); },
+    // إكمالُ ملفٍّ أنشأه مزوّد — مرّةً واحدة، وللناقص وحده (409 لغيره).
+    completeProfile: function (answers) {
+      return request('/api/me/profile',
+                     { method: 'POST', body: { answers: answers } });
+    },
+    // ⚠️ الأسئلة وخياراتها من الوسيط لا من الصفحة — الشرح في index.html
+    profileSchema: function (lang, gender) {
+      return request('/api/profile/schema/' + encodeURIComponent(lang)
+                     + (gender ? '?gender=' + encodeURIComponent(gender) : ''));
+    },
+    cities: function (country, lang) {
+      return request('/api/profile/cities/' + encodeURIComponent(country)
+                     + '?lang=' + encodeURIComponent(lang || 'ar'));
+    },
     // ⚠️ **الاثنان ليسا واحداً، والخلط بينهما يكسر المعنى:**
     // `matches` تقترح من **قد** يناسبك، و`mutual` تسرد من تبادلتَ معه
     // الإعجاب **فعلاً**. الشرح في `services/mutual.py` بمستودع البوت.

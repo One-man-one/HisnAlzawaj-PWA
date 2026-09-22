@@ -235,6 +235,33 @@
 </div>
 
 
+<!-- ============================================================
+     إكمالُ ملفٍّ أنشأه مزوّد دخول
+     ⚠️ **وليست شاشةَ تعديل**: جوجل وفيسبوك لا يعطيان إلا بريداً
+     واسماً، فيولد الصفّ بلا عمرٍ ولا بلد وبجنسٍ **افتراضيّ** — وذاك
+     في تطبيق زواجٍ معلومةٌ خاطئة لا نقصُ بيانات. ولا يظهر صاحبه لأحد
+     حتى يملأها.
+     ============================================================ -->
+<main class="shell" id="complete" hidden>
+  <header class="brand">
+    <img src="brand/logo_mark.png" alt="" width="61" height="90" class="brand__mark">
+    <h1 class="brand__name" data-i18n="web.complete_title"></h1>
+    <p class="brand__line" data-i18n="web.complete_why"></p>
+  </header>
+
+  <!-- ⚠️ **فارغةٌ بقرار**: الأسئلة وخياراتها تأتي من
+       `/api/profile/schema/{lang}` — وهي قوائم البوت نفسها (ستٌّ
+       وثلاثون جنسية، سبعٌ وثلاثون دولة، عشراتُ المهن والسمات، بستّ
+       لغات). وكتابتُها هنا نسخةٌ ثانية تتباعد عند أوّل خيارٍ يُضاف،
+       بلا خطأٍ يدلّ — نفس قاعدة الترجمات في CLAUDE.md. -->
+  <form class="card" id="form-complete">
+    <div id="complete-fields"></div>
+    <button class="btn btn--primary" type="submit" data-i18n="web.complete_btn"></button>
+    <p class="fld__err" data-err hidden></p>
+    <button class="linkbtn" type="button" id="complete-out" data-i18n="web.logout"></button>
+  </form>
+</main>
+
 <!-- ورقةُ التفاصيل — تُملأ من الكود -->
 <div class="sheet" id="sheet" hidden>
   <div class="sheet__panel" role="dialog" aria-modal="true">
