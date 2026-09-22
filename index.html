@@ -57,7 +57,11 @@
          يقطع النمط الداكن. -->
     <img src="brand/logo_mark.png" alt="" width="61" height="90" class="brand__mark">
     <h1 class="brand__name">حصن الزواج</h1>
-    <p class="brand__line" data-i18n="web.invite_hint"></p>
+    <!-- ⚠️ `web.gate_line` لا `web.invite_hint`: الباب صار عامّاً،
+         و«التسجيل بدعوةٍ في هذه المرحلة» كانت تقول لكل زائرٍ
+         إنه لا يستطيع التسجيل — وهو **يستطيع**. والمفتاح القديم
+         باقٍ لأن حقل الدعوة نفسه لم يُحذف. -->
+    <p class="brand__line" data-i18n="web.gate_line"></p>
   </header>
 
   <!-- ============================================================
@@ -76,7 +80,10 @@
       <input name="invite_code" autocomplete="off">
     </label>
 
-    <p class="fld__err" id="provider-note" hidden></p>
+    <!-- ⚠️ `div` لا `p`: يُلحَق به مخرجُ تيليجرام اليدويّ (فقرةٌ
+         وصندوقُ أمر)، و`p` لا تحوي عناصرَ كتلة — فيخرجها
+         المحلّل منها فتفقد الحاوية أبناءها بلا خطأ. -->
+    <div class="pnote" id="provider-note" hidden></div>
   </section>
 
   <!-- ============================================================

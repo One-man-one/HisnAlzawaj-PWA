@@ -446,7 +446,15 @@
 
   function providerNote(text) {
     var note = document.getElementById('provider-note');
-    note.textContent = text;
+    // ⚠️ **يُفرَّغ أوّلاً**: هو الآن حاوٍ لا فقرة، وقد يحمل مخرجَ
+    // تيليجرام اليدويّ من محاولةٍ سابقة.
+    note.textContent = '';
+    if (text) {
+      var line = document.createElement('p');
+      line.className = 'fld__err';
+      line.textContent = text;
+      note.appendChild(line);
+    }
     note.hidden = !text;
   }
 
@@ -460,11 +468,93 @@
       // تيليجرام لانقطع السؤال ولم يُسلَّم التوكن لأحد.
       window.open(data.deeplink, '_blank', 'noopener');
       providerNote(T('web.waiting_telegram'));
+      telegramFallback(data);
       pollTelegram(data.code, Date.now() + 10 * 60 * 1000, button);
     }).catch(function (err) {
       button.removeAttribute('aria-busy');
       providerNote(errorText(err));
     });
+  }
+
+  // ⚠️ **مخرجٌ يدويّ يُعرض مع الرابط دائماً لا عند فشله.**
+  //
+  // الرابط العميق يطلب من المتصفّح أن يسلّم `tg://` إلى تطبيقٍ مثبَّت.
+  // وعلى سطح المكتب بلا «تيليجرام ديسكتوب» تفتح صفحةُ `t.me` وزرُّها
+  // «START BOT» **يسقط منه `start=`** — فيفتح البوتُ بلا حمولة، ولا
+  // يصل الرمز، وتبقى هذه الصفحة تسأل حتى تنتهي المهلة بـ«انتهت
+  // الصلاحية». ولا خطأ في أي طرف: كلُّ مكوّنٍ فعل ما صُمّم له، ولذلك
+  // لا يظهر في سجلٍّ ولا يسقط له اختبار.
+  //
+  // ⚠️ **ولا يُخفى خلف «هل فشل؟»**: من لا يُفتح عنده تيليجرام لا يرى
+  // فشلاً يضغط عليه — يرى صفحةً تنتظر. فالمخرجُ ظاهرٌ منذ اللحظة
+  // الأولى، وهو نفسُ مسار `handlers/deeplink.py` حرفاً بحرف.
+  function telegramFallback(data) {
+    if (!data || !data.command) return;
+    var note = document.getElementById('provider-note');
+
+    var hint = document.createElement('p');
+    hint.className = 'tgfb__hint';
+    hint.textContent = T('web.tg_fallback');
+    note.appendChild(hint);
+
+    if (data.bot) {
+      var open = document.createElement('a');
+      open.className = 'tgfb__bot';
+      open.href = 'https://t.me/' + encodeURIComponent(data.bot);
+      open.target = '_blank';
+      open.rel = 'noopener';
+      // ⚠️ **`dir="ltr"` هنا أيضاً**: «@» محرفٌ محايد الاتجاه، فيُدفع
+      // إلى آخر السطر داخل صفحةٍ عربية — فيُقرأ «HisnAlzawajBot@»،
+      // ومن ينسخه كما رآه لا يجد شيئاً في بحث تيليجرام.
+      open.setAttribute('dir', 'ltr');
+      open.textContent = '@' + data.bot;
+      note.appendChild(open);
+    }
+
+    var box = document.createElement('div');
+    box.className = 'tgfb';
+
+    var cmd = document.createElement('code');
+    cmd.className = 'tgfb__cmd';
+    // ⚠️ `textContent` لا `innerHTML`: النصّ من الوسيط، والعرفُ في
+    // هذا الملفّ ألّا تُبنى عقدةٌ من سلسلةٍ أبداً.
+    cmd.textContent = data.command;
+    // ⚠️ **و`dir="ltr"` صراحةً**: الأمرُ لاتينيّ داخل صفحةٍ عربية،
+    // وبلا هذا تُزحزح الشرطةُ المائلة إلى آخره فيُنسخ مقلوباً بصرياً
+    // — فيراه المستخدم خطأً ويظنّ الرمز تالفاً.
+    cmd.setAttribute('dir', 'ltr');
+    box.appendChild(cmd);
+
+    var copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'tgfb__copy';
+    copy.textContent = T('web.copy');
+    copy.addEventListener('click', function () {
+      var done = function () { copy.textContent = T('web.copied'); };
+      // ⚠️ **و`clipboard` غائبةٌ خارج HTTPS وفي بعض المتصفّحات**،
+      // وغيابُها لا يجوز أن يترك الزرّ صامتاً: التحديدُ يدويّاً
+      // يجعل النسخَ بـCtrl+C ممكناً في كل الحالات.
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(data.command).then(done, selectCmd);
+          return;
+        }
+      } catch (e) { /* يسقط إلى التحديد */ }
+      selectCmd();
+    });
+    box.appendChild(copy);
+
+    function selectCmd() {
+      try {
+        var range = document.createRange();
+        range.selectNodeContents(cmd);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch (e) { /* لا شيء */ }
+    }
+
+    note.appendChild(box);
   }
 
   function pollTelegram(code, deadline, button) {
@@ -576,9 +666,19 @@
     photoUrls = [];
   }
 
-  function numericId(publicId) {
-    // البطاقة تحمل «#4821»، والوسيط يقبل رقم الصفّ وحده.
-    return parseInt(String(publicId || '').replace(/[^0-9]/g, ''), 10);
+  function refId(publicId) {
+    // المعرّفُ المعروض صار رمزاً عشوائياً («HS-7K4M92») بعد أن كان
+    // رقمَ صفٍّ تسلسلياً («#4821») — والوسيط يقبل الشكلين معاً.
+    //
+    // ⚠️ **وكانت هذه الدالّة تقصّ كلَّ ما ليس رقماً.** فلو بقيت،
+    // لأعادت `NaN` من الرمز الجديد، ولارتدّ كلُّ مستدعٍ على فحص
+    // `if (!id) return;` — أي **صورةٌ لا تُجلب، وإعجابٌ لا يُرسَل،
+    // ومحادثةٌ لا تُفتح**، وكلُّها صامتة بلا رسالةٍ ولا سطرِ سجلّ.
+    //
+    // ⚠️ **وتُقصّ `#` هنا لا في الوسيط**: `%23` داخل مسارٍ يمرّ على
+    // وسطاء لا يصل دائماً كما أُرسل، ومعرّفٌ يسقط أوّلُ محرفه يصير
+    // 404 لا يدلّ على سببه.
+    return String(publicId || '').replace(/^#/, '').trim();
   }
 
   function loadDeck() {
@@ -694,7 +794,7 @@
   // `api.js`: المسار خلف ترويسة توكن، ورابطُ `getFile` من تيليجرام
   // (يحمل توكن البوت) لا يظهر هنا ولا في أي موضع.
   function attachPhoto(holder, card, noteHost) {
-    var id = numericId(card.public_id);
+    var id = refId(card.public_id);
     if (!id) return;
 
     api.photoUrl(id).then(function (url) {
@@ -765,7 +865,7 @@
   function act(action) {
     if (busy || !deck.length) return;
     var card = deck[0];
-    var id = numericId(card.public_id);
+    var id = refId(card.public_id);
     if (!id) return;
 
     // ⚠️ **قفلٌ لا حرفَ زائد**: ضغطتان سريعتان (أو ضغطةٌ مع سحبة)
@@ -888,11 +988,10 @@
         talk.setAttribute('aria-label', T('web.chat'));
         talk.addEventListener('click', function (e) {
           e.stopPropagation();
-          // ⚠️ **`numericId` لا `public_id` خاماً**: البطاقة تحمل
-          // «#4821» للعرض، والوسيط يقبل رقم الصفّ وحده. وتمريرُ النصّ
-          // كما هو يعطي `/api/me/chats/%232` — أي 422 صامتة عند
-          // المستخدم: شاشةٌ تُفتح فارغةً بلا رسالة.
-          openChat(numericId(card.public_id), card.public_id);
+          // ⚠️ **`refId` لا `public_id` خاماً**: تمريرُ النصّ كما هو
+          // يعطي `/api/me/chats/%23…` — أي 422 صامتة عند المستخدم:
+          // شاشةٌ تُفتح فارغةً بلا رسالة.
+          openChat(refId(card.public_id), card.public_id);
         });
         row.appendChild(talk);
 

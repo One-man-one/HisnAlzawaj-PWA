@@ -214,6 +214,22 @@ body {
   color: var(--brand-ink);
   border-color: transparent;
 }
+
+/* ⚠️ **وفي العربية ينقلب الطرفان، فتُعاد المحاذاة صراحةً.**
+   `align-self` في حاوٍ مرنٍ عموديّ يعمل على المحور **المتقاطع** — وهو
+   محورُ الكتابة — أي أنه **يتبع اتجاه الصفحة**: فـ`flex-end` تعني
+   اليمين في الإنجليزية واليسار في العربية. فكانت رسائلي تظهر يساراً
+   لمن يقرأ بالعربية، ورسائلُ الطرف الآخر يميناً — والعكسُ هو المألوف.
+
+   ⚠️ **والمرجع هنا تيليجرام لا قاعدةُ المرآة النظرية**: جمهور هذا
+   البوت يأتي من تيليجرام، وهو يُبقي المرسَل يميناً في الواجهة العربية
+   ولا يعكسه. ومحادثةٌ تخالف ما في يد المستخدم تُقرأ خطأً في كل نظرة:
+   يظنّ ردَّه ردَّ غيره.
+
+   وهاتان القاعدتان تجعلان الموضع **فيزيائياً**: رسائلي يميناً دائماً،
+   ورسائلُ غيري يساراً — في اللغتين معاً. */
+[dir="rtl"] .msg { align-self: flex-end; }
+[dir="rtl"] .msg--mine { align-self: flex-start; }
 /* ⚠️ **وكسرُ الكلمة الطويلة شرطٌ لا تجميل**: رابطٌ بلا مسافات يمدّ
    الفقاعة خارج الشاشة فيظهر شريطُ تمريرٍ أفقيّ للصفحة كلّها. */
 .msg__text { white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -677,3 +693,60 @@ body.is-app {
 .prov i { font-size: 18px; font-style: normal; }
 .prov:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .prov[aria-busy="true"] { opacity: .6; pointer-events: none; }
+
+/* ==========================================================
+   مخرجُ تيليجرام اليدويّ — حين لا يفتح الرابطُ العميق
+   ========================================================== */
+/* ⚠️ الشرح في `ui.js::telegramFallback`: على سطح المكتب بلا تطبيق
+   تيليجرام يسقط `start=` من زرّ صفحة `t.me`، فلا يصل الرمز. */
+.pnote { margin: 8px 0 0; }
+
+.tgfb__hint {
+  margin: 10px 0 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.tgfb__bot {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.tgfb {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.tgfb__cmd {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  /* ⚠️ **يُكسر السطرُ ولا يُقصّ**: الأمرُ سرٌّ لمرّةٍ واحدة، و`ellipsis`
+     تُخفي آخرَه فيُنسخ ناقصاً ويبدو الرمزُ تالفاً بلا سبب ظاهر. */
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.tgfb__copy {
+  flex: 0 0 auto;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tgfb__copy:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
