@@ -209,6 +209,15 @@
     mutual: function (limit) {
       return request('/api/me/mutual?limit=' + (limit || 20));
     },
+    // ملفّاتٌ عشوائية تُكمل الرزمة بعد نفاد المقترحين (بلا زرّ).
+    random: function (limit) {
+      return request('/api/me/random?limit=' + (limit || 10));
+    },
+    // الدفعُ اليدويّ: الطرقُ والأسعار، ثم رقمُ العملية.
+    payOptions: function () { return request('/api/me/pay'); },
+    payManual: function (body) {
+      return request('/api/me/pay/manual', { method: 'POST', body: body });
+    },
     search: function (params) {
       // ⚠️ **القائمة تُكرَّر مفتاحاً لا تُلصق بفاصلة** (`?job=a&job=b`):
       // هكذا يقرؤها الوسيط `List[str]`، و«a,b» تصله قيمةً واحدة لا
