@@ -469,7 +469,16 @@
       openChat(refId(item.public_id), item.who || item.public_id);
       return;
     }
-    if (go && go !== 'chat') {
+    if (go === 'person' && item.public_id) {
+      // ✅ **بطاقةُ المعجِب نفسه لا التصفّحُ العامّ** — كان الضغطُ يفتح
+      // بطاقاتٍ مقترحة لا علاقة لها به، فلا يرى صاحبُ الإشعار من أعجب به.
+      api.person(refId(item.public_id)).then(function (card) {
+        $('notes').hidden = true;
+        openSheet(card);
+      }).catch(function (err) { toast(errorText(err)); });
+      return;
+    }
+    if (go && go !== 'chat' && go !== 'person') {
       $('notes').hidden = true;
       openTab(go);
       return;
@@ -1535,6 +1544,39 @@
     body.appendChild(title);
 
     lines(body, card.card);
+
+    // ✅ **والبطاقةُ تُردّ عليها لا تُقرأ وحدها**: من أعجب بك ولم تردّ بعد
+    // يأخذ زرَّ «إعجاب» — ومنه يقع التطابق وتُفتح الدردشة. ومن تطابقتَ
+    // معه يأخذ «مراسلة». وبطاقاتُ التصفّح لا تحمل الحقلين، فلا زرَّ لها.
+    if (card.can_like || card.mutual) {
+      var act = document.createElement('button');
+      act.type = 'button';
+      act.className = 'btn btn--primary';
+      act.textContent = T(card.mutual ? 'web.chat' : 'web.like');
+      act.addEventListener('click', function () {
+        if (card.mutual) {
+          $('sheet').hidden = true;
+          openChat(refId(card.public_id), card.public_id);
+          return;
+        }
+        act.disabled = true;
+        api.interact(refId(card.public_id), 'like').then(function (out) {
+          $('sheet').hidden = true;
+          if (out && out.result === 'mutual') {
+            lastMatch = card.public_id;
+            $('pop').hidden = false;
+          } else {
+            toast(T('web.liked'));
+          }
+          refreshBell();
+        }).catch(function (err) {
+          act.disabled = false;
+          toast(errorText(err));
+        });
+      });
+      body.appendChild(act);
+    }
+
     $('sheet').hidden = false;
   }
 
