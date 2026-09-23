@@ -499,6 +499,8 @@ body.is-app {
 
 /* صفوف الصندوق */
 .notes__all { margin-inline-start: auto; font-size: .85rem; }
+/* عددُ رسائل المرسل — داخل سطر الوقت لا عائماً فوقه. */
+.note__n { position: static; display: inline-block; margin-inline-start: 6px; }
 .note {
   display: flex;
   align-items: flex-start;

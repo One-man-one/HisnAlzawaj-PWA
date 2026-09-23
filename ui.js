@@ -555,6 +555,14 @@
       var when = document.createElement('span');
       when.className = 'note__at';
       when.textContent = ago(item.at);
+      // ✅ **عددُ رسائل المرسل غير المقروءة** — الوسيط يجمعها سطراً
+      // واحداً (`count`)، بشكل شارة 💬 في «مطابقاتي».
+      if (item.count > 1) {
+        var n = document.createElement('span');
+        n.className = 'bell__n note__n';
+        n.textContent = item.count > 99 ? '99+' : String(item.count);
+        when.appendChild(n);
+      }
       row.appendChild(when);
 
       row.addEventListener('click', function () { openNote(item); });
@@ -572,7 +580,9 @@
 
   function openNote(item) {
     // الإعجابات سطرٌ مجمَّع بلا معرّف — تُعلَّم بنوعها.
-    var body = item.id ? { ids: [item.id] } : { types: [item.type] };
+    // وسطرُ المرسل يُعلَّم كلُّه (`ids`) — لا أحدثُ رسائله وحده.
+    var body = (item.ids && item.ids.length) ? { ids: item.ids }
+             : item.id ? { ids: [item.id] } : { types: [item.type] };
     var go = item.action;
     api.notificationsRead(body).then(function (d) {
       setBell((d && d.unread) || 0);
