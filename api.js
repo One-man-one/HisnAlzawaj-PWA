@@ -210,11 +210,18 @@
       return request('/api/me/mutual?limit=' + (limit || 20));
     },
     search: function (params) {
-      var query = Object.keys(params || {})
-        .filter(function (k) { return params[k] !== '' && params[k] != null; })
-        .map(function (k) {
-          return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
-        }).join('&');
+      // ⚠️ **القائمة تُكرَّر مفتاحاً لا تُلصق بفاصلة** (`?job=a&job=b`):
+      // هكذا يقرؤها الوسيط `List[str]`، و«a,b» تصله قيمةً واحدة لا
+      // تطابق أحداً — بحثٌ متقدّم يعود فارغاً بلا سبب.
+      var query = [];
+      Object.keys(params || {}).forEach(function (k) {
+        var v = params[k];
+        (Array.isArray(v) ? v : [v]).forEach(function (one) {
+          if (one === '' || one == null) return;
+          query.push(encodeURIComponent(k) + '=' + encodeURIComponent(one));
+        });
+      });
+      query = query.join('&');
       return request('/api/search' + (query ? '?' + query : ''));
     },
     interact: function (publicId, action) {

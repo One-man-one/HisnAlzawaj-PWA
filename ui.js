@@ -705,8 +705,8 @@
     return wrap;
   }
 
-  function renderSearchFields(type) {
-    var box = $('search-fields');
+  function renderSearchFields(type, target) {
+    var box = target || $('search-fields');
     box.textContent = '';
     if (type === 'age') {
       // ⚠️ **الحدّان معاً إلزاميّان**: دالّةُ البحث تتجاهل حدّاً وحيداً
@@ -748,23 +748,205 @@
     // «الموثّقون فقط» بلا حقل — اختيارُ النوع هو المعيار.
   }
 
+  // ==========================================================
+  // البحث المتقدّم — للمميّز وحده، كلُّ معايير البوت معاً
+  // ==========================================================
+  //
+  // ⚠️ **والقفل في الوسيط لا هنا**: غيرُ المميّز لا يرى هذه الشاشة،
+  // ولو بنى الرابط بيده ردّه `/api/search` بـ403.
+  //
+  // ✅ **والمتعدّد أزرارٌ تُضغط لا `<select multiple>`**: تلك على
+  // الهاتف قائمةٌ منسدلة لا يُرى فيها ما اختير بعد إغلاقها.
+  var searchMode = 'quick';
+  var searchFor = null;       // 'female' | 'male' — من الوسيط (`/api/me`)
+
+  // [اسم الحقل في المخطَّط، مفتاح الوسيط، النوع]
+  var ADV_FIELDS = [
+    ['nationality', 'nationality', 'one'],
+    ['religion', 'religion', 'one'],
+    ['sect', 'sect', 'sect'],
+    ['marital_status', 'marital_status', 'one'],
+    ['education_level', 'education', 'many'],
+    ['job_title', 'job', 'many'],
+    ['monthly_income', 'income', 'many'],
+    ['height', 'height', 'range'],
+    ['weight', 'weight', 'range'],
+    ['body_type', 'body_type', 'many'],
+    ['skin_color', 'skin_color', 'many'],
+    ['eye_color', 'eye_color', 'many'],
+    ['hair_color', 'hair_color', 'many'],
+    ['smoking', 'smoking', 'many'],
+    ['hijab', 'hijab', 'many'],
+    ['personality_traits', 'personality', 'many'],
+    ['spoken_languages', 'spoken_languages', 'many']
+  ];
+
+  function rangeNode(label, name, min, max, required) {
+    var wrap = document.createElement('div');
+    wrap.className = 'fld';
+    var title = document.createElement('span');
+    title.textContent = label;
+    wrap.appendChild(title);
+    var row = document.createElement('div');
+    row.className = 'search__age';
+    [['_min', 'web.range_from'], ['_max', 'web.range_to']].forEach(function (end) {
+      var input = document.createElement('input');
+      input.type = 'number';
+      input.inputMode = 'numeric';
+      input.name = name + end[0];
+      input.placeholder = T(end[1]);
+      input.min = min;
+      input.max = max;
+      if (required) input.required = true;
+      row.appendChild(input);
+    });
+    wrap.appendChild(row);
+    return wrap;
+  }
+
+  function chipsNode(label, name, options) {
+    var wrap = document.createElement('div');
+    wrap.className = 'fld';
+    var title = document.createElement('span');
+    title.textContent = label;
+    wrap.appendChild(title);
+    var box = document.createElement('div');
+    box.className = 'chips';
+    box.setAttribute('data-many', name);
+    (options || []).forEach(function (o) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = o.label;
+      chip.setAttribute('data-key', o.key);
+      chip.setAttribute('aria-pressed', 'false');
+      chip.addEventListener('click', function () {
+        var on = chip.classList.toggle('on');
+        chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      box.appendChild(chip);
+    });
+    wrap.appendChild(box);
+    return wrap;
+  }
+
+  function renderAdvanced() {
+    var box = $('search-adv');
+    box.textContent = '';
+    box.className = 'adv';
+
+    box.appendChild(rangeNode(T('web.search_age'), 'age', 18, 80));
+
+    // الدولة ثم مدينتها — نفسُ حقلَي البحث السريع، بالدالّة نفسها.
+    var loc = document.createElement('div');
+    renderSearchFields('location', loc);
+    loc.querySelector('select[name="country"]').required = false;
+    box.appendChild(loc);
+
+    ADV_FIELDS.forEach(function (f) {
+      var spec = searchSpecs[f[0]];
+      if (f[0] === 'hijab') {
+        // الحجاب للنساء وحدهنّ — ومن يبحث عن رجالٍ لا يُعرض عليه.
+        if (searchFor !== 'female') return;
+        spec = searchSpecs.hijab;
+      }
+      if (!spec) return;
+      if (f[2] === 'range') {
+        box.appendChild(rangeNode(spec.label, f[1], spec.min || 0, spec.max || 300));
+      } else if (f[2] === 'many') {
+        box.appendChild(chipsNode(spec.label, f[1], spec.options));
+      } else if (f[2] === 'sect') {
+        var sect = selectNode(spec.label, 'sect', []);
+        var select = sect.querySelector('select');
+        select.disabled = true;
+        box.appendChild(sect);
+        box.addEventListener('change', function (e) {
+          if (e.target.name !== 'religion') return;
+          var groups = spec.options_by || {};
+          var opts = groups[e.target.value] || [];
+          select.textContent = '';
+          select.appendChild(new Option('—', ''));
+          opts.forEach(function (o) { select.appendChild(new Option(o.label, o.key)); });
+          select.disabled = !opts.length;
+        });
+      } else {
+        box.appendChild(selectNode(spec.label, f[1], spec.options));
+      }
+    });
+
+    var check = document.createElement('label');
+    check.className = 'check';
+    var tick = document.createElement('input');
+    tick.type = 'checkbox';
+    tick.name = 'verified';
+    var text = document.createElement('span');
+    text.textContent = T('web.search_verified');
+    check.appendChild(tick);
+    check.appendChild(text);
+    box.appendChild(check);
+  }
+
+  function setSearchMode(mode) {
+    searchMode = mode;
+    document.querySelectorAll('#search-modes .mode').forEach(function (b) {
+      b.classList.toggle('on', b.getAttribute('data-mode') === mode);
+    });
+    var advanced = mode === 'advanced';
+    $('search-adv').hidden = !advanced;
+    $('search-type-wrap').hidden = advanced;
+    $('search-fields').hidden = advanced;
+    // ⚠️ حقولُ الوضع المخفيّ الإلزامية تمنع الإرسال بصمت — فتُعطَّل.
+    $('search-fields').querySelectorAll('input, select').forEach(function (i) {
+      i.disabled = advanced;
+    });
+  }
+
+  function advancedParams() {
+    var box = $('search-adv');
+    var out = {};
+    box.querySelectorAll('input[type="number"], select').forEach(function (i) {
+      if (i.value && !i.disabled) out[i.name] = i.value;
+    });
+    box.querySelectorAll('[data-many]').forEach(function (group) {
+      var keys = [];
+      group.querySelectorAll('.chip.on').forEach(function (c) {
+        keys.push(c.getAttribute('data-key'));
+      });
+      if (keys.length) out[group.getAttribute('data-many')] = keys;
+    });
+    if (box.querySelector('input[name="verified"]').checked) out.verified = 'true';
+    return out;
+  }
+
   function openSearch() {
     $('search').hidden = false;
     if (searchSpecs) return;
-    api.me().then(function (mine) {
-      searchPremium = !!(mine && mine.is_premium);
-    }).catch(function () { /* الرسالةُ الافتراضيّة تكفي */ });
     var type = $('search-type');
     type.textContent = '';
     $('search-fields').textContent = T('web.loading');
-    api.profileSchema(LANG).then(function (data) {
+    // ⚠️ **المخطَّط والحساب معاً قبل الرسم**: شاشةُ المميّز غيرُ شاشة
+    // غيره، ورسمُ إحداهما قبل أن يُعرف أيُّهما يُظهر القفل لمن دفع.
+    Promise.all([
+      api.me().catch(function () { return null; }),
+      // الحجاب في المخطَّط للنساء وحدهنّ، والبحث عنهنّ يحتاجه.
+      api.profileSchema(LANG, 'female')
+    ]).then(function (both) {
+      var mine = both[0], data = both[1];
+      searchPremium = !!(mine && mine.is_premium);
+      searchFor = (mine && mine.search_gender) || null;
       searchSpecs = {};
       (data.fields || []).forEach(function (f) { searchSpecs[f.name] = f; });
       SEARCH_TYPES.forEach(function (key) {
         type.appendChild(new Option(searchTypeLabel(key), key));
       });
       renderSearchFields(type.value);
-      renderLocked();
+      if (searchPremium) {
+        $('search-modes').hidden = false;
+        renderAdvanced();
+        setSearchMode('quick');
+      } else {
+        renderLocked();
+      }
     }).catch(function (err) {
       $('search-fields').textContent = errorText(err);
     });
@@ -802,6 +984,7 @@
   function runSearch(e) {
     e.preventDefault();
     var form = $('search-form');
+    if (searchMode === 'advanced') return runAdvanced();
     var params = searchParams(form);
     if (form.type.value === 'age'
         && Number(params.age_min) > Number(params.age_max)) {
@@ -823,7 +1006,40 @@
     });
   }
 
+  function runAdvanced() {
+    var params = advancedParams();
+    var count = Object.keys(params).length;
+    if (!count) { toast(T('web.search_pick_one')); return; }
+    // المدى كاملٌ أو لا شيء — والوسيط يردّ نصفَه 400 على أي حال.
+    var ranges = ['age', 'height', 'weight'];
+    for (var i = 0; i < ranges.length; i++) {
+      var lo = params[ranges[i] + '_min'], hi = params[ranges[i] + '_max'];
+      if (!!lo !== !!hi) { toast(T('web.err_range_both')); return; }
+      if (lo && Number(lo) > Number(hi)) { toast(T('web.err_age_range')); return; }
+    }
+    // المدى معيارٌ واحد لا اثنان — «من» و«إلى» حقلان لسؤالٍ واحد.
+    var criteria = Object.keys(params).filter(function (k) {
+      return !/_max$/.test(k);
+    }).length;
+    var summary = T('web.search_adv_label', { count: criteria });
+    api.search(params).then(function (data) {
+      $('search').hidden = true;
+      deck = (data && data.results) || [];
+      setSearchLabel(summary);
+      renderDeck();
+    }).catch(function (err) {
+      if (err.code === 'unauthorized') return boot();
+      if (err.status === 403) return toast(T('web.premium_only'));
+      toast(errorText(err));
+    });
+  }
+
   function bindSearch() {
+    document.querySelectorAll('#search-modes .mode').forEach(function (b) {
+      b.addEventListener('click', function () {
+        setSearchMode(b.getAttribute('data-mode'));
+      });
+    });
     $('search-btn').setAttribute('aria-label', T('web.search'));
     $('search-btn').addEventListener('click', openSearch);
     $('search-back').addEventListener('click', function () {

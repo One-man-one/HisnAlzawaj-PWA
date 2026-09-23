@@ -285,6 +285,38 @@ body {
    ما دام ظاهراً، وإلا لم يُعرف أنها نتائج بحث لا مقترحات. */
 .view--deck.is-search .stack { top: 64px; }
 
+/* البحث المتقدّم */
+.modes { display: flex; gap: 8px; }
+.mode {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.mode.on { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+.adv { display: flex; flex-direction: column; gap: 14px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.chip {
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: .85rem;
+  cursor: pointer;
+}
+.chip.on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+.check { display: flex; align-items: center; gap: 8px; }
+
 /* معاييرُ المميّزين المقفلة — تُضغط لتُعرِّف بنفسها، ولا تعمل. */
 .locked { border-top: 1px solid var(--border); padding-top: 14px; }
 .locked__title { display: block; margin-bottom: 10px; font-size: .9rem; }

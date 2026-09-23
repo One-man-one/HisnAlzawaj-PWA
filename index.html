@@ -259,7 +259,15 @@
       <span class="chat__name" data-i18n="web.search"></span>
     </header>
     <form class="chat__log search" id="search-form" autocomplete="off">
-      <label class="fld">
+      <!-- للمميّز وحده: سريعٌ (معيارٌ واحد) أو متقدّم (كلُّ المعايير). -->
+      <div class="modes" id="search-modes" hidden>
+        <button class="mode on" type="button" data-mode="quick"
+                data-i18n="web.mode_quick"></button>
+        <button class="mode" type="button" data-mode="advanced"
+                data-i18n="web.mode_advanced"></button>
+      </div>
+      <div id="search-adv" hidden></div>
+      <label class="fld" id="search-type-wrap">
         <span data-i18n="web.search_by"></span>
         <select id="search-type" name="type"></select>
       </label>
