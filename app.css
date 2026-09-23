@@ -800,3 +800,7 @@ body.is-app {
 }
 
 .tgfb__copy:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* موافقةُ النشر — نصُّ البوت بأسطره كما كُتب. */
+.consent__text { white-space: pre-wrap; line-height: 1.9; margin: 0 0 18px; }
+#consent .btn { margin-top: 10px; }

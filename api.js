@@ -132,6 +132,12 @@
 
     me: function () { return request('/api/me'); },
     // إكمالُ ملفٍّ أنشأه مزوّد — مرّةً واحدة، وللناقص وحده (409 لغيره).
+    // موافقةُ النشر العام في آخر التسجيل — `available: false` = لا شاشة.
+    publishConsent: function () { return request('/api/me/publish-consent'); },
+    publishChoice: function (publish) {
+      return request('/api/me/publish-consent',
+                     { method: 'POST', body: { publish: !!publish } });
+    },
     completeProfile: function (answers) {
       return request('/api/me/profile',
                      { method: 'POST', body: { answers: answers } });

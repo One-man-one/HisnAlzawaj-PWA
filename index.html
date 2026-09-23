@@ -257,6 +257,25 @@
      في تطبيق زواجٍ معلومةٌ خاطئة لا نقصُ بيانات. ولا يظهر صاحبه لأحد
      حتى يملأها.
      ============================================================ -->
+<!-- ============================================================
+     موافقةُ النشر العام — آخرُ خطوةٍ في التسجيل، كما في البوت
+     ============================================================
+     ⚠️ **النصّ والزرّان من الوسيط** (`/api/me/publish-consent`) — رسالةُ
+     البوت نفسها بلغة صاحب الحساب، لا نسخةٌ هنا تتباعد عنها. وكانت مهمّةُ
+     الالتحاق تُدخل مستخدمَ الويب طابورَ النشر بلا أن يسأله أحد. -->
+<main class="shell" id="consent" hidden>
+  <header class="brand">
+    <img src="brand/logo_mark.png" alt="" width="61" height="90" class="brand__mark">
+  </header>
+  <section class="card">
+    <p class="consent__text" id="consent-text"></p>
+    <button class="btn btn--primary" id="consent-yes" type="button"></button>
+    <button class="btn btn--ghost" id="consent-no" type="button"></button>
+    <button class="btn btn--primary" id="consent-go" type="button"
+            data-i18n="web.tab_browse" hidden></button>
+  </section>
+</main>
+
 <main class="shell" id="complete" hidden>
   <header class="brand">
     <img src="brand/logo_mark.png" alt="" width="61" height="90" class="brand__mark">
