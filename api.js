@@ -181,6 +181,10 @@
     // الإشعارات — صندوق البوت نفسه. ⚠️ والفتحُ لا يعلّم شيئاً مقروءاً:
     // القراءة `notificationsRead` وحدها، بعد أن يراها صاحبها.
     notifications: function () { return request('/api/me/notifications'); },
+    // بطاقةُ من أعجب بك أو تطابقتَ معه — 404 لمن لا علاقة لك به.
+    person: function (publicId) {
+      return request('/api/me/person/' + encodeURIComponent(publicId));
+    },
     notificationsCount: function () {
       return request('/api/me/notifications/count');
     },
