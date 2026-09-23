@@ -242,6 +242,7 @@ body {
 
 /* زرُّ المراسلة في صفّ التطابق */
 .row__go {
+  position: relative;
   flex: none;
   background: none;
   border: 0;
@@ -249,6 +250,9 @@ body {
   cursor: pointer;
   padding: 6px 10px;
 }
+
+/* شارةُ غير المقروء فوق 💬 — شكلُ `.bell__n` نفسه، مقرَّبةً من الأيقونة. */
+.row__n { top: -2px; inset-inline-end: 0; }
 
 /* منتقي اللغة — على البوّابة وفي «ملفّي». */
 .langpick { display: flex; justify-content: center; margin: 14px 0 4px; }
