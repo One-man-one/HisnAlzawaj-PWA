@@ -221,6 +221,8 @@
     <header class="chat__bar">
       <button class="chat__back" id="chat-back" type="button" aria-label="رجوع">‹</button>
       <span class="chat__name" id="chat-name"></span>
+      <!-- حظرٌ وإبلاغ عن الشريك — الحمايةُ في متناول اليد وسط المحادثة. -->
+      <button class="chat__back chat__more" id="chat-more" type="button" aria-label="…">⋯</button>
     </header>
 
     <div class="chat__log" id="chat-log"></div>
@@ -293,6 +295,17 @@
       <span class="chat__name" data-i18n="web.pay_title"></span>
     </header>
     <div class="chat__log search" id="pay-body"></div>
+  </section>
+
+  <!-- ============================================================
+       الحظرُ والإبلاغ — منطقُ البوت نفسه (`services/moderation_core.py`)
+       ============================================================ -->
+  <section class="chat" id="mod" hidden>
+    <header class="chat__bar">
+      <button class="chat__back" id="mod-back" type="button" aria-label="رجوع">‹</button>
+      <span class="chat__name" id="mod-name"></span>
+    </header>
+    <div class="chat__log search" id="mod-body"></div>
   </section>
 
   <nav class="tabs">

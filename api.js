@@ -215,6 +215,14 @@
     },
     // الدفعُ اليدويّ: الطرقُ والأسعار، ثم رقمُ العملية.
     payOptions: function () { return request('/api/me/pay'); },
+    // الحظرُ والإبلاغ — منطقُ البوت نفسه في الوسيط.
+    reportReasons: function () { return request('/api/me/report-reasons'); },
+    report: function (body) {
+      return request('/api/me/report', { method: 'POST', body: body });
+    },
+    block: function (body) {
+      return request('/api/me/block', { method: 'POST', body: body });
+    },
     payManual: function (body) {
       return request('/api/me/pay/manual', { method: 'POST', body: body });
     },
