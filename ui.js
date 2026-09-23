@@ -140,6 +140,48 @@
     renderSchema();
   }
 
+  // ==========================================================
+  // موافقةُ النشر العام — آخرُ خطوةٍ في التسجيل، كما في البوت
+  // ==========================================================
+  // ⚠️ **وأيُّ عطلٍ هنا يُكمل إلى التطبيق لا يحبس صاحبه**: الملفُّ حُفظ
+  // قبل هذه الشاشة، وشاشةٌ عالقة بعد عشرين سؤالاً أسوأ من شاشةٍ غائبة.
+  // ومن لم يختر يبقى على افتراض البوت نفسه (النشر، بعد مراجعة المشرف).
+  function showConsent() {
+    api.publishConsent().then(function (data) {
+      if (!data || !data.available) { boot(); return; }
+      $('complete').hidden = true;
+      $('consent-text').textContent = data.text;
+      $('consent-yes').textContent = data.yes;
+      $('consent-no').textContent = data.no;
+      $('consent-yes').hidden = $('consent-no').hidden = false;
+      $('consent-go').hidden = true;
+      $('consent').hidden = false;
+      window.scrollTo(0, 0);
+    }).catch(function () { boot(); });
+  }
+
+  function chooseConsent(publish) {
+    $('consent-yes').disabled = $('consent-no').disabled = true;
+    api.publishChoice(publish).then(function (out) {
+      $('consent-text').textContent = (out && out.message) || '';
+      $('consent-yes').hidden = $('consent-no').hidden = true;
+      $('consent-go').hidden = false;
+    }).catch(function (err) {
+      toast(errorText(err));
+    }).then(function () {
+      $('consent-yes').disabled = $('consent-no').disabled = false;
+    });
+  }
+
+  function bindConsent() {
+    $('consent-yes').addEventListener('click', function () { chooseConsent(true); });
+    $('consent-no').addEventListener('click', function () { chooseConsent(false); });
+    $('consent-go').addEventListener('click', function () {
+      $('consent').hidden = true;
+      boot();
+    });
+  }
+
   function renderSchema(gender) {
     var host = $('complete-fields');
     host.textContent = '';
@@ -1654,7 +1696,7 @@
       button.disabled = true;
       api.completeProfile(collect()).then(function () {
         button.disabled = false;
-        boot();
+        showConsent();
       }).catch(function (err) {
         button.disabled = false;
         // ⚠️ واسمُ الحقل من الخادم يُبرز موضعَ الخطأ: رسالةٌ عامّة فوق
@@ -1678,6 +1720,7 @@
     bindComplete();
     bindChat();
     bindNotes();
+    bindConsent();
 
     document.querySelectorAll('.tab').forEach(function (button) {
       button.addEventListener('click', function () {
