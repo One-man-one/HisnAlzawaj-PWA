@@ -172,6 +172,12 @@
     <b class="top__name">حصن الزواج</b>
     <span class="top__end">
       <span class="top__count" id="counter"></span>
+      <!-- البحث: ظاهرٌ في «تصفّح» وحده — نتائجه تُعرض في رزمته. -->
+      <button class="bell" id="search-btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      </button>
       <!-- الجرس: عددُ غير المقروء، ويفتح صندوق الإشعارات. -->
       <button class="bell" id="bell" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
@@ -185,6 +191,12 @@
 
   <!-- التصفّح: رزمةُ بطاقاتٍ واحدةٌ فوق أخرى -->
   <section class="view view--deck" id="view-browse">
+    <!-- شريطُ «أنت ترى نتائج بحث» — بدونه تبدو الرزمةُ مقترحاتٍ عادية. -->
+    <div class="searchon" id="search-on" hidden>
+      <span id="search-label"></span>
+      <button class="linkbtn" id="search-clear" type="button"
+              data-i18n="web.search_clear"></button>
+    </div>
     <div class="stack" id="stack"></div>
   </section>
 
@@ -233,6 +245,33 @@
               data-i18n="web.notif_read_all" hidden></button>
     </header>
     <div class="chat__log" id="notes-list"></div>
+  </section>
+
+  <!-- ============================================================
+       البحث — غطاءٌ كالإشعارات، ونتائجُه في رزمة «تصفّح»
+       ============================================================
+       ⚠️ **معيارٌ واحد في كل بحث، كالبحث المجانيّ في البوت.** الجمعُ
+       بين المعايير هو البحث المتقدّم للمميّزين، والخادم هو من يفرضه
+       (`/api/search`) — لا هذه الصفحة. -->
+  <section class="chat" id="search" hidden>
+    <header class="chat__bar">
+      <button class="chat__back" id="search-back" type="button" aria-label="رجوع">‹</button>
+      <span class="chat__name" data-i18n="web.search"></span>
+    </header>
+    <form class="chat__log search" id="search-form" autocomplete="off">
+      <label class="fld">
+        <span data-i18n="web.search_by"></span>
+        <select id="search-type" name="type"></select>
+      </label>
+      <div id="search-fields"></div>
+      <button class="btn btn--primary" type="submit" data-i18n="web.search_go"></button>
+      <!-- معاييرُ البحث المتقدّم: ظاهرةٌ مقفلة بجوهرة — تُعرِّف بما
+           يفتحه الاشتراك، ولا تعمل. -->
+      <div class="locked" id="search-locked" hidden>
+        <b class="locked__title" data-i18n="web.search_advanced"></b>
+        <div class="locked__chips" id="search-locked-chips"></div>
+      </div>
+    </form>
   </section>
 
   <nav class="tabs">
