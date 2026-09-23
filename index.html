@@ -170,7 +170,17 @@
 
   <header class="top">
     <b class="top__name">حصن الزواج</b>
-    <span class="top__count" id="counter"></span>
+    <span class="top__end">
+      <span class="top__count" id="counter"></span>
+      <!-- الجرس: عددُ غير المقروء، ويفتح صندوق الإشعارات. -->
+      <button class="bell" id="bell" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        <span class="bell__n" id="bell-n" hidden></span>
+      </button>
+    </span>
   </header>
 
   <!-- التصفّح: رزمةُ بطاقاتٍ واحدةٌ فوق أخرى -->
@@ -207,6 +217,22 @@
       <input id="chat-text" name="text" autocomplete="off" maxlength="4000">
       <button class="chat__send" type="submit" aria-label="إرسال">➤</button>
     </form>
+  </section>
+
+  <!-- ============================================================
+       صندوقُ الإشعارات — غطاءٌ كالمحادثة، لا تبويبٌ رابع
+       ============================================================
+       ⚠️ **كانت الإشعارات تُحفظ ولا تُعرض** (الشرح في
+       `services/web_notifications.py` بمستودع البوت): إعجاباتٌ
+       وتطابقاتٌ تصل ولا تعرف بها صاحبتُها. -->
+  <section class="chat" id="notes" hidden>
+    <header class="chat__bar">
+      <button class="chat__back" id="notes-back" type="button" aria-label="رجوع">‹</button>
+      <span class="chat__name" data-i18n="web.notifications"></span>
+      <button class="linkbtn notes__all" id="notes-all" type="button"
+              data-i18n="web.notif_read_all" hidden></button>
+    </header>
+    <div class="chat__log" id="notes-list"></div>
   </section>
 
   <nav class="tabs">

@@ -178,6 +178,15 @@
     // ⚠️ **الاثنان ليسا واحداً، والخلط بينهما يكسر المعنى:**
     // `matches` تقترح من **قد** يناسبك، و`mutual` تسرد من تبادلتَ معه
     // الإعجاب **فعلاً**. الشرح في `services/mutual.py` بمستودع البوت.
+    // الإشعارات — صندوق البوت نفسه. ⚠️ والفتحُ لا يعلّم شيئاً مقروءاً:
+    // القراءة `notificationsRead` وحدها، بعد أن يراها صاحبها.
+    notifications: function () { return request('/api/me/notifications'); },
+    notificationsCount: function () {
+      return request('/api/me/notifications/count');
+    },
+    notificationsRead: function (body) {
+      return request('/api/me/notifications/read', { method: 'POST', body: body });
+    },
     matches: function (limit) {
       return request('/api/me/matches?limit=' + (limit || 10));
     },

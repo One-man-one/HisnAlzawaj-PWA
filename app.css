@@ -375,6 +375,71 @@ body.is-app {
 }
 .top__name  { color: var(--accent); font-size: 1.05rem; }
 .top__count { color: var(--muted); font-size: .8rem; }
+.top__end { display: flex; align-items: center; gap: 12px; }
+
+/* الجرس وشارته */
+.bell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.bell svg { width: 20px; height: 20px; }
+.bell:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.bell__n {
+  position: absolute;
+  top: -4px;
+  inset-inline-end: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--brand);
+  color: var(--brand-ink);
+  font-size: .7rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* صفوف الصندوق */
+.notes__all { margin-inline-start: auto; font-size: .85rem; }
+.note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 14px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.note--new { border-color: var(--brand); }
+.note--new .note__text::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand);
+  margin-inline-end: 8px;
+  vertical-align: middle;
+}
+.note__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.note__text { font-weight: 600; }
+.note__who  { color: var(--accent); font-size: .85rem; }
+.note__at   { color: var(--muted); font-size: .75rem; white-space: nowrap; }
 
 .view {
   position: fixed;
