@@ -308,7 +308,58 @@
     input.name = spec.name;
     if (spec.required) input.required = true;
     wrap.appendChild(input);
+    if (spec.kind === 'multi' || CHIP_FIELDS.indexOf(spec.name) !== -1) {
+      wrap.appendChild(chipsFor(input));
+    }
     return wrap;
+  }
+
+  // ✅ **الاختيارُ أزرارٌ تُضغط لا قائمةٌ منسدلة** (بطلب صاحب المشروع، ٢٣
+  // سبتمبر ٢٠٢٦) — الشخصيةُ واللغاتُ (متعدّدة) والمهنةُ (واحدة)، بشكل
+  // أزرار البحث المتقدّم. `<select multiple>` على الهاتف قائمةٌ لا يُرى
+  // فيها ما اختير بعد إغلاقها، وعشرون مهنةً في منسدلةٍ تُقرأ سطراً سطراً.
+  //
+  // ⚠️ **والقائمةُ باقيةٌ تحت الأزرار ومصدرُ الحقيقة**: `collect` و`restore`
+  // وفحصُ `required` في المتصفّح كلُّها تقرؤها كما كانت، والأزرار مرآةٌ
+  // لها لا نسخةٌ ثانية من الحالة. ومرآتان تتباعدان إن كتبت إحداهما
+  // وحدها — فالأزرار تكتب في القائمة، وترسم نفسها من حدثها `change`.
+  var CHIP_FIELDS = ['job_title'];
+
+  function chipsFor(select) {
+    // ⚠️ مخفيّةٌ بصرياً لا `display:none`: المتصفّح لا يعرض تنبيهَ
+    // «هذا الحقل مطلوب» لحقلٍ لا يُرسم، فيرفض الإرسال بلا أي رسالة.
+    select.classList.add('sr-select');
+    select.tabIndex = -1;
+    var box = document.createElement('div');
+    box.className = 'chips';
+
+    function paint() {
+      box.querySelectorAll('.chip').forEach(function (chip) {
+        var opt = select.querySelector('option[value="' +
+                                       chip.getAttribute('data-key') + '"]');
+        var on = !!(opt && opt.selected && opt.value);
+        chip.classList.toggle('on', on);
+        chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+
+    Array.prototype.forEach.call(select.options, function (o) {
+      if (!o.value) return;
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = o.text;
+      chip.setAttribute('data-key', o.value);
+      chip.addEventListener('click', function () {
+        if (select.multiple) o.selected = !o.selected;
+        else select.value = (select.value === o.value) ? '' : o.value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      box.appendChild(chip);
+    });
+    select.addEventListener('change', paint);
+    paint();
+    return box;
   }
 
   // يملأ كلَّ حقلٍ خياراتُه مجموعةٌ بمفتاحِ حقلٍ آخر (المذهب بالدين).
@@ -383,6 +434,8 @@
         Array.prototype.forEach.call(el.options, function (o) {
           o.selected = wanted.indexOf(o.value) !== -1;
         });
+        // الإسنادُ لا يُطلق `change` — والأزرار ترسم نفسها منه.
+        el.dispatchEvent(new Event('change', { bubbles: true }));
         return;
       }
 
@@ -392,6 +445,9 @@
       if (name === 'city' || name === 'sect') return;
 
       el.value = kept[name];
+      if (CHIP_FIELDS.indexOf(name) !== -1) {
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
       if (name === 'country') loadCities(el.value, kept.city);
       if (name === 'religion') fillGrouped('religion', kept.sect);
     });
