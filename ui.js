@@ -1487,9 +1487,41 @@
   // ⚠️ وما لا يُعرف دوره يبقى سطراً كما كان — لا يسقط شيءٌ بصمت.
   var CARD_NAME = '👤', CARD_PLACE = '📍', CARD_BIO = '📝';
 
-  function cardBody(node, text) {
+  // ✅ **أقسامُ شاشة التفاصيل** (كصفحة الاختبار): الصفّ يُنسب إلى قسمه
+  // بإيموجيه. ⚠️ **و`U+FE0F` يُقصّ قبل المقارنة**: «⚖️» و«⚖» حرفان
+  // مختلفان في النصّ ورمزٌ واحد على الشاشة، فبدون القصّ يسقط الصفّ من
+  // قسمه بصمت. وما لا قسمَ له يبقى في رأس الورقة بلا عنوان.
+  var CARD_SECTIONS = [
+    ['web.sec_specs', ['📏', '⚖', '🏋', '👁', '💇', '🏽', '🧕', '🚬', '🚭']],
+    ['web.sec_faith', ['🕌', '💍', '👶']],
+    ['web.sec_work', ['🎓', '💼', '💰']]
+  ];
+
+  function sectionOf(head) {
+    var mark = head.replace(/\uFE0F/g, '');
+    for (var i = 0; i < CARD_SECTIONS.length; i++) {
+      var marks = CARD_SECTIONS[i][1];
+      for (var j = 0; j < marks.length; j++) {
+        if (mark.indexOf(marks[j]) === 0) return i;
+      }
+    }
+    return -1;
+  }
+
+  // ⚠️ **الرمز في رأس البطاقة، فلا يُكرَّر بجوار الاسم**: سطرُ البوت
+  // «محمد (24 سنة) · HS-…» يحمله لأن البوت لا رأسَ له.
+  function withoutCode(name, code) {
+    if (!code) return name;
+    var tail = ' · ' + code;
+    var at = name.lastIndexOf(tail);
+    return at > 0 && at + tail.length === name.length ? name.slice(0, at) : name;
+  }
+
+  function cardBody(node, text, opts) {
+    opts = opts || {};
     var rows = document.createElement('div');
     rows.className = 'pcard__lines';
+    var sections = CARD_SECTIONS.map(function () { return null; });
     var name = null, place = null, bio = null;
 
     String(text || '').split('\n').forEach(function (line) {
@@ -1517,13 +1549,23 @@
         row.appendChild(l);
         row.appendChild(v);
       }
-      rows.appendChild(row);
+      var sec = opts.sections && head ? sectionOf(head) : -1;
+      if (sec < 0) { rows.appendChild(row); return; }
+      if (!sections[sec]) {
+        sections[sec] = document.createElement('div');
+        sections[sec].className = 'pcard__lines';
+        var h = document.createElement('div');
+        h.className = 'pcard__sec';
+        h.textContent = T(CARD_SECTIONS[sec][0]);
+        sections[sec].appendChild(h);
+      }
+      sections[sec].appendChild(row);
     });
 
     if (name) {
       var n = document.createElement('div');
       n.className = 'pcard__name';
-      n.textContent = name;
+      n.textContent = withoutCode(name, opts.code);
       node.appendChild(n);
     }
     if (place) {
@@ -1533,6 +1575,7 @@
       node.appendChild(pl);
     }
     node.appendChild(rows);
+    sections.forEach(function (s) { if (s) node.appendChild(s); });
     if (bio) {
       var b = document.createElement('div');
       b.className = 'pcard__bio';
@@ -1576,7 +1619,7 @@
 
     if (card.has_photo) attachPhoto(ava, card, node);
 
-    cardBody(node, card.card);
+    cardBody(node, card.card, { code: card.public_id });
 
     // ✅ **ختما القرار** — يظهران أثناء السحب وحده (`bindSwipe`)، فيعرف
     // الساحب قبل أن يُفلت ماذا سيحدث، ويتراجع بإعادة البطاقة للوسط.
@@ -1669,7 +1712,7 @@
       dragging = false;
       node.style.transition = 'transform .3s';
 
-      if (!moved) { openSheet(deck[0]); node.style.transform = ''; return; }
+      if (!moved) { openSheet(deck[0], true); node.style.transform = ''; return; }
 
       if (dx > threshold()) act('like');
       else if (dx < -threshold()) act('skip');
@@ -2221,7 +2264,7 @@
     }).catch(function () { /* تتدهور بصمت: اللغة تبقى كما هي */ });
   }
 
-  function openSheet(card) {
+  function openSheet(card, fromDeck) {
     if (!card) return;
     var body = $('sheet-body');
     body.textContent = '';
@@ -2231,23 +2274,42 @@
     title.textContent = card.public_id || '';
     body.appendChild(title);
 
-    lines(body, card.card);
+    // ✅ **بأقسامٍ وصفوف لا أسطراً** — البطاقة نفسها، بعناوين «المواصفات»
+    // و«الدين والحالة» و«التعليم والعمل» (كصفحة الاختبار).
+    cardBody(body, card.card, { code: card.public_id, sections: true });
+
+    // ✅ **وإعجابٌ من التفاصيل لبطاقة الرزمة**: من قرأ الملفّ كاملاً
+    // وقرّر لا يُعاد إلى الرزمة ليبحث عن الزرّ. وهو `act` نفسه — يسحب
+    // البطاقة ويحفظ القفل ضدّ الضغطة المكرّرة.
+    if (fromDeck && !card.can_like && !card.mutual) {
+      var like = document.createElement('button');
+      like.type = 'button';
+      like.className = 'btn btn--primary';
+      like.textContent = '❤ ' + T('web.like');
+      like.addEventListener('click', function () {
+        $('sheet').hidden = true;
+        act('like');
+      });
+      body.appendChild(like);
+    }
 
     // ✅ **والبطاقةُ تُردّ عليها لا تُقرأ وحدها**: من أعجب بك ولم تردّ بعد
     // يأخذ زرَّ «إعجاب» — ومنه يقع التطابق وتُفتح الدردشة. ومن تطابقتَ
     // معه يأخذ «مراسلة». وبطاقاتُ التصفّح لا تحمل الحقلين، فلا زرَّ لها.
+    // ⚠️ `reply` لا `act`: متغيّرٌ بهذا الاسم هنا يحجب دالّة `act` في
+    // الورقة كلِّها (رفعُ `var`) — فيسقط زرُّ الإعجاب أعلاه بـTypeError.
     if (card.can_like || card.mutual) {
-      var act = document.createElement('button');
-      act.type = 'button';
-      act.className = 'btn btn--primary';
-      act.textContent = T(card.mutual ? 'web.chat' : 'web.like');
-      act.addEventListener('click', function () {
+      var reply = document.createElement('button');
+      reply.type = 'button';
+      reply.className = 'btn btn--primary';
+      reply.textContent = T(card.mutual ? 'web.chat' : 'web.like');
+      reply.addEventListener('click', function () {
         if (card.mutual) {
           $('sheet').hidden = true;
           openChat(refId(card.public_id), card.public_id);
           return;
         }
-        act.disabled = true;
+        reply.disabled = true;
         api.interact(refId(card.public_id), 'like').then(function (out) {
           $('sheet').hidden = true;
           if (out && out.result === 'mutual') {
@@ -2258,11 +2320,11 @@
           }
           refreshBell();
         }).catch(function (err) {
-          act.disabled = false;
+          reply.disabled = false;
           toast(errorText(err));
         });
       });
-      body.appendChild(act);
+      body.appendChild(reply);
     }
 
     $('sheet').hidden = false;

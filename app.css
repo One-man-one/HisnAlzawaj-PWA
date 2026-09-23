@@ -619,6 +619,13 @@ body.is-app {
   font-size: .88rem;
 }
 .pcard__row:last-child { border-bottom: 0; }
+.pcard__sec {
+  margin-top: 16px;
+  padding-bottom: 6px;
+  color: var(--accent);
+  font-size: .85rem;
+  font-weight: 700;
+}
 .pcard__label { color: var(--muted); white-space: nowrap; }
 .pcard__value { font-weight: 600; text-align: end; overflow-wrap: anywhere; }
 .pcard__bio {
@@ -658,7 +665,11 @@ body.is-app {
 .pcard.is-no  { box-shadow: 0 0 32px color-mix(in srgb, var(--warn) 70%, transparent); }
 .pcard__hint { text-align: center; color: var(--muted); font-size: .75rem; margin-top: 14px; }
 
+/* ⚠️ **الزرّان باتّجاه السحب لا باتّجاه القراءة**: السحبُ يميناً إعجاب
+   في كل لغة، فزرُّه يمينٌ أيضاً. و`rtl` كان يقلبهما — ♥ يساراً و✕
+   يميناً — فيضغط من اعتاد السحب الزرَّ المعاكس لما قصد. */
 .swipe {
+  direction: ltr;
   position: fixed;
   bottom: calc(64px + env(safe-area-inset-bottom));
   left: 0; right: 0;
