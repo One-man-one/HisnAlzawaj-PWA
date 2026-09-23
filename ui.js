@@ -1118,6 +1118,154 @@
     $('search-clear').addEventListener('click', loadDeck);
   }
 
+  // ==========================================================
+  // الاشتراك المميّز — الدفعُ اليدويّ
+  // ==========================================================
+  //
+  // ⚠️ **الطرقُ من الوسيط لا من هذه الصفحة** (`/api/me/pay`): الفارغُ
+  // في إعداد الخادم غائبٌ هنا، وبلا طريقةٍ واحدة لا يظهر الزرّ أصلاً.
+  // ⚠️ **والتفعيلُ بيد المشرف** بعد مطابقة رقم العملية — فالصفحة تقول
+  // «وصل إيصالك» لا «فُعّلت».
+  var payState = { plan: null, method: null, data: null };
+
+  function chipRow(options, current, onPick) {
+    var box = document.createElement('div');
+    box.className = 'chips';
+    options.forEach(function (o) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip' + (o.key === current ? ' on' : '');
+      chip.textContent = o.label;
+      chip.addEventListener('click', function () { onPick(o.key); });
+      box.appendChild(chip);
+    });
+    return box;
+  }
+
+  function payField(label, node) {
+    var wrap = document.createElement('div');
+    wrap.className = 'fld';
+    var title = document.createElement('span');
+    title.textContent = label;
+    wrap.appendChild(title);
+    wrap.appendChild(node);
+    return wrap;
+  }
+
+  function renderPay() {
+    var d = payState.data;
+    var body = $('pay-body');
+    body.textContent = '';
+
+    var status = document.createElement('p');
+    status.className = 'pay-status';
+    status.textContent = d.is_premium && d.expiry
+      ? T('web.pay_active', { date: d.expiry }) : T('web.pay_why');
+    body.appendChild(status);
+
+    body.appendChild(payField(T('web.pay_plan'), chipRow(
+      d.plans.map(function (p) { return { key: p.key, label: p.title }; }),
+      payState.plan, function (k) { payState.plan = k; renderPay(); })));
+
+    if (!payState.plan) return;
+    body.appendChild(payField(T('web.pay_method'), chipRow(
+      d.methods.map(function (m) {
+        return { key: m.key, label: m.name + ' — ' + m.prices[payState.plan] };
+      }),
+      payState.method, function (k) { payState.method = k; renderPay(); })));
+
+    var method = d.methods.filter(function (m) { return m.key === payState.method; })[0];
+    if (!method) return;
+
+    var box = document.createElement('div');
+    box.className = 'paybox';
+    var line = document.createElement('div');
+    line.textContent = T('web.pay_send', { amount: method.prices[payState.plan] });
+    box.appendChild(line);
+    // ⚠️ `textContent` لا `innerHTML`: القيمة من إعداد الخادم، ومع ذلك
+    // لا يُلصق نصٌّ خامٌ في الصفحة — القاعدة في رأس هذا الملفّ.
+    var code = document.createElement('code');
+    code.textContent = method.details;
+    box.appendChild(code);
+    var copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'btn btn--ghost';
+    copy.textContent = T('web.copy');
+    copy.addEventListener('click', function () {
+      try {
+        navigator.clipboard.writeText(method.details).then(function () {
+          toast(T('web.copied'));
+        });
+      } catch (e) { /* النسخُ راحةٌ لا شرط — القيمة ظاهرةٌ للنسخ باليد */ }
+    });
+    box.appendChild(copy);
+    if (method.key === 'paypal' && /^https:\/\//.test(method.details)) {
+      var open = document.createElement('a');
+      open.className = 'btn btn--primary';
+      open.href = method.details;
+      open.target = '_blank';
+      open.rel = 'noopener';
+      open.textContent = T('web.pay_open_paypal');
+      box.appendChild(open);
+    }
+    body.appendChild(box);
+
+    var ref = document.createElement('input');
+    ref.name = 'ref';
+    ref.maxLength = 120;
+    ref.autocomplete = 'off';
+    ref.placeholder = T('web.pay_ref_hint');
+    body.appendChild(payField(T('web.pay_ref'), ref));
+
+    var send = document.createElement('button');
+    send.type = 'button';
+    send.className = 'btn btn--primary';
+    send.textContent = T('web.pay_submit');
+    send.addEventListener('click', function () {
+      var value = ref.value.trim();
+      if (value.length < 3) { toast(T('web.pay_err_ref')); return; }
+      send.disabled = true;
+      api.payManual({ method: payState.method, plan: payState.plan, ref: value })
+        .then(function () {
+          body.textContent = '';
+          var done = document.createElement('p');
+          done.className = 'empty';
+          done.textContent = T('web.pay_done');
+          body.appendChild(done);
+        }).catch(function (err) {
+          send.disabled = false;
+          if (err.code === 'unauthorized') return boot();
+          if (err.status === 429) return toast(T('web.pay_too_many'));
+          if (err.status === 400) return toast(T('web.pay_err_ref'));
+          toast(errorText(err));
+        });
+    });
+    body.appendChild(send);
+  }
+
+  function openPay() {
+    $('pay').hidden = false;
+    $('pay-body').textContent = T('web.loading');
+    api.payOptions().then(function (data) {
+      payState = { plan: null, method: null, data: data };
+      renderPay();
+    }).catch(function (err) { $('pay-body').textContent = errorText(err); });
+  }
+
+  // زرُّ «ملفّي» — يُضاف حين توجد طريقةٌ مضبوطة وحدها.
+  function payButton(slot) {
+    api.payOptions().then(function (data) {
+      if (!data || !data.methods || !data.methods.length) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn--primary';
+      btn.textContent = data.is_premium ? T('web.premium_btn_active')
+                                        : T('web.premium_btn');
+      btn.addEventListener('click', openPay);
+      slot.appendChild(btn);
+    }).catch(function () { /* بلا طرق لا زرّ — تدهورٌ صامت */ });
+  }
+
   function bindNotes() {
     $('bell').addEventListener('click', openNotes);
     $('notes-back').addEventListener('click', function () {
@@ -1490,7 +1638,19 @@
 
     return api.matches(10).then(function (data) {
       deck = (data && data.results) || [];
-      renderDeck();
+      // ✅ **المقترحون أوّلاً، ثم عشوائيٌّ يُكمل الرزمة بلا زرّ** (بطلب
+      // صاحب المشروع): المقترحون قلّةٌ بتفضيلاتٍ صارمة، ورزمةٌ تنفد عند
+      // ثلاث بطاقات تُوقف المستخدم أمام «انتهت البطاقات». والبوت يعطي
+      // عندها زرّ «🎲 ملفات عشوائية»؛ هنا تأتي من نفسها بعد المقترحين.
+      // ⚠️ **وبلا تكرار**: العشوائيّ قد يطابق مقترحاً في الرزمة نفسها.
+      if (deck.length >= 10) return renderDeck();
+      return api.random(10 - deck.length).then(function (more) {
+        var have = {};
+        deck.forEach(function (c) { have[c.public_id] = true; });
+        ((more && more.results) || []).forEach(function (c) {
+          if (!have[c.public_id]) deck.push(c);
+        });
+      }).catch(function () { /* العشوائيّ إكمالٌ لا شرط */ }).then(renderDeck);
     }).catch(function (err) {
       if (err.code === 'unauthorized') return boot();
       stack.textContent = '';
@@ -2198,6 +2358,12 @@
       editBtn.textContent = T('web.edit_profile');
       editBtn.addEventListener('click', showEdit);
       view.appendChild(editBtn);
+      // 💎 الاشتراك — تحت «تعديل بياناتي» حين توجد طريقة دفعٍ مضبوطة.
+      // ⚠️ **موضعٌ يُحجز الآن ويُملأ بعد الردّ**: الزرّ يصل بعد أن تُرسم
+      // بقيةُ الأزرار، فإلحاقُه يومها يرميه أسفل الصفحة تحت «حذف حسابي».
+      var paySlot = document.createElement('div');
+      view.appendChild(paySlot);
+      payButton(paySlot);
 
       var bot = document.createElement('a');
       bot.className = 'btn btn--ghost';
@@ -2522,6 +2688,7 @@
     bindComplete();
     bindChat();
     bindNotes();
+    $('pay-back').addEventListener('click', function () { $('pay').hidden = true; });
     bindSearch();
     bindConsent();
 

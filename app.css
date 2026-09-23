@@ -288,6 +288,27 @@ body {
    ما دام ظاهراً، وإلا لم يُعرف أنها نتائج بحث لا مقترحات. */
 .view--deck.is-search .stack { top: 64px; }
 
+/* الدفع */
+.paybox {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  line-height: 1.8;
+}
+.paybox code {
+  display: block;
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--bg);
+  direction: ltr;
+  text-align: center;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+.pay-status { color: var(--muted); font-size: .9rem; }
+
 /* البحث المتقدّم */
 .modes { display: flex; gap: 8px; }
 .mode {
