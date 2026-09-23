@@ -595,6 +595,236 @@
     api.notifications().then(renderNotes).catch(function () {});
   }
 
+  // ==========================================================
+  // البحث — البحث المجانيّ في البوت، معيارٌ واحد في كل مرّة
+  // ==========================================================
+  //
+  // ⚠️ **والقوائم من الوسيط لا من هذه الصفحة** (`/api/profile/schema`):
+  // جنسياتٌ ودولٌ وأديان بستّ لغات، ونسخةٌ ثانية منها هنا تعني خياراً
+  // يُضاف في البوت ولا يظهر في البحث.
+  //
+  // ⚠️ **والجنس لا يُسأل عنه**: البحث دائماً عن الجنس الآخر، ويقرّره
+  // الوسيط من صاحب التوكن.
+  var SEARCH_TYPES = ['age', 'location', 'nationality', 'religion',
+                      'education', 'marital', 'verified'];
+  var SEARCH_FIELD = { nationality: 'nationality', religion: 'religion',
+                       education: 'education_level', marital: 'marital_status' };
+  var searchSpecs = null;
+  var searchLabel = '';
+  var searchPremium = false;
+
+  // ✅ **معاييرُ البحث المتقدّم في البوت، ظاهرةً مقفلة** (بطلب صاحب
+  // المشروع): تُعرِّف بما يفتحه الاشتراك بدل أن تغيب فلا يُعرف وجودها.
+  // والعناوين من المخطَّط نفسه كبقية الحقول.
+  // ⚠️ **والقفل هنا عرضٌ لا حماية**: الحماية في الوسيط، الذي لا يقبل
+  // هذه المفاتيح في `/api/search` أصلاً ولا الجمعَ لغير المميّز.
+  var LOCKED_FIELDS = ['sect', 'job_title', 'monthly_income', 'height',
+                       'weight', 'body_type', 'skin_color', 'eye_color',
+                       'hair_color', 'smoking', 'personality_traits',
+                       'spoken_languages'];
+
+  function renderLocked() {
+    var chips = $('search-locked-chips');
+    chips.textContent = '';
+    var labels = [T('web.search_combine')];
+    LOCKED_FIELDS.forEach(function (name) {
+      var spec = searchSpecs[name];
+      if (spec && spec.label) labels.push(spec.label);
+    });
+    labels.forEach(function (label) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip--locked';
+      // ⚠️ `aria-disabled` لا `disabled`: الزرّ المعطَّل لا يستقبل
+      // الضغط، والضغطُ هنا هو ما يُظهر رسالة «للمميّزين».
+      chip.setAttribute('aria-disabled', 'true');
+      chip.textContent = '💎 ' + label;
+      chip.addEventListener('click', function () {
+        // المميّز يملك البحث المتقدّم في البوت، ولم يُبنَ هنا بعد.
+        toast(T(searchPremium ? 'web.premium_soon' : 'web.premium_only'));
+      });
+      chips.appendChild(chip);
+    });
+    $('search-locked').hidden = false;
+  }
+
+  function setSearchLabel(text) {
+    searchLabel = text || '';
+    $('search-label').textContent = searchLabel;
+    $('search-on').hidden = !searchLabel;
+  }
+
+  function searchTypeLabel(type) {
+    if (type === 'age') return T('web.search_age');
+    if (type === 'location') return T('web.country');
+    if (type === 'verified') return T('web.search_verified');
+    if (type === 'marital') return T('web.marital');
+    var spec = searchSpecs && searchSpecs[SEARCH_FIELD[type]];
+    return (spec && spec.label) || type;
+  }
+
+  function selectNode(label, name, options, blank) {
+    var wrap = document.createElement('label');
+    wrap.className = 'fld';
+    var title = document.createElement('span');
+    title.textContent = label;
+    wrap.appendChild(title);
+    var input = document.createElement('select');
+    input.name = name;
+    // ⚠️ `new Option` لا `innerHTML`: الخيارات نصوصٌ من الوسيط.
+    input.appendChild(new Option(blank || '—', ''));
+    (options || []).forEach(function (o) {
+      input.appendChild(new Option(o.label, o.key));
+    });
+    wrap.appendChild(input);
+    return wrap;
+  }
+
+  function ageNode(label, name) {
+    var wrap = document.createElement('label');
+    wrap.className = 'fld';
+    var title = document.createElement('span');
+    title.textContent = label;
+    wrap.appendChild(title);
+    var input = document.createElement('input');
+    input.type = 'number';
+    input.inputMode = 'numeric';
+    input.name = name;
+    input.min = 18;
+    input.max = 80;
+    input.required = true;
+    wrap.appendChild(input);
+    return wrap;
+  }
+
+  function renderSearchFields(type) {
+    var box = $('search-fields');
+    box.textContent = '';
+    if (type === 'age') {
+      // ⚠️ **الحدّان معاً إلزاميّان**: دالّةُ البحث تتجاهل حدّاً وحيداً
+      // بصمت، فيعود بحثٌ «بالعمر» بلا عمرٍ فيه.
+      var row = document.createElement('div');
+      row.className = 'search__age';
+      row.appendChild(ageNode(T('web.age_from'), 'age_min'));
+      row.appendChild(ageNode(T('web.age_to'), 'age_max'));
+      box.appendChild(row);
+    } else if (type === 'location') {
+      var country = selectNode(T('web.country'), 'country',
+                               (searchSpecs.country || {}).options);
+      country.querySelector('select').required = true;
+      var city = selectNode(T('web.city'), 'city', [], T('web.any_city'));
+      var citySelect = city.querySelector('select');
+      citySelect.disabled = true;
+      country.querySelector('select').addEventListener('change', function (e) {
+        var key = e.target.value;
+        citySelect.textContent = '';
+        citySelect.appendChild(new Option(T('web.any_city'), ''));
+        citySelect.disabled = true;
+        if (!key) return;
+        api.cities(key, LANG).then(function (data) {
+          if (country.querySelector('select').value !== key) return;
+          (data.cities || []).forEach(function (o) {
+            citySelect.appendChild(new Option(o.label, o.key));
+          });
+          citySelect.disabled = !(data.cities || []).length;
+        }).catch(function () { /* الدولة كاملةً تكفي */ });
+      });
+      box.appendChild(country);
+      box.appendChild(city);
+    } else if (SEARCH_FIELD[type]) {
+      var spec = searchSpecs[SEARCH_FIELD[type]] || {};
+      var node = selectNode(searchTypeLabel(type), SEARCH_FIELD[type], spec.options);
+      node.querySelector('select').required = true;
+      box.appendChild(node);
+    }
+    // «الموثّقون فقط» بلا حقل — اختيارُ النوع هو المعيار.
+  }
+
+  function openSearch() {
+    $('search').hidden = false;
+    if (searchSpecs) return;
+    api.me().then(function (mine) {
+      searchPremium = !!(mine && mine.is_premium);
+    }).catch(function () { /* الرسالةُ الافتراضيّة تكفي */ });
+    var type = $('search-type');
+    type.textContent = '';
+    $('search-fields').textContent = T('web.loading');
+    api.profileSchema(LANG).then(function (data) {
+      searchSpecs = {};
+      (data.fields || []).forEach(function (f) { searchSpecs[f.name] = f; });
+      SEARCH_TYPES.forEach(function (key) {
+        type.appendChild(new Option(searchTypeLabel(key), key));
+      });
+      renderSearchFields(type.value);
+      renderLocked();
+    }).catch(function (err) {
+      $('search-fields').textContent = errorText(err);
+    });
+  }
+
+  function searchParams(form) {
+    var type = form.type.value;
+    var out = {};
+    if (type === 'verified') { out.verified = 'true'; return out; }
+    Array.prototype.forEach.call(
+      $('search-fields').querySelectorAll('[name]'), function (input) {
+        if (input.value) out[input.name] = input.value;
+      });
+    return out;
+  }
+
+  function searchSummary(form) {
+    var type = form.type.value;
+    var parts = [];
+    if (type === 'age') {
+      parts.push(form.age_min.value + '–' + form.age_max.value);
+    } else {
+      Array.prototype.forEach.call(
+        $('search-fields').querySelectorAll('select'), function (s) {
+          if (s.value) parts.push(s.options[s.selectedIndex].text);
+        });
+    }
+    return '🔍 ' + searchTypeLabel(type)
+           + (parts.length ? ': ' + parts.join(' · ') : '');
+  }
+
+  function runSearch(e) {
+    e.preventDefault();
+    var form = $('search-form');
+    var params = searchParams(form);
+    if (form.type.value === 'age'
+        && Number(params.age_min) > Number(params.age_max)) {
+      toast(T('web.err_age_range'));
+      return;
+    }
+    var summary = searchSummary(form);
+    api.search(params).then(function (data) {
+      $('search').hidden = true;
+      deck = (data && data.results) || [];
+      setSearchLabel(summary);
+      renderDeck();
+    }).catch(function (err) {
+      if (err.code === 'unauthorized') return boot();
+      // ⚠️ **403 هنا «للمميّزين» لا «رمز دعوة»**: `errorText` تقرأ 403
+      // رمزَ دعوةٍ خاطئاً — وهو معنى شاشة الدخول لا هذه.
+      if (err.status === 403) return toast(T('web.search_premium'));
+      toast(errorText(err));
+    });
+  }
+
+  function bindSearch() {
+    $('search-btn').setAttribute('aria-label', T('web.search'));
+    $('search-btn').addEventListener('click', openSearch);
+    $('search-back').addEventListener('click', function () {
+      $('search').hidden = true;
+    });
+    $('search-type').addEventListener('change', function (e) {
+      renderSearchFields(e.target.value);
+    });
+    $('search-form').addEventListener('submit', runSearch);
+    $('search-clear').addEventListener('click', loadDeck);
+  }
+
   function bindNotes() {
     $('bell').addEventListener('click', openNotes);
     $('notes-back').addEventListener('click', function () {
@@ -956,6 +1186,8 @@
   }
 
   function loadDeck() {
+    // الرزمةُ تعود مقترحاتٍ — فلا يبقى شريطُ «نتائج البحث» فوقها.
+    setSearchLabel('');
     var stack = $('stack');
     stack.textContent = '';
     var wait = document.createElement('p');
@@ -996,7 +1228,9 @@
       var done = document.createElement('div');
       done.className = 'empty';
       var line = document.createElement('p');
-      line.textContent = T('web.no_more');
+      // ⚠️ **بحثٌ بلا نتائج ليس «انتهت البطاقات»**: تلك توحي بأن لا
+      // أحد في الموقع، والصحيح أن المعيار ضيّق.
+      line.textContent = T(searchLabel ? 'web.search_none' : 'web.no_more');
       var again = document.createElement('button');
       again.className = 'btn btn--ghost';
       again.textContent = T('web.retry');
@@ -1199,6 +1433,7 @@
     });
 
     var browsing = name === 'browse';
+    $('search-btn').hidden = !browsing;
     $('view-browse').hidden = !browsing;
     $('swipe').hidden = !browsing;
     $('view-matches').hidden = name !== 'matches';
@@ -1811,6 +2046,7 @@
     bindComplete();
     bindChat();
     bindNotes();
+    bindSearch();
     bindConsent();
 
     document.querySelectorAll('.tab').forEach(function (button) {

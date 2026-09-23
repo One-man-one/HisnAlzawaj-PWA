@@ -251,6 +251,39 @@ body {
   padding: 6px 10px;
 }
 
+/* البحث */
+.search { display: flex; flex-direction: column; gap: 14px; }
+.search__age { display: flex; gap: 10px; }
+.search__age .fld { flex: 1; }
+.searchon {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--accent);
+  font-size: .9rem;
+}
+.searchon .linkbtn { margin-inline-start: auto; }
+
+/* معاييرُ المميّزين المقفلة — تُضغط لتُعرِّف بنفسها، ولا تعمل. */
+.locked { border-top: 1px solid var(--border); padding-top: 14px; }
+.locked__title { display: block; margin-bottom: 10px; font-size: .9rem; }
+.locked__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip--locked {
+  padding: 7px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  opacity: .55;
+  font: inherit;
+  font-size: .85rem;
+  cursor: pointer;
+}
+
 /* شارةُ غير المقروء فوق 💬 — شكلُ `.bell__n` نفسه، مقرَّبةً من الأيقونة. */
 .row__n { top: -2px; inset-inline-end: 0; }
 
