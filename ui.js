@@ -348,6 +348,140 @@
     $('complete').hidden = true;
     $('app').hidden = false;
     openTab('browse');
+    startBell();
+  }
+
+  // ==========================================================
+  // الإشعارات — الجرس والصندوق
+  // ==========================================================
+  var bellTimer = null;
+
+  function setBell(n) {
+    var badge = $('bell-n');
+    badge.textContent = n > 99 ? '99+' : String(n || '');
+    badge.hidden = !n;
+    $('bell').setAttribute('aria-label', T('web.notifications')
+                           + (n ? ' (' + n + ')' : ''));
+  }
+
+  function refreshBell() {
+    // ⚠️ **لا سؤالَ والصفحة في الخلفية**: هاتفٌ يبقي التبويب مفتوحاً
+    // ساعاتٍ يسأل الوسيط كلَّ دقيقة بلا أن ينظر إليه أحد.
+    if (document.hidden) return;
+    api.notificationsCount().then(function (d) {
+      setBell((d && d.unread) || 0);
+    }).catch(function () { /* الجرس زينةٌ لا شرط — يعيد في الدورة التالية */ });
+  }
+
+  function startBell() {
+    refreshBell();
+    if (!bellTimer) bellTimer = setInterval(refreshBell, 60000);
+    document.addEventListener('visibilitychange', refreshBell);
+  }
+
+  function ago(iso) {
+    if (!iso) return '';
+    try {
+      var secs = (Date.now() - new Date(iso).getTime()) / 1000;
+      // ⚠️ **`Intl.RelativeTimeFormat` لا نصوصٌ مكتوبة**: «منذ ٥ دقائق»
+      // بلغة الواجهة وأرقامها من المتصفّح نفسه، بلا مفتاحٍ لكل وحدة.
+      var fmt = new Intl.RelativeTimeFormat(LANG, { numeric: 'auto' });
+      var steps = [[60, 'second'], [3600, 'minute'], [86400, 'hour'],
+                   [604800, 'day'], [2629800, 'week'], [31557600, 'month']];
+      var unit = 'year', size = 31557600;
+      for (var i = 0; i < steps.length; i++) {
+        if (secs < steps[i][0]) {
+          unit = steps[i][1];
+          size = i ? steps[i - 1][0] : 1;
+          break;
+        }
+      }
+      return fmt.format(-Math.max(0, Math.round(secs / size)), unit);
+    } catch (e) { return ''; }
+  }
+
+  function renderNotes(data) {
+    var list = $('notes-list');
+    list.textContent = '';
+    var items = (data && data.items) || [];
+    $('notes-all').hidden = !(data && data.unread);
+    setBell((data && data.unread) || 0);
+
+    if (!items.length) {
+      var empty = document.createElement('p');
+      empty.className = 'empty';
+      empty.textContent = T('web.notif_empty');
+      list.appendChild(empty);
+      return;
+    }
+
+    items.forEach(function (item) {
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'note' + (item.unread ? ' note--new' : '');
+
+      var main = document.createElement('span');
+      main.className = 'note__main';
+      var text = document.createElement('span');
+      text.className = 'note__text';
+      // ⚠️ `textContent` لا `innerHTML`: النصّ قد يحمل اسمَ مستخدمٍ
+      // كتبه بنفسه، ورسالةُ البوت جُرِّدت من وسومها في الوسيط أصلاً.
+      text.textContent = item.text || '';
+      main.appendChild(text);
+      if (item.who) {
+        var who = document.createElement('span');
+        who.className = 'note__who';
+        who.textContent = item.who + (item.public_id ? ' · ' + item.public_id : '');
+        main.appendChild(who);
+      }
+      row.appendChild(main);
+
+      var when = document.createElement('span');
+      when.className = 'note__at';
+      when.textContent = ago(item.at);
+      row.appendChild(when);
+
+      row.addEventListener('click', function () { openNote(item); });
+      list.appendChild(row);
+    });
+  }
+
+  function openNotes() {
+    $('notes').hidden = false;
+    $('notes-list').textContent = T('web.loading');
+    api.notifications().then(renderNotes).catch(function (err) {
+      $('notes-list').textContent = errorText(err);
+    });
+  }
+
+  function openNote(item) {
+    // الإعجابات سطرٌ مجمَّع بلا معرّف — تُعلَّم بنوعها.
+    var body = item.id ? { ids: [item.id] } : { types: [item.type] };
+    var go = item.action;
+    api.notificationsRead(body).then(function (d) {
+      setBell((d && d.unread) || 0);
+    }).catch(function () { /* يُعاد التعليم عند الفتح التالي */ });
+
+    if (go) {
+      $('notes').hidden = true;
+      openTab(go);
+      return;
+    }
+    item.unread = false;
+    api.notifications().then(renderNotes).catch(function () {});
+  }
+
+  function bindNotes() {
+    $('bell').addEventListener('click', openNotes);
+    $('notes-back').addEventListener('click', function () {
+      $('notes').hidden = true;
+      refreshBell();
+    });
+    $('notes-all').addEventListener('click', function () {
+      api.notificationsRead({ all: true }).then(function () {
+        return api.notifications();
+      }).then(renderNotes).catch(function (err) { toast(errorText(err)); });
+    });
   }
 
   function bindGate() {
@@ -1490,6 +1624,7 @@
     bindGate();
     bindComplete();
     bindChat();
+    bindNotes();
 
     document.querySelectorAll('.tab').forEach(function (button) {
       button.addEventListener('click', function () {
