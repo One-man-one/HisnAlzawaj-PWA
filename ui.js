@@ -652,6 +652,7 @@
     searchLabel = text || '';
     $('search-label').textContent = searchLabel;
     $('search-on').hidden = !searchLabel;
+    $('view-browse').classList.toggle('is-search', !!searchLabel);
   }
 
   function searchTypeLabel(type) {
@@ -777,7 +778,10 @@
     var type = form.type.value;
     var parts = [];
     if (type === 'age') {
-      parts.push(form.age_min.value + '–' + form.age_max.value);
+      // ⚠️ عزلٌ اتّجاهيّ (U+2066…U+2069): بدونه يقلب السياقُ العربيّ
+      // المدى فيُقرأ «32–25».
+      parts.push('⁦' + form.age_min.value + '–' + form.age_max.value
+                 + '⁩');
     } else {
       Array.prototype.forEach.call(
         $('search-fields').querySelectorAll('select'), function (s) {

@@ -266,7 +266,24 @@ body {
   color: var(--accent);
   font-size: .9rem;
 }
-.searchon .linkbtn { margin-inline-start: auto; }
+.searchon > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* `.linkbtn` عامّةٌ عرضُها كامل وفوقها هامش — هنا زرٌّ في سطر. */
+.searchon .linkbtn {
+  flex: none;
+  width: auto;
+  margin: 0;
+  margin-inline-start: auto;
+  white-space: nowrap;
+}
+/* ⚠️ الرزمةُ مطلقةُ الموضع (`inset: 12px`) فتغطّي الشريط — تُزاح تحته
+   ما دام ظاهراً، وإلا لم يُعرف أنها نتائج بحث لا مقترحات. */
+.view--deck.is-search .stack { top: 64px; }
 
 /* معاييرُ المميّزين المقفلة — تُضغط لتُعرِّف بنفسها، ولا تعمل. */
 .locked { border-top: 1px solid var(--border); padding-top: 14px; }
