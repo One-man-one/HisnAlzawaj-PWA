@@ -1,63 +1,36 @@
 /* حصن الزواج — أنماط الهيكل.
  *
- * ⚠️ الألوان رموزٌ على ‎:root‎ لا قيمٌ منثورة: النمط الداكن يُعيد
- * تعريفها في موضعٍ واحد، ولونٌ مكتوبٌ مباشرةً في قاعدةٍ ما يبقى فاتحاً
- * في الداكن بلا أن يشتكي شيء.
+ * ⚠️ الألوان رموزٌ على ‎:root‎ لا قيمٌ منثورة: لونٌ مكتوبٌ مباشرةً في
+ * قاعدةٍ ما لا يتبع الهوية حين تتغيّر — وقد تغيّرت فعلاً.
  *
- * ⚠️ **والأخضر والذهبيّ مأخوذان من الشعار الرسمي لا مختارَين:**
- * ‎#1C3834‎ هو أكثر لونٍ تكراراً في حصن ‎brand/logo_mark.png‎،
- * و‎#C99D61‎ ذهبيُّ إطاره. وكانا قبل ذلك تخميناً (‎#0E5A4A‎ أخضرَ
- * أفتحَ بدرجتين) فبدت الواجهة قريبةً من الهوية لا منها — وهو فرقٌ
- * يراه صاحب العلامة في أول نظرة ولا يراه من كتب الكود.
+ * ⚠️ **داكنٌ ووردي، كصفحة الهبوط ‎hisnalzawaj.com‎ — بقرار صاحب المشروع
+ * (٢٣ سبتمبر ٢٠٢٦).** كانت الرموز أخضرَ وذهبيّاً مقيسين من الشعار
+ * (‎#1C3834‎ و‎#C99D61‎)، مع نمطين فاتحٍ وداكن. فصار التطبيق وصفحةُ
+ * الهبوط هويةً واحدة: من ضغط «سجّل من الموقع» لا ينتقل إلى موقعٍ يبدو
+ * غيرَ الذي جاء منه. والقيم منقولةٌ من ‎site/build.py‎ في مستودع
+ * البوت — فمن غيّرها هناك يغيّرها هنا.
+ *
+ * ⚠️ **ونمطٌ واحد لا نمطان**: صفحة الهبوط داكنةٌ دائماً، وتطبيقٌ يفتح
+ * فاتحاً عند من ضبط جهازه على الفاتح يكسر الاستمرار نفسه.
  */
 
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
 
-  --bg:        #F6F4EF;
-  --surface:   #FFFFFF;
-  --border:    #E2DCD0;
-  --text:      #1B2320;
-  --muted:     #5E6B65;
-  --brand:     #1C3834;
+  --bg:        #130D11;
+  --surface:   #1F161B;
+  --border:    #3A2631;
+  --text:      #F7EEF2;
+  --muted:     #A8959F;
+  --brand:     #CE5C8A;
   --brand-ink: #FFFFFF;
-  --accent:    #A3763C;
-  --ok:        #1E7A4A;
-  --warn:      #A4562A;
-  --danger:    #9B2C2C;
-
-  --radius: 16px;
-  --gap: 16px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg:        #0F1513;
-    --surface:   #18211E;
-    --border:    #2A3A34;
-    --text:      #ECF1EE;
-    --muted:     #9DAEA7;
-    --brand:     #2C5C53;
-    --brand-ink: #06120E;
-    --accent:    #C99D61;
-    --ok:        #4FC08A;
-    --warn:      #E0A06A;
-    --danger:    #E08585;
-  }
-}
-
-:root[data-theme="dark"] {
-  --bg:        #0F1513;
-  --surface:   #18211E;
-  --border:    #2A3A34;
-  --text:      #ECF1EE;
-  --muted:     #9DAEA7;
-  --brand:     #2C5C53;
-  --brand-ink: #06120E;
-  --accent:    #C99D61;
+  --accent:    #EC8FB2;
   --ok:        #4FC08A;
   --warn:      #E0A06A;
   --danger:    #E08585;
+
+  --radius: 16px;
+  --gap: 16px;
 }
 
 * { box-sizing: border-box; }
@@ -677,20 +650,32 @@ body.is-app {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
-  padding: 13px 16px;
+  min-height: 50px;
+  padding: 12px 18px;
   margin-bottom: 10px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--bg);
+  background: var(--surface);
   color: var(--text);
   font: inherit;
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
+  transition: transform .15s, filter .15s;
 }
-.prov i { font-size: 18px; font-style: normal; }
+.prov:hover { filter: brightness(1.08); }
+.prov:active { transform: scale(.985); }
+.prov i { display: grid; place-items: center; width: 22px; height: 22px; flex: none; }
+.prov i svg { width: 22px; height: 22px; display: block; }
+/* ⚠️ **ألوانُ العلامات من إرشاداتها لا من هويّتنا:** جوجل تشترط زرّاً
+ * أبيض (أو داكناً) بشعارها الملوَّن كما هو، وفيسبوك أزرقها ‎#1877F2‎،
+ * وتيليجرام ‎#2AABEE‎. وزرٌّ ورديٌّ بشعار جوجل مخالفٌ لإرشاداتها —
+ * وهي ما يُراجَع عند اعتماد تطبيق الدخول. */
+.prov--google   { background: #FFFFFF; color: #1F1F1F; border-color: #FFFFFF; }
+.prov--facebook { background: #1877F2; color: #FFFFFF; border-color: #1877F2; }
+.prov--telegram { background: #2AABEE; color: #FFFFFF; border-color: #2AABEE; }
 .prov:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .prov[aria-busy="true"] { opacity: .6; pointer-events: none; }
 
