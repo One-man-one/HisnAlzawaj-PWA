@@ -355,6 +355,7 @@
   // الإشعارات — الجرس والصندوق
   // ==========================================================
   var bellTimer = null;
+  var lastMatch = null;
 
   function setBell(n) {
     var badge = $('bell-n');
@@ -462,7 +463,13 @@
       setBell((d && d.unread) || 0);
     }).catch(function () { /* يُعاد التعليم عند الفتح التالي */ });
 
-    if (go) {
+    if (go === 'chat' && item.public_id) {
+      // ✅ إشعارُ التطابق يفتح الدردشة مع صاحبه، لا القائمة.
+      $('notes').hidden = true;
+      openChat(refId(item.public_id), item.who || item.public_id);
+      return;
+    }
+    if (go && go !== 'chat') {
       $('notes').hidden = true;
       openTab(go);
       return;
@@ -1033,7 +1040,11 @@
 
     api.interact(id, action).then(function (out) {
       var result = (out && out.result) || '';
-      if (result === 'mutual') $('pop').hidden = false;
+      if (result === 'mutual') {
+        // يُحفظ مَن تطابقتَ معه الآن، فيفتح زرُّ «مراسلة» دردشتَه هو.
+        lastMatch = card.public_id;
+        $('pop').hidden = false;
+      }
       else if (result === 'limit') toast(T('web.limit_reached'));
       else if (result === 'already') toast(T('web.already'));
       else if (result === 'gone' || result === 'blocked') toast(T('web.gone'));
@@ -1644,9 +1655,13 @@
     // ⚠️ **إلى «مطابقاتي» في الموقع لا إلى البوت**: كان الزرّ رابطاً إلى
     // ‎t.me‎ — ومن سجّل من الموقع قد لا يملك تيليجرام أصلاً، فكان أوّل
     // تطابقٍ له ينتهي عند بابٍ لا يُفتح. والمراسلة هنا تعمل منذ #83.
+    // ✅ **يفتح الدردشة مع من تطابقتَ معه مباشرةً** (بطلب صاحب المشروع،
+    // ٢٣ سبتمبر ٢٠٢٦) — لا قائمة «مطابقاتي» ليبحث فيها عنه. والقائمةُ
+    // مخرجٌ إن لم يُعرف الطرف (صفحةٌ أُعيد تحميلها بين التطابق والضغط).
     $('pop-chat').addEventListener('click', function () {
       $('pop').hidden = true;
-      openTab('matches');
+      if (lastMatch) openChat(refId(lastMatch), lastMatch);
+      else openTab('matches');
     });
     $('pop-close').addEventListener('click', function () {
       $('pop').hidden = true;
