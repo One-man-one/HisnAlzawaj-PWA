@@ -103,9 +103,16 @@
     if (err.code === 'network') return T('web.err_network');
     if (err.status === 401) return T('web.err_auth');
     if (err.status === 403) return T('web.err_invite');
-    // 400 من مسار الإكمال سببُه سنة الميلاد في الغالب الأعمّ — والخادم
-    // لا يعيد نصّ الخطأ بقرار (قد يحمل القيمة كما أُرسلت).
-    if (err.status === 400) return T('web.err_birth_year');
+    // ⚠️ **الرسالة تتبع الحقل الذي يسمّيه الخادم** (`field`) لا تخميناً:
+    // كانت كلُّ 400 «سنةَ ميلادٍ غير صالحة» — فرفضُ اسمٍ فيه أرقام يُخبر
+    // صاحبه أن سنته خاطئة. والخادم لا يعيد نصَّ الخطأ بقرار (قد يحمل
+    // القيمة كما أُرسلت)، ويعيد اسمَ الحقل وحده.
+    if (err.status === 400) {
+      var field = err.data && err.data.field;
+      if (field === 'full_name') return T('web.err_name');
+      if (field === 'birth_year' || !field) return T('web.err_birth_year');
+      return T('web.err_field');
+    }
     return T('web.err_generic');
   }
 
@@ -398,6 +405,56 @@
   // ==========================================================
   var bellTimer = null;
   var lastMatch = null;
+
+  // ==========================================================
+  // «تعديل بياناتي» — شاشةُ الإكمال نفسها في وضع التعديل
+  // ==========================================================
+  // ⚠️ **شاشةٌ واحدة لا اثنتان بقرار**: بانيةُ الحقول (`fieldNode`)،
+  // والمدنُ التابعة للدولة، و`restore` — كلُّها كُتبت للإكمال وأصلحت أعطالاً
+  // موثّقة فوقها. ونسخةٌ ثانية للتعديل كانت ستعيد تلك الأعطال في الثانية.
+  // والفرقُ ثلاثة: مصدرُ الحقول (`/api/me/profile/edit` بقيمها وبحقول
+  // البوت وحدها)، ومسارُ الحفظ، وزرُّ الخروج (إغلاقٌ لا تسجيلُ خروج).
+  var editMode = false;
+
+  function showEdit() {
+    editMode = true;
+    document.body.classList.remove('is-app');
+    $('app').hidden = true;
+    $('complete').hidden = false;
+    document.querySelector('#complete .brand__name').textContent = T('web.edit_profile');
+    document.querySelector('#complete .brand__line').hidden = true;
+    $('complete-out').textContent = T('web.close');
+    window.scrollTo(0, 0);
+
+    var host = $('complete-fields');
+    host.textContent = T('web.loading');
+    api.profileEditForm().then(function (data) {
+      host.textContent = '';
+      SCHEMA = {};
+      var values = {};
+      (data.fields || []).forEach(function (spec) {
+        SCHEMA[spec.name] = spec;
+        host.appendChild(fieldNode(spec));
+        if (spec.value !== null && spec.value !== undefined && spec.value !== '') {
+          values[spec.name] = spec.value;
+        }
+      });
+      restore(values);
+    }).catch(function (err) {
+      if (err.code === 'unauthorized') return boot();
+      host.textContent = errorText(err);
+    });
+  }
+
+  function leaveEdit(saved) {
+    editMode = false;
+    document.querySelector('#complete .brand__name').textContent = T('web.complete_title');
+    document.querySelector('#complete .brand__line').hidden = false;
+    $('complete-out').textContent = T('web.logout');
+    showApp();
+    openTab('profile');
+    if (saved) toast(T('web.saved'));
+  }
 
   function setBell(n) {
     var badge = $('bell-n');
@@ -1415,10 +1472,18 @@
       var card = document.createElement('section');
       card.className = 'card';
       // ⚠️ **ونصُّ «ملفّي» من البوت نفسه لا من نسخةٍ ثانية** — هو ما
-      // يراه صاحبه هناك حرفياً. وشاشةُ تحريرٍ هنا تعني حقلين لنفس
-      // البيان يتباعدان؛ والتحرير بابه البوت حتى مرحلةٍ لاحقة.
+      // يراه صاحبه هناك حرفياً.
       lines(card, mine && (mine.text || mine.card));
       view.appendChild(card);
+
+      // ✅ «تعديل بياناتي» (٢٣ سبتمبر ٢٠٢٦) — حقولُ البوت نفسها، يقرّرها
+      // الوسيط (`services/web_profile.py::EDITABLE`) لا هذه الصفحة.
+      var editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'btn btn--primary';
+      editBtn.textContent = T('web.edit_profile');
+      editBtn.addEventListener('click', showEdit);
+      view.appendChild(editBtn);
 
       var bot = document.createElement('a');
       bot.className = 'btn btn--ghost';
@@ -1694,9 +1759,11 @@
 
       box.hidden = true;
       button.disabled = true;
-      api.completeProfile(collect()).then(function () {
+      (editMode ? api.profileEdit(collect()) : api.completeProfile(collect()))
+      .then(function () {
         button.disabled = false;
-        showConsent();
+        if (editMode) leaveEdit(true);
+        else showConsent();
       }).catch(function (err) {
         button.disabled = false;
         // ⚠️ واسمُ الحقل من الخادم يُبرز موضعَ الخطأ: رسالةٌ عامّة فوق
@@ -1710,6 +1777,8 @@
     });
 
     $('complete-out').addEventListener('click', function () {
+      // في التعديل: إغلاقٌ بلا حفظ — لا تسجيلُ خروجٍ من الحساب.
+      if (editMode) { leaveEdit(false); return; }
       api.logout();
       boot();
     });

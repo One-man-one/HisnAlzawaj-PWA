@@ -173,6 +173,12 @@
                      { method: 'POST', body: { lang: lang } });
     },
     // ⚠️ الأسئلة وخياراتها من الوسيط لا من الصفحة — الشرح في index.html
+    // «تعديل بياناتي» — حقولُ البوت نفسها بقيمها الحالية، والحفظ.
+    profileEditForm: function () { return request('/api/me/profile/edit'); },
+    profileEdit: function (answers) {
+      return request('/api/me/profile/edit',
+                     { method: 'POST', body: { answers: answers } });
+    },
     profileSchema: function (lang, gender) {
       return request('/api/profile/schema/' + encodeURIComponent(lang)
                      + (gender ? '?gender=' + encodeURIComponent(gender) : ''));
