@@ -1669,15 +1669,23 @@
   }
 
   // السحب — مؤشّراتٌ موحّدة (لمسٌ وفأرةٌ وقلم) لا ثلاثةُ مسارات
+  // ⚠️ **السحبُ العموديّ تمريرٌ لمحتوى البطاقة، لا ضغطة** — عطلٌ رآه
+  // صاحب المشروع في فيديو: من يسحب للأعلى ليقرأ بقية الملفّ كانت تنفتح
+  // له ورقةُ التفاصيل. فالمتصفّح حين يبدأ التمرير (`touch-action: pan-y`)
+  // يُلغي اللمسة بـ`pointercancel`، وكان ذلك يمرّ بمسار الإفلات نفسه —
+  // و«لم يتحرّك أفقياً» كانت تُقرأ ضغطة. والآن: المحورُ يُحسم عند أوّل
+  // حركة؛ العموديّ يُترك للمتصفّح، والإلغاءُ لا يفتح شيئاً أبداً.
+  var AXIS_SLOP = 8;
+
   function bindSwipe(node) {
-    var startX = 0, dx = 0, dragging = false, moved = false;
+    var startX = 0, startY = 0, dx = 0, dragging = false, axis = null;
 
     node.addEventListener('pointerdown', function (e) {
       if (busy) return;
-      dragging = true; moved = false; dx = 0;
+      dragging = true; axis = null; dx = 0;
       startX = e.clientX;
+      startY = e.clientY;
       node.style.transition = 'none';
-      node.setPointerCapture(e.pointerId);
     });
 
     // ⚠️ العتبة بالنسبة إلى عرض الشاشة لا برقمٍ ثابت: ١٠٠ بكسل على
@@ -1701,7 +1709,15 @@
     node.addEventListener('pointermove', function (e) {
       if (!dragging) return;
       dx = e.clientX - startX;
-      if (Math.abs(dx) > 6) moved = true;
+      var dy = e.clientY - startY;
+      if (!axis) {
+        if (Math.abs(dx) < AXIS_SLOP && Math.abs(dy) < AXIS_SLOP) return;
+        axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+        if (axis === 'y') { dragging = false; return; }
+        // ⚠️ **الأسر بعد حسم المحور لا عند اللمس**: أسرُ اللمسة من أوّلها
+        // يسلبها من التمرير الذي قد تكونه.
+        try { node.setPointerCapture(e.pointerId); } catch (err) { /* لا شيء */ }
+      }
       node.style.transform = 'translate(' + dx + 'px,' + (dx / 20) + 'px) rotate('
                              + (dx / 18) + 'deg)';
       feedback(dx);
@@ -1712,7 +1728,7 @@
       dragging = false;
       node.style.transition = 'transform .3s';
 
-      if (!moved) { openSheet(deck[0], true); node.style.transform = ''; return; }
+      if (!axis) { openSheet(deck[0], true); node.style.transform = ''; return; }
 
       if (dx > threshold()) act('like');
       else if (dx < -threshold()) act('skip');
@@ -1721,7 +1737,15 @@
     }
 
     node.addEventListener('pointerup', end);
-    node.addEventListener('pointercancel', end);
+    // الإلغاءُ (تمريرٌ بدأ، أو مكالمةٌ قطعت اللمسة) يُعيد البطاقة مكانها
+    // ولا يفتح شيئاً ولا يقرّر شيئاً.
+    node.addEventListener('pointercancel', function () {
+      if (!dragging) return;
+      dragging = false;
+      node.style.transition = 'transform .3s';
+      node.style.transform = '';
+      feedback(0);
+    });
   }
 
   // ==========================================================

@@ -28,6 +28,9 @@
   --ok:        #4FC08A;
   --warn:      #E0A06A;
   --danger:    #E08585;
+  /* التخطّي: أحمرُ خفيف كصفحة الاختبار (#ef4444) مخفَّفاً للداكن —
+     للختم والتوهّج وزرّ ✕ معاً، فمعناها واحد. */
+  --no:        #EF5B5B;
 
   --radius: 16px;
   --gap: 16px;
@@ -660,9 +663,9 @@ body.is-app {
    الشاشة في العربية والفرنسية سواءً، فختمُ «إعجاب» (يمين) يُقرأ من جهة
    البطاقة التي تبتعد عن الإصبع. */
 .pcard__stamp--yes { left: 18px;  color: var(--ok);   transform: rotate(-12deg); }
-.pcard__stamp--no  { right: 18px; color: var(--warn); transform: rotate(12deg); }
+.pcard__stamp--no  { right: 18px; color: var(--no);   transform: rotate(12deg); }
 .pcard.is-yes { box-shadow: 0 0 32px color-mix(in srgb, var(--ok) 70%, transparent); }
-.pcard.is-no  { box-shadow: 0 0 32px color-mix(in srgb, var(--warn) 70%, transparent); }
+.pcard.is-no  { box-shadow: 0 0 32px color-mix(in srgb, var(--no) 70%, transparent); }
 .pcard__hint { text-align: center; color: var(--muted); font-size: .75rem; margin-top: 14px; }
 
 /* ⚠️ **الزرّان باتّجاه السحب لا باتّجاه القراءة**: السحبُ يميناً إعجاب
@@ -691,7 +694,7 @@ body.is-app {
   line-height: 1;
   cursor: pointer;
 }
-.rnd--no  { border-color: var(--warn); color: var(--warn); }
+.rnd--no  { border-color: var(--no); color: var(--no); }
 .rnd--yes { border-color: var(--ok);   color: var(--ok); width: 70px; height: 70px; font-size: 30px; }
 .rnd:disabled { opacity: .4; }
 .rnd:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
