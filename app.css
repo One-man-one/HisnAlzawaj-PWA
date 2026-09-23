@@ -288,6 +288,23 @@ body {
    ما دام ظاهراً، وإلا لم يُعرف أنها نتائج بحث لا مقترحات. */
 .view--deck.is-search .stack { top: 64px; }
 
+/* الحظر والإبلاغ */
+.chat__more { margin-inline-start: auto; font-size: 1.3rem; }
+.mod-row { display: flex; gap: 10px; margin-top: 14px; }
+.mod-row .btn { flex: 1; }
+.btn--danger-soft { background: transparent; color: var(--no, #EF5B5B);
+  border-color: var(--no, #EF5B5B); }
+textarea.mod-details {
+  width: 100%;
+  min-height: 90px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
 /* الدفع */
 .paybox {
   padding: 12px 14px;

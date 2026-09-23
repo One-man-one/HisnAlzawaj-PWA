@@ -1266,6 +1266,117 @@
     }).catch(function () { /* بلا طرق لا زرّ — تدهورٌ صامت */ });
   }
 
+  // ==========================================================
+  // الحظرُ والإبلاغ
+  // ==========================================================
+  //
+  // ⚠️ **المنطقُ كلُّه في الوسيط** (`/api/me/block` و`/api/me/report`) وهو
+  // منطقُ البوت نفسه: حدودُ البلاغ، وأفعالُ الحظر الأربعة. والصفحة تعرض
+  // الأزرار وتترجم الرفض إلى جملةٍ مفهومة لا أكثر.
+  // ⚠️ **والحظرُ صامتٌ للمحظور** — لا نصَّ هنا يوحي بأنه سيُخطَر.
+  var modTarget = null;
+
+  function afterBlock(publicId) {
+    // المحظورُ يختفي فوراً من كل ما أمامك — لا بعد تحديث الصفحة.
+    deck = deck.filter(function (c) { return refId(c.public_id) !== publicId; });
+    if (chatWith === publicId) closeChat();
+    $('mod').hidden = true;
+    $('sheet').hidden = true;
+    if (!$('view-matches').hidden) loadMutual();
+    else if (!$('view-browse').hidden) renderDeck();
+  }
+
+  function renderReport(reasons) {
+    var body = $('mod-body');
+    body.textContent = '';
+    var picked = null;
+    var box = document.createElement('div');
+    box.className = 'chips';
+    reasons.forEach(function (r) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = r.label;
+      chip.addEventListener('click', function () {
+        picked = r.key;
+        box.querySelectorAll('.chip').forEach(function (c) {
+          c.classList.toggle('on', c === chip);
+        });
+      });
+      box.appendChild(chip);
+    });
+    body.appendChild(payField(T('web.report_title'), box));
+
+    var details = document.createElement('textarea');
+    details.className = 'mod-details';
+    details.maxLength = 1000;
+    body.appendChild(payField(T('web.report_details'), details));
+
+    var send = document.createElement('button');
+    send.type = 'button';
+    send.className = 'btn btn--primary';
+    send.textContent = T('web.report_send');
+    send.addEventListener('click', function () {
+      if (!picked) { toast(T('web.report_title')); return; }
+      send.disabled = true;
+      api.report({ public_id: modTarget, reason: picked, details: details.value })
+        .then(function () {
+          $('mod').hidden = true;
+          toast(T('web.reported_done'));
+        }).catch(function (err) {
+          send.disabled = false;
+          if (err.code === 'unauthorized') return boot();
+          var code = err.data && err.data.detail;
+          if (code === 'too_soon') return toast(T('web.report_too_soon'));
+          if (code === 'daily_limit') return toast(T('web.report_daily'));
+          if (code === 'details_required') return toast(T('web.report_need_details'));
+          toast(errorText(err));
+        });
+    });
+    body.appendChild(send);
+  }
+
+  function openModeration(publicId, label) {
+    if (!publicId) return;
+    modTarget = publicId;
+    $('mod-name').textContent = label || publicId;
+    var body = $('mod-body');
+    body.textContent = '';
+    var row = document.createElement('div');
+    row.className = 'mod-row';
+
+    var blockBtn = document.createElement('button');
+    blockBtn.type = 'button';
+    blockBtn.className = 'btn btn--danger-soft';
+    blockBtn.textContent = T('web.block');
+    blockBtn.addEventListener('click', function () {
+      // ⚠️ تأكيدٌ صريح: الحظرُ يطوي المحادثة ولا يُفكّ من الموقع بعد.
+      if (!window.confirm(T('web.block_confirm'))) return;
+      api.block({ public_id: publicId }).then(function () {
+        toast(T('web.blocked_done'));
+        afterBlock(publicId);
+      }).catch(function (err) {
+        if (err.code === 'unauthorized') return boot();
+        toast(errorText(err));
+      });
+    });
+
+    var reportBtn = document.createElement('button');
+    reportBtn.type = 'button';
+    reportBtn.className = 'btn btn--ghost';
+    reportBtn.textContent = T('web.report');
+    reportBtn.addEventListener('click', function () {
+      body.textContent = T('web.loading');
+      api.reportReasons().then(function (d) { renderReport(d.reasons || []); })
+        .catch(function (err) { body.textContent = errorText(err); });
+    });
+
+    row.appendChild(reportBtn);
+    row.appendChild(blockBtn);
+    body.appendChild(row);
+    $('mod').hidden = false;
+  }
+
   function bindNotes() {
     $('bell').addEventListener('click', openNotes);
     $('notes-back').addEventListener('click', function () {
@@ -2583,6 +2694,19 @@
       body.appendChild(reply);
     }
 
+    // 🚩/🚫 في آخر الورقة — لكل بطاقة: من التصفّح أو الإعجاب أو المطابقة.
+    var modRow = document.createElement('div');
+    modRow.className = 'mod-row';
+    var more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'btn btn--ghost';
+    more.textContent = T('web.report') + ' · ' + T('web.block');
+    more.addEventListener('click', function () {
+      openModeration(refId(card.public_id), card.public_id);
+    });
+    modRow.appendChild(more);
+    body.appendChild(modRow);
+
     $('sheet').hidden = false;
   }
 
@@ -2688,6 +2812,10 @@
     bindComplete();
     bindChat();
     bindNotes();
+    $('mod-back').addEventListener('click', function () { $('mod').hidden = true; });
+    $('chat-more').addEventListener('click', function () {
+      openModeration(chatWith, $('chat-name').textContent);
+    });
     $('pay-back').addEventListener('click', function () { $('pay').hidden = true; });
     bindSearch();
     bindConsent();
