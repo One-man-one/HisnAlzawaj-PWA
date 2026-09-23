@@ -500,6 +500,15 @@
     } catch (e) { return ''; }
   }
 
+  // ✅ **سطرُ الهوية الواحد: «أحمد (36) · HS-…»** — في الإشعار ورأس
+  // المحادثة وقائمة «مطابقاتي». الاسم الأول ليس هوية (عشرات «أحمد»)،
+  // والمعرّف وحده رمزٌ لا إنسان فيه؛ فلا يظهر أحدهما بلا الآخر.
+  // ⚠️ ويرتدّ إلى ما وُجد منهما: ردٌّ من وسيطٍ أقدم لا يحمل `who`.
+  function identity(who, pid) {
+    if (who && pid) return who + ' · ' + pid;
+    return who || pid || '';
+  }
+
   function renderNotes(data) {
     var list = $('notes-list');
     list.textContent = '';
@@ -531,7 +540,7 @@
       if (item.who) {
         var who = document.createElement('span');
         who.className = 'note__who';
-        who.textContent = item.who + (item.public_id ? ' · ' + item.public_id : '');
+        who.textContent = identity(item.who, item.public_id);
         main.appendChild(who);
       }
       row.appendChild(main);
@@ -565,7 +574,7 @@
     if (go === 'chat' && item.public_id) {
       // ✅ إشعارُ التطابق يفتح الدردشة مع صاحبه، لا القائمة.
       $('notes').hidden = true;
-      openChat(refId(item.public_id), item.who || item.public_id);
+      openChat(refId(item.public_id), identity(item.who, item.public_id));
       return;
     }
     if (go === 'person' && item.public_id) {
@@ -1236,7 +1245,7 @@
         main.className = 'row__main';
         var name = document.createElement('div');
         name.className = 'row__name';
-        name.textContent = card.public_id || '';
+        name.textContent = identity(card.who, card.public_id);
         var sub = document.createElement('div');
         sub.className = 'row__sub';
         // أوّل سطرٍ من البطاقة يكفي في قائمة — والباقي في الورقة.
@@ -1254,13 +1263,23 @@
         talk.type = 'button';
         talk.className = 'row__go';
         talk.textContent = '💬';
-        talk.setAttribute('aria-label', T('web.chat'));
+        // ✅ **عددُ ما لم يُقرأ من هذا الشريك فوق الزرّ** — بشكل شارة
+        // الجرس نفسه. وبدونه يتساوى صفُّ من ينتظر ردَّك بصفٍّ ساكن.
+        var unread = card.unread || 0;
+        if (unread) {
+          var n = document.createElement('span');
+          n.className = 'bell__n row__n';
+          n.textContent = unread > 99 ? '99+' : String(unread);
+          talk.appendChild(n);
+        }
+        talk.setAttribute('aria-label', T('web.chat')
+                          + (unread ? ' (' + unread + ')' : ''));
         talk.addEventListener('click', function (e) {
           e.stopPropagation();
           // ⚠️ **`refId` لا `public_id` خاماً**: تمريرُ النصّ كما هو
           // يعطي `/api/me/chats/%23…` — أي 422 صامتة عند المستخدم:
           // شاشةٌ تُفتح فارغةً بلا رسالة.
-          openChat(refId(card.public_id), card.public_id);
+          openChat(refId(card.public_id), identity(card.who, card.public_id));
         });
         row.appendChild(talk);
 
@@ -1343,7 +1362,10 @@
       // في محادثةٍ أخرى — أو في لا شيء. فيُقارَن الشريك قبل الرسم.
       if (chatWith !== asked) return;
 
-      if (first && data.partner) $('chat-name').textContent = data.partner;
+      if (first && (data.who || data.partner)) {
+        $('chat-name').textContent = identity(data.who || data.partner,
+                                              data.public_id);
+      }
 
       // ⚠️ **وتُحدَّث علامةُ القراءة في كل دورة ولو لم تصل رسالة**:
       // «قرأها» حدثٌ يقع على رسالةٍ **قديمة**، والاستطلاع لا يجلب
