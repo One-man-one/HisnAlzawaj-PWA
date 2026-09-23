@@ -566,6 +566,64 @@ body.is-app {
   overflow-wrap: anywhere;
 }
 .pcard__line:last-child { border-bottom: 0; }
+
+/* البطاقة بشكل: الاسم، ثم المكان، ثم صفوف «العنوان ··· القيمة»، ثم النبذة */
+.pcard__name {
+  color: var(--accent);
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-align: center;
+  margin: 12px 0 2px;
+  overflow-wrap: anywhere;
+}
+.pcard__place { text-align: center; font-weight: 600; font-size: .92rem; }
+.pcard__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: .88rem;
+}
+.pcard__row:last-child { border-bottom: 0; }
+.pcard__label { color: var(--muted); white-space: nowrap; }
+.pcard__value { font-weight: 600; text-align: end; overflow-wrap: anywhere; }
+.pcard__bio {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border-inline-start: 3px solid var(--accent);
+  background: var(--bg);
+  font-size: .85rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ختما القرار أثناء السحب — والتوهّج بلونَي الزرّين تحت البطاقة */
+.pcard__stamp {
+  position: absolute;
+  /* تحت رأس البطاقة لا فيه: الصورةُ في الزاوية تحجب الختم هناك. */
+  top: 128px;
+  z-index: 2;
+  padding: 4px 12px;
+  background: var(--surface);
+  border: 3px solid;
+  border-radius: 10px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s;
+}
+/* ⚠️ الزاويتان بالاتّجاه الفيزيائيّ لا المنطقيّ: السحب يمينٌ ويسارٌ على
+   الشاشة في العربية والفرنسية سواءً، فختمُ «إعجاب» (يمين) يُقرأ من جهة
+   البطاقة التي تبتعد عن الإصبع. */
+.pcard__stamp--yes { left: 18px;  color: var(--ok);   transform: rotate(-12deg); }
+.pcard__stamp--no  { right: 18px; color: var(--warn); transform: rotate(12deg); }
+.pcard.is-yes { box-shadow: 0 0 32px color-mix(in srgb, var(--ok) 70%, transparent); }
+.pcard.is-no  { box-shadow: 0 0 32px color-mix(in srgb, var(--warn) 70%, transparent); }
 .pcard__hint { text-align: center; color: var(--muted); font-size: .75rem; margin-top: 14px; }
 
 .swipe {

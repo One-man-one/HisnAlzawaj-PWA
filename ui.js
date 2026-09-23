@@ -76,6 +76,13 @@
   var $ = function (id) { return document.getElementById(id); };
 
   var toastTimer = null;
+  // ✅ اهتزازةٌ قصيرة لما يستحقّ الانتباه وحده (تطابق، رسالةٌ واردة) —
+  // لا لكل سحبة، فتفقد معناها. ⚠️ و`navigator.vibrate` غائبٌ في سفاري
+  // (iOS) كلّه، ويرمي في بعض المتصفّحات قبل أوّل لمسة: فتُبتلع.
+  function buzz() {
+    try { if (navigator.vibrate) navigator.vibrate(30); } catch (e) { /* لا شيء */ }
+  }
+
   function toast(text) {
     var el = $('toast');
     el.textContent = text;
@@ -1254,6 +1261,70 @@
     bindSwipe(front);
   }
 
+  // ✅ **البطاقة بشكلٍ لا نصّاً سطراً سطراً**: الاسم كبيراً في المنتصف
+  // وتحته المكان، ثم صفوفُ «العنوان ···· القيمة»، والنبذةُ في صندوقها.
+  //
+  // ⚠️ **والنصّ نفسه نصُّ البوت (`profile_card_text`) لا بياناتٌ ثانية**:
+  // يُقسَم هنا عند أوّل «: » ويُعرَف دورُ السطر بإيموجيه — وهو ثابتٌ في
+  // اللغات الستّ (`_line` في `profile_service.py`)، بخلاف العنوان المترجَم.
+  // فالبطاقة واحدةٌ في البابين، وتغييرٌ فيها هناك يصل هنا بلا تعديل.
+  // ⚠️ وما لا يُعرف دوره يبقى سطراً كما كان — لا يسقط شيءٌ بصمت.
+  var CARD_NAME = '👤', CARD_PLACE = '📍', CARD_BIO = '📝';
+
+  function cardBody(node, text) {
+    var rows = document.createElement('div');
+    rows.className = 'pcard__lines';
+    var name = null, place = null, bio = null;
+
+    String(text || '').split('\n').forEach(function (line) {
+      line = line.trim();
+      if (!line) return;
+      var cut = line.indexOf(': ');
+      var head = cut > 0 ? line.slice(0, cut) : '';
+      var value = cut > 0 ? line.slice(cut + 2) : '';
+      if (head.indexOf(CARD_NAME) === 0 && !name) { name = value; return; }
+      if (head.indexOf(CARD_PLACE) === 0 && !place) { place = value; return; }
+      if (head.indexOf(CARD_BIO) === 0 && !bio) { bio = value; return; }
+
+      var row = document.createElement('div');
+      if (!head) {
+        row.className = 'pcard__line';
+        row.textContent = line;
+      } else {
+        row.className = 'pcard__row';
+        var l = document.createElement('span');
+        l.className = 'pcard__label';
+        l.textContent = head;
+        var v = document.createElement('span');
+        v.className = 'pcard__value';
+        v.textContent = value;
+        row.appendChild(l);
+        row.appendChild(v);
+      }
+      rows.appendChild(row);
+    });
+
+    if (name) {
+      var n = document.createElement('div');
+      n.className = 'pcard__name';
+      n.textContent = name;
+      node.appendChild(n);
+    }
+    if (place) {
+      var pl = document.createElement('div');
+      pl.className = 'pcard__place';
+      pl.textContent = place;
+      node.appendChild(pl);
+    }
+    node.appendChild(rows);
+    if (bio) {
+      var b = document.createElement('div');
+      b.className = 'pcard__bio';
+      b.textContent = bio;
+      node.appendChild(b);
+    }
+  }
+
   function cardNode(card, cls) {
     var node = document.createElement('article');
     node.className = 'pcard ' + cls;
@@ -1289,10 +1360,17 @@
 
     if (card.has_photo) attachPhoto(ava, card, node);
 
-    var body = document.createElement('div');
-    body.className = 'pcard__lines';
-    lines(body, card.card);
-    node.appendChild(body);
+    cardBody(node, card.card);
+
+    // ✅ **ختما القرار** — يظهران أثناء السحب وحده (`bindSwipe`)، فيعرف
+    // الساحب قبل أن يُفلت ماذا سيحدث، ويتراجع بإعادة البطاقة للوسط.
+    [['yes', 'web.like', '♥ '], ['no', 'web.skip', '✕ ']].forEach(function (s) {
+      var stamp = document.createElement('span');
+      stamp.className = 'pcard__stamp pcard__stamp--' + s[0];
+      stamp.textContent = s[2] + T(s[1]);
+      stamp.setAttribute('aria-hidden', 'true');
+      node.appendChild(stamp);
+    });
 
     var hint = document.createElement('p');
     hint.className = 'pcard__hint';
@@ -1343,27 +1421,43 @@
       node.setPointerCapture(e.pointerId);
     });
 
+    // ⚠️ العتبة بالنسبة إلى عرض الشاشة لا برقمٍ ثابت: ١٠٠ بكسل على
+    // هاتفٍ ضيّق نصفُ البطاقة، وعلى لوحيٍّ إزاحةٌ لا تكاد تُرى.
+    function threshold() { return Math.min(120, window.innerWidth * 0.28); }
+
+    var yes = node.querySelector('.pcard__stamp--yes');
+    var no = node.querySelector('.pcard__stamp--no');
+
+    // ✅ **ما سيحدث يُرى قبل الإفلات**: الختمُ يشتدّ مع المسافة حتى
+    // يكتمل عند العتبة، والتوهّجُ يظهر بعد نصفها — أخضر للإعجاب وبلون
+    // التخطّي للتخطّي، بلونَي الزرّين تحت البطاقة.
+    function feedback(offset) {
+      var k = Math.max(-1, Math.min(1, offset / threshold()));
+      if (yes) yes.style.opacity = k > 0 ? k : 0;
+      if (no) no.style.opacity = k < 0 ? -k : 0;
+      node.classList.toggle('is-yes', k >= 0.5);
+      node.classList.toggle('is-no', k <= -0.5);
+    }
+
     node.addEventListener('pointermove', function (e) {
       if (!dragging) return;
       dx = e.clientX - startX;
       if (Math.abs(dx) > 6) moved = true;
       node.style.transform = 'translate(' + dx + 'px,' + (dx / 20) + 'px) rotate('
                              + (dx / 18) + 'deg)';
+      feedback(dx);
     });
 
     function end() {
       if (!dragging) return;
       dragging = false;
-      node.style.transition = 'transform .25s';
+      node.style.transition = 'transform .3s';
 
       if (!moved) { openSheet(deck[0]); node.style.transform = ''; return; }
 
-      // ⚠️ العتبة بالنسبة إلى عرض الشاشة لا برقمٍ ثابت: ١٠٠ بكسل على
-      // هاتفٍ ضيّق نصفُ البطاقة، وعلى لوحيٍّ إزاحةٌ لا تكاد تُرى.
-      var threshold = Math.min(120, window.innerWidth * 0.28);
-      if (dx > threshold) act('like');
-      else if (dx < -threshold) act('skip');
-      else node.style.transform = '';
+      if (dx > threshold()) act('like');
+      else if (dx < -threshold()) act('skip');
+      else { node.style.transform = ''; feedback(0); }
       dx = 0;
     }
 
@@ -1387,9 +1481,15 @@
     var front = document.querySelector('.pcard--front');
     if (front) {
       var away = action === 'like' ? window.innerWidth : -window.innerWidth;
-      front.style.transition = 'transform .3s, opacity .3s';
+      // ✅ والختم يظهر كاملاً مع الزرّ أيضاً لا مع السحب وحده — فالضغطُ
+      // على ♥ يقول «إعجاب» بالشكل نفسه.
+      var stamp = front.querySelector(
+        '.pcard__stamp--' + (action === 'like' ? 'yes' : 'no'));
+      if (stamp) stamp.style.opacity = 1;
+      front.classList.add(action === 'like' ? 'is-yes' : 'is-no');
+      front.style.transition = 'transform .4s, opacity .4s';
       front.style.transform = 'translate(' + away + 'px,0) rotate('
-                              + (action === 'like' ? 22 : -22) + 'deg)';
+                              + (action === 'like' ? 30 : -30) + 'deg)';
       front.style.opacity = '0';
     }
 
@@ -1399,6 +1499,7 @@
         // يُحفظ مَن تطابقتَ معه الآن، فيفتح زرُّ «مراسلة» دردشتَه هو.
         lastMatch = card.public_id;
         $('pop').hidden = false;
+        buzz();
       }
       else if (result === 'limit') toast(T('web.limit_reached'));
       else if (result === 'already') toast(T('web.already'));
@@ -1616,6 +1717,9 @@
 
       var log = $('chat-log');
       var atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+
+      // اهتزازةٌ لرسالةٍ واردة جديدة — لا لتاريخ المحادثة عند فتحها.
+      if (!first && rows.some(function (m) { return !m.mine; })) buzz();
 
       rows.forEach(function (message) {
         // ⚠️ **وفحصٌ بالمعرّف مهما كان مصدر التكرار.** الحارس أعلاه
