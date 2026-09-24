@@ -2016,6 +2016,8 @@
     if (bio) {
       var b = document.createElement('div');
       b.className = 'pcard__bio';
+      // ⚠️ `dir=auto`: نبذةٌ إنجليزية في صفحةٍ عربية تنقلب نقطتُها إلى أوّلها.
+      b.dir = 'auto';
       b.textContent = bio;
       node.appendChild(b);
     }
@@ -3784,6 +3786,36 @@
     }).catch(function () { /* تتدهور بصمت: اللغة تبقى كما هي */ });
   }
 
+  function translateButton(body, card) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn btn--ghost';
+    b.textContent = T('web.translate_bio');
+    var bio = body.querySelector('.pcard__bio');
+    var anchor = bio ? bio.nextSibling : null;
+    b.addEventListener('click', function () {
+      b.disabled = true;
+      api.translateBio(card.public_id).then(function (r) {
+        var box = document.createElement('div');
+        box.className = 'pcard__bio pcard__bio--tr';
+        var h = document.createElement('div');
+        h.className = 'pcard__sec';
+        h.textContent = T('web.translation_label');
+        box.appendChild(h);
+        var tr = document.createElement('div');
+        tr.dir = 'auto';
+        tr.textContent = r.text;
+        box.appendChild(tr);
+        b.replaceWith(box);
+      }).catch(function (err) {
+        if (err.code === 'unauthorized') return boot();
+        b.disabled = false;
+        toast(T('web.translate_failed'));
+      });
+    });
+    body.insertBefore(b, anchor);
+  }
+
   function openSheet(card, fromDeck) {
     if (!card) return;
     var body = $('sheet-body');
@@ -3797,6 +3829,11 @@
     // ✅ **بأقسامٍ وصفوف لا أسطراً** — البطاقة نفسها، بعناوين «المواصفات»
     // و«الدين والحالة» و«التعليم والعمل» (كصفحة الاختبار).
     cardBody(body, card.card, { code: card.public_id, sections: true });
+
+    // ✅ **«🌐 ترجمة الوصف»** بشرط البوت (`can_translate`: نبذة، ولغةٌ
+    // يدعمها DeepL، ومفتاحٌ مضبوط) — والترجمةُ تحت النبذة لا مكانها، فيبقى
+    // الأصلُ ظاهراً للمقارنة كما في البوت.
+    if (card.can_translate && card.public_id) translateButton(body, card);
 
     // ✅ **الصورةُ الواضحة بإذن صاحبها** — طلبٌ أو عرض (٢٤ سبتمبر ٢٠٢٦).
     if (card.has_photo && card.public_id) {

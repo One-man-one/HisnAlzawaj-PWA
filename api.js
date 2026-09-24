@@ -257,6 +257,10 @@
     photoAccess: function (id) {
       return request('/api/me/photo-access/' + encodeURIComponent(id));
     },
+    translateBio: function (id) {
+      return request('/api/me/translate-bio', { method: 'POST',
+                                                body: { public_id: id } });
+    },
     photoAsk: function (id) {
       return request('/api/me/photo-ask', { method: 'POST', body: { public_id: id } });
     },
