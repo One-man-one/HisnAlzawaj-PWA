@@ -787,6 +787,14 @@ body.is-app {
   font-weight: 700;
 }
 
+/* البطاقةُ العشوائيّة — خارج التفضيلات. محايدةٌ لا خضراء: الأخضرُ لـ«موثّق»،
+   ووسمٌ بلونه يُقرأ ميزةً لا تنبيهاً. */
+.pcard__badge--random {
+  background: color-mix(in srgb, var(--muted) 18%, transparent);
+  color: var(--muted);
+  margin-inline-end: 6px;
+}
+
 /* الصورة: مموّهةٌ من الوسيط، ولا رابط `getFile` إلى المتصفّح أبداً */
 .ava {
   width: 72px; height: 72px;

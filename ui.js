@@ -83,12 +83,14 @@
     try { if (navigator.vibrate) navigator.vibrate(30); } catch (e) { /* لا شيء */ }
   }
 
-  function toast(text) {
+  // `ms` لما يطول نصُّه (فاصلُ العشوائيّ جملةٌ لا كلمة) — ثانيتان
+  // ونصف لا تكفيان لقراءتها، فتختفي قبل أن تُفهم.
+  function toast(text, ms) {
     var el = $('toast');
     el.textContent = text;
     el.classList.add('on');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.classList.remove('on'); }, 2400);
+    toastTimer = setTimeout(function () { el.classList.remove('on'); }, ms || 2400);
   }
 
   // ⚠️ **النصّ يُركَّب عقدةً لا سلسلةَ HTML.** بطاقاتُ الناس نصٌّ
@@ -2238,9 +2240,17 @@
     return String(publicId || '').replace(/^#/, '').trim();
   }
 
+  // ✅ **فاصلٌ مرئيّ بين المقترحين والعشوائيّ** (بطلب صاحب المشروع، ٢٤
+  // سبتمبر ٢٠٢٦): العشوائيّ لا يطبّق التفضيلات — والتعدّدُ منها عمداً
+  // (`random_cards` في مستودع البوت). وبلا فاصلٍ تُخلط بطاقاتُه في الرزمة
+  // نفسها، فترى من رفضت التعدد طالبَه بعد آخر مقترَح وتظنّ تفضيلها لا
+  // يعمل. فالبطاقةُ العشوائيّة تحمل وسمها، وأوّلُها يُعلَن مرّةً.
+  var randomAnnounced = false;
+
   function loadDeck() {
     // الرزمةُ تعود مقترحاتٍ — فلا يبقى شريطُ «نتائج البحث» فوقها.
     setSearchLabel('');
+    randomAnnounced = false;
     var stack = $('stack');
     stack.textContent = '';
     var wait = document.createElement('p');
@@ -2260,7 +2270,9 @@
         var have = {};
         deck.forEach(function (c) { have[c.public_id] = true; });
         ((more && more.results) || []).forEach(function (c) {
-          if (!have[c.public_id]) deck.push(c);
+          // ⚠️ الوسمُ على البطاقة لا موضعٌ في الرزمة: الرزمةُ تُقصّ من
+          // أوّلها بكل إعجابٍ وتخطٍّ، فحدٌّ محفوظٌ برقمٍ يتقادم عند أوّل ضغطة.
+          if (!have[c.public_id]) { c._random = true; deck.push(c); }
         });
       }).catch(function () { /* العشوائيّ إكمالٌ لا شرط */ }).then(renderDeck);
     }).catch(function (err) {
@@ -2308,6 +2320,11 @@
 
     // ⚠️ ثلاثٌ لا أكثر: ما تحت الثالثة لا يُرى، ورسمُه بطاقاتٌ كاملة
     // في DOM بلا أن يراها أحد.
+    if (deck[0]._random && !randomAnnounced) {
+      randomAnnounced = true;
+      toast(T('web.random_divider'), 6000);
+    }
+
     if (deck[2]) stack.appendChild(cardNode(deck[2], 'pcard--b2'));
     if (deck[1]) stack.appendChild(cardNode(deck[1], 'pcard--b1'));
     var front = cardNode(deck[0], 'pcard--front');
@@ -2442,6 +2459,12 @@
       score.className = 'pcard__score';
       score.textContent = T('web.score', { score: card.score });
       left.appendChild(score);
+    }
+    if (card._random) {
+      var tag = document.createElement('span');
+      tag.className = 'pcard__badge pcard__badge--random';
+      tag.textContent = T('web.random_tag');
+      left.appendChild(tag);
     }
     if (card.is_verified) {
       var badge = document.createElement('span');
