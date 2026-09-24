@@ -335,6 +335,69 @@ img.clear-photo {
   display: block; width: 100%; max-width: 320px; aspect-ratio: 1; margin: 8px auto;
   object-fit: cover; border-radius: 50%; transform: scaleX(-1); background: #000;
 }
+/* ✨ مسرحُ المسح في التوثيق — ui.js::verifyStage. زينةٌ لا فحص. */
+.verify__center { text-align: center; }
+.vscan {
+  --p: 0; --tone: var(--accent);
+  position: relative; width: min(100%, 300px); aspect-ratio: 1; margin: 14px auto;
+}
+.vscan__clip {
+  position: absolute; inset: 14px; border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 50% 40%, rgba(236,143,178,.18), rgba(0,0,0,.55) 70%);
+  box-shadow: 0 0 0 1px rgba(236,143,178,.25), 0 0 40px rgba(236,143,178,.18) inset;
+  display: grid; place-items: center;
+}
+.vscan .verify__preview {
+  width: 100%; height: 100%; max-width: none; margin: 0; border-radius: 0;
+}
+.vscan__icon { width: 46%; color: var(--tone); filter: drop-shadow(0 0 10px var(--tone)); }
+.vscan__icon svg { width: 100%; height: auto; display: block; }
+/* خطُّ المسح — يظهر أثناء التسجيل والتحليل وحدهما */
+.vscan__line {
+  position: absolute; left: 0; right: 0; top: 0; height: 22%; opacity: 0;
+  background: linear-gradient(to bottom, transparent, rgba(236,143,178,.28) 70%, var(--tone) 96%, transparent);
+  pointer-events: none;
+}
+.vscan.is-recording .vscan__line,
+.vscan--wait .vscan__line { opacity: 1; animation: vscan-sweep 2.2s ease-in-out infinite; }
+/* الحلقة — تمتلئ بالثواني أثناء التسجيل، وتدور أثناء التحليل، وتكتمل خضراءَ عند التوثيق */
+.vscan__ring {
+  position: absolute; inset: 4px; border-radius: 50%;
+  background: conic-gradient(var(--tone) calc(var(--p) * 360deg), rgba(255,255,255,.08) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  transition: background .6s linear;
+}
+.vscan--wait .vscan__ring {
+  background: conic-gradient(from 0deg, transparent 0 55%, var(--tone) 100%);
+  animation: vscan-spin 1.4s linear infinite;
+}
+.vscan--done { --tone: var(--ok); --p: 1; }
+.vscan--done .vscan__clip {
+  background: radial-gradient(circle at 50% 45%, rgba(79,192,138,.22), rgba(0,0,0,.5) 70%);
+  box-shadow: 0 0 0 1px rgba(79,192,138,.35), 0 0 40px rgba(79,192,138,.2) inset;
+}
+.vscan--done .vscan__icon { animation: vscan-pop .45s ease-out both; }
+.vscan__tick { stroke-dasharray: 60; stroke-dashoffset: 60; animation: vscan-draw .6s .25s ease-out forwards; }
+/* الزوايا الأربع — تنبض قبل التسجيل، وتثبت أثناءه */
+.vscan__c {
+  position: absolute; width: 26px; height: 26px; border: 3px solid var(--tone);
+  filter: drop-shadow(0 0 6px var(--tone)); animation: vscan-pulse 1.6s ease-in-out infinite;
+}
+.vscan.is-recording .vscan__c, .vscan--done .vscan__c { animation: none; }
+.vscan__c--tl { top: 0; left: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 12px; }
+.vscan__c--tr { top: 0; right: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 12px; }
+.vscan__c--bl { bottom: 0; left: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 12px; }
+.vscan__c--br { bottom: 0; right: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 12px; }
+@keyframes vscan-sweep { 0% { transform: translateY(-100%); } 50% { transform: translateY(360%); } 100% { transform: translateY(-100%); } }
+@keyframes vscan-spin  { to { transform: rotate(360deg); } }
+@keyframes vscan-pulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+@keyframes vscan-pop   { 0% { transform: scale(.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes vscan-draw  { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .vscan__line, .vscan__ring, .vscan__c, .vscan__icon { animation: none !important; }
+  .vscan__tick { animation: none; stroke-dashoffset: 0; }
+}
 .invite__link {
   background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
   padding: 10px 12px; font-family: monospace; font-size: .85rem;

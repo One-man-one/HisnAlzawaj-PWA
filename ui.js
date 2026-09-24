@@ -3386,6 +3386,47 @@
     }).catch(function (err) { verifyText(verifyShell(), errorText(err)); });
   }
 
+  // ✨ **مسرحُ المسح** — إطارٌ دائريّ بزوايا مضيئة، وخطُّ مسحٍ يعبر الوجه،
+  // وحلقةٌ تمتلئ بالثواني. ثلاث حالات: `camera` (المعاينة الحيّة)، و`wait`
+  // (التحليل)، و`done` (وُثِّق). ⚠️ **زينةٌ لا فحص**: الحكمُ من التحليل في
+  // البوت (`services/web_verification.py`)، والمسرحُ لا يعرف عن الوجه شيئاً
+  // — فلا نصَّ فيه يدّعي «تعرّفنا على وجهك» قبل أن يصل القرار.
+  //
+  // ⚠️ `innerHTML` للأيقونتين آمن: ثابتان مكتوبان هنا، لا نصٌّ من الوسيط.
+  var VSCAN_FACE = '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" '
+    + 'stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<path d="M22 27v4M42 27v4"/><path d="M32 27v10h-3"/>'
+    + '<path d="M24 44c4.5 4 11.5 4 16 0"/></svg>';
+  var VSCAN_CHECK = '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" '
+    + 'stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<path class="vscan__tick" d="M19 33l9 9 18-19"/></svg>';
+
+  function verifyStage(kind) {
+    var stage = document.createElement('div');
+    stage.className = 'vscan vscan--' + kind;
+    var clip = document.createElement('div');
+    clip.className = 'vscan__clip';
+    if (kind !== 'camera') {
+      var icon = document.createElement('i');
+      icon.className = 'vscan__icon';
+      icon.innerHTML = kind === 'done' ? VSCAN_CHECK : VSCAN_FACE;
+      clip.appendChild(icon);
+    }
+    var line = document.createElement('div');
+    line.className = 'vscan__line';
+    clip.appendChild(line);
+    stage.appendChild(clip);
+    var ring = document.createElement('div');
+    ring.className = 'vscan__ring';
+    stage.appendChild(ring);
+    ['tl', 'tr', 'bl', 'br'].forEach(function (c) {
+      var corner = document.createElement('span');
+      corner.className = 'vscan__c vscan__c--' + c;
+      stage.appendChild(corner);
+    });
+    return stage;
+  }
+
   function verifyChallenge() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia
         || !window.MediaRecorder) {
@@ -3403,8 +3444,10 @@
       video.muted = true;
       video.autoplay = true;
       video.setAttribute('playsinline', '');
-      video.hidden = true;
-      body.appendChild(video);
+      var stage = verifyStage('camera');
+      stage.querySelector('.vscan__clip').insertBefore(video, stage.querySelector('.vscan__line'));
+      stage.hidden = true;
+      body.appendChild(stage);
       var line = document.createElement('p');
       line.className = 'verify__note';
       body.appendChild(line);
@@ -3415,9 +3458,9 @@
         }).then(function (stream) {
           verifyStream = stream;
           video.srcObject = stream;
-          video.hidden = false;
+          stage.hidden = false;
           open.remove();
-          verifyRecord(body, video, line, ch.max_seconds || 15);
+          verifyRecord(body, stage, line, ch.max_seconds || 15);
         }).catch(function () {
           line.textContent = T('web.verify_camera_denied');
         });
@@ -3436,7 +3479,7 @@
     return '';
   }
 
-  function verifyRecord(body, video, line, maxSeconds) {
+  function verifyRecord(body, stage, line, maxSeconds) {
     var chunks = [];
     var mime = verifyMime();
     var start = verifyAction(body, T('web.verify_record'), true, function () {
@@ -3462,10 +3505,13 @@
       };
       var left = maxSeconds;
       line.textContent = T('web.verify_recording', { seconds: left });
+      stage.classList.add('is-recording');
+      stage.style.setProperty('--p', '0');
       verifyRecorder.start(1000);
       verifyTimer = setInterval(function () {
         left -= 1;
         line.textContent = T('web.verify_recording', { seconds: Math.max(left, 0) });
+        stage.style.setProperty('--p', String(Math.min(1, (maxSeconds - left) / maxSeconds)));
         if (left <= 0 && verifyRecorder && verifyRecorder.state === 'recording') {
           clearInterval(verifyTimer);
           verifyTimer = null;
@@ -3481,7 +3527,8 @@
 
   function verifyUpload(blob, type) {
     var body = verifyShell();
-    verifyText(body, T('web.verify_uploading'));
+    body.appendChild(verifyStage('wait'));
+    verifyText(body, T('web.verify_uploading'), 'verify__text verify__center');
     api.verifyVideo(blob, type.split(';')[0]).then(function (r) {
       verifyWait();
     }).catch(function (err) {
@@ -3506,14 +3553,16 @@
   // إشعاراً على كل حال، والسؤالُ من شاشةٍ مغلقة حِملٌ بلا قارئ.
   function verifyWait(message) {
     var body = verifyShell();
-    verifyText(body, message || T('web.verify_uploading'));
+    body.appendChild(verifyStage('wait'));
+    verifyText(body, message || T('web.verify_uploading'), 'verify__text verify__center');
     var tick = function () {
       if ($('mod').hidden || $('mod-name').textContent !== T('web.verify_button')) return;
       api.verifyStatus().then(function (st) {
         if (st && st.state === 'analyzing') { setTimeout(tick, 3000); return; }
         if (st && st.state === 'verified') {
           var b = verifyShell();
-          verifyText(b, st.message);
+          b.appendChild(verifyStage('done'));
+          verifyText(b, st.message, 'verify__text verify__center');
           return;
         }
         verifyShowStatus(st);
