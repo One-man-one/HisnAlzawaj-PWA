@@ -461,6 +461,10 @@ textarea.mod-details {
   max-width: 100%;
 }
 .pcard__bio--tr { margin-top: 8px; }
+/* تذكيرُ الصفات الجسدية الناقصة في «ملفّي» — لافتٌ بلا إنذار. */
+.gaps { border-color: var(--accent); }
+.gaps__title { margin: 0 0 6px; font-weight: 700; color: var(--accent); }
+.gaps__body { margin: 0 0 12px; line-height: 1.7; color: var(--text); }
 .langpick--top { justify-content: flex-end; margin: 0 0 4px; }
 .langpick__select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 

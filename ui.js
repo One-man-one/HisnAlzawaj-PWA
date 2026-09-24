@@ -2639,6 +2639,34 @@
     });
   }
 
+  // ✅ **تذكيرٌ بالصفات الجسدية الناقصة** (بقرار صاحب المشروع، ٢٤ سبتمبر
+  // ٢٠٢٦): صارت إلزاميةً في التسجيل، ومن تخطّاها قبلها يُذكَّر هنا **ولا
+  // يُحبس** — القائمةُ من الخادم (`services/profile_gaps.py`)، والزرُّ يفتح
+  // «تعديل بياناتي» حيث تظهر الحقولُ نفسها.
+  function gapsCard(gaps) {
+    if (!gaps || !gaps.length) return null;
+    var box = document.createElement('section');
+    box.className = 'card gaps';
+    var h = document.createElement('p');
+    h.className = 'gaps__title';
+    h.textContent = T('web.gaps_title');
+    box.appendChild(h);
+    var sep = (LANG === 'ar' || LANG === 'fa') ? '، ' : ', ';
+    var p = document.createElement('p');
+    p.className = 'gaps__body';
+    p.textContent = T('web.gaps_body', {
+      fields: gaps.map(function (g) { return g.label; }).join(sep)
+    });
+    box.appendChild(p);
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn btn--primary';
+    b.textContent = T('web.gaps_button');
+    b.addEventListener('click', showEdit);
+    box.appendChild(b);
+    return box;
+  }
+
   function loadProfile() {
     var view = $('view-profile');
     view.textContent = '';
@@ -2660,6 +2688,8 @@
       // الصورةُ فوق النصّ — أوّلُ ما يُرى في أي ملفٍّ شخصيّ.
       var photo = photoBlock(mine);
       if (photo) view.appendChild(photo);
+      var gaps = gapsCard(mine && mine.profile_gaps);
+      if (gaps) view.appendChild(gaps);
       view.appendChild(card);
 
       // ✅ «تعديل بياناتي» (٢٣ سبتمبر ٢٠٢٦) — حقولُ البوت نفسها، يقرّرها
