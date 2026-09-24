@@ -298,6 +298,14 @@
     payManual: function (body) {
       return request('/api/me/pay/manual', { method: 'POST', body: body });
     },
+    // ✅ الإيصالُ بصورته — طلبٌ واحد: الصورةُ في الجسم، والباقي في الرابط.
+    payManualPhoto: function (fields, blob) {
+      var q = Object.keys(fields).map(function (k) {
+        return encodeURIComponent(k) + '=' + encodeURIComponent(fields[k] || '');
+      }).join('&');
+      return request('/api/me/pay/manual/photo?' + q,
+                     { method: 'POST', raw: blob, rawType: 'image/jpeg' });
+    },
     // الدفعُ الآليّ — النجومُ رابطٌ تُنشئه مهمّةُ البوت فيُسأل عنه، والرقميةُ فورية.
     payStars: function (plan) {
       return request('/api/me/pay/stars', { method: 'POST', body: { plan: plan } });

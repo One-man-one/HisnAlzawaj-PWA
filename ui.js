@@ -1253,15 +1253,59 @@
     ref.placeholder = T('web.pay_ref_hint');
     body.appendChild(payField(T('web.pay_ref'), ref));
 
+    // ✅ **صورةُ الإيصال** (بطلب صاحب المشروع، ٢٤ سبتمبر ٢٠٢٦) — تُعرض حين
+    // تصل تيليجرامَ فعلاً (`receipt_photo`: قناةُ التخزين). وتُصغَّر ويُنزع
+    // منها EXIF كالصورة الشخصية (`prepareJpeg`)، وتُرسل مع الإيصال في طلبٍ
+    // واحد — فلا يصل المشرفَ إيصالٌ صورتُه في الطريق.
+    var receipt = null;
+    if (d.receipt_photo) {
+      var pickInput = document.createElement('input');
+      pickInput.type = 'file';
+      pickInput.accept = 'image/*';
+      pickInput.hidden = true;
+      var shot = document.createElement('img');
+      shot.className = 'pay-receipt';
+      shot.alt = '';
+      shot.hidden = true;
+      var pickBtn = document.createElement('button');
+      pickBtn.type = 'button';
+      pickBtn.className = 'btn btn--ghost';
+      pickBtn.textContent = T('web.pay_receipt_photo');
+      pickBtn.addEventListener('click', function () { pickInput.click(); });
+      pickInput.addEventListener('change', function () {
+        var file = pickInput.files && pickInput.files[0];
+        pickInput.value = '';
+        if (!file) return;
+        receipt = file;
+        try { shot.src = URL.createObjectURL(file); shot.hidden = false; }
+        catch (e) { /* المعاينةُ راحةٌ لا شرط */ }
+        pickBtn.textContent = T('web.pay_receipt_change');
+      });
+      body.appendChild(pickInput);
+      body.appendChild(pickBtn);
+      body.appendChild(shot);
+    }
+
     var send = document.createElement('button');
     send.type = 'button';
     send.className = 'btn btn--primary';
     send.textContent = T('web.pay_submit');
     send.addEventListener('click', function () {
       var value = ref.value.trim();
-      if (value.length < 3) { toast(T('web.pay_err_ref')); return; }
+      // ⚠️ **الصورةُ تكفي وحدها** — كما في البوت (`attach_receipt`): رقمٌ أو
+      // صورةٌ أو كلاهما، ولا شيء منهما رفضٌ.
+      if (!receipt && value.length < 3) {
+        toast(T(d.receipt_photo ? 'web.pay_ref_or_photo' : 'web.pay_err_ref'));
+        return;
+      }
       send.disabled = true;
-      api.payManual({ method: payState.method, plan: payState.plan, ref: value })
+      var fields = { method: payState.method, plan: payState.plan, ref: value };
+      var sending = receipt
+        ? prepareJpeg(receipt).then(function (blob) {
+            return api.payManualPhoto(fields, blob);
+          })
+        : api.payManual(fields);
+      sending
         .then(function () {
           body.textContent = '';
           var done = document.createElement('p');
@@ -1272,6 +1316,9 @@
           send.disabled = false;
           if (err.code === 'unauthorized') return boot();
           if (err.status === 429) return toast(T('web.pay_too_many'));
+          if (receipt && (err.status === 400 || err.status === 413 || !err.code)) {
+            return toast(T('web.photo_bad'));
+          }
           if (err.status === 400) return toast(T('web.pay_err_ref'));
           toast(errorText(err));
         });
