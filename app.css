@@ -460,6 +460,7 @@ textarea.mod-details {
   font: inherit;
   max-width: 100%;
 }
+.langpick--top { justify-content: flex-end; margin: 0 0 4px; }
 .langpick__select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 .foot { text-align: center; color: var(--muted); font-size: .85rem; }

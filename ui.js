@@ -151,6 +151,7 @@
     $('gate').hidden = true;
     $('app').hidden = true;
     $('complete').hidden = false;
+    langPicker($('complete-lang'));
     renderSchema();
   }
 
