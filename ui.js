@@ -1294,6 +1294,9 @@
     // ⚠️ **الصورة الواضحة تُحرَّر مع كل إغلاقٍ لهذه الشاشة** — لا تبقى في
     // ذاكرة الصفحة بعد أن يغادرها صاحبها.
     closeClearPhoto();
+    // ⚠️ **والكاميرا كذلك**: شاشةٌ تُغلق وضوءُ الكاميرا باقٍ يعني أن الصفحة
+    // ما تزال تنظر إلى صاحبها.
+    stopVerifyCamera();
     $('mod').hidden = true;
     if (modFromSheet) $('sheet').hidden = false;
     modFromSheet = false;
@@ -2774,6 +2777,9 @@
       var inviteSlot = document.createElement('div');
       acct.appendChild(inviteSlot);
       inviteButton(inviteSlot);
+      var verifySlot = document.createElement('div');
+      acct.insertBefore(verifySlot, acct.children[1] || null);
+      verifyButton(verifySlot);
       var links = st.links || {};
       var bot = document.createElement('a');
       bot.className = 'btn btn--ghost';
@@ -2884,6 +2890,240 @@
                   + '&text=' + encodeURIComponent(d.share_text), '_blank', 'noopener');
     });
     body.appendChild(share);
+  }
+
+  // ============================================================
+  // ✅ **توثيقُ الهوية (٢٤ سبتمبر ٢٠٢٦، بقرار صاحب المشروع)** — تسجيلٌ من
+  // الكاميرا في المتصفّح، وتحليلٌ في البوت (`services/web_verification.py`).
+  // ⚠️ **من الكاميرا لا من المعرض**: `getUserMedia` لا `<input type=file>` —
+  // الفيديو المرفوع من المعرض قد يكون مسجَّلاً قبل أن يصدر الرمز.
+  // ⚠️ **ونصُّ الموافقة من الخادم**: وعدُ البوت لا يصدق هنا، فللويب نصُّه.
+  // ============================================================
+  var verifyStream = null;
+  var verifyRecorder = null;
+  var verifyTimer = null;
+
+  function stopVerifyCamera() {
+    if (verifyTimer) { clearInterval(verifyTimer); verifyTimer = null; }
+    if (verifyRecorder && verifyRecorder.state === 'recording') {
+      verifyRecorder.onstop = null;
+      try { verifyRecorder.stop(); } catch (e) { /* لا شيء */ }
+    }
+    verifyRecorder = null;
+    if (verifyStream) {
+      verifyStream.getTracks().forEach(function (tr) { tr.stop(); });
+      verifyStream = null;
+    }
+  }
+
+  function verifyButton(slot) {
+    api.verifyStatus().then(function (st) {
+      if (!st || st.state === 'disabled' || st.state === 'verified') return;
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn btn--primary';
+      b.textContent = T('web.verify_button');
+      b.addEventListener('click', openVerify);
+      slot.appendChild(b);
+    }).catch(function () { /* بلا حالة لا زرّ */ });
+  }
+
+  function verifyShell() {
+    modTarget = null;
+    $('mod-name').textContent = T('web.verify_button');
+    var body = $('mod-body');
+    body.textContent = '';
+    return body;
+  }
+
+  function verifyText(body, text, cls) {
+    if (!text) return;
+    var p = document.createElement('p');
+    p.className = cls || 'verify__text';
+    p.textContent = text;
+    body.appendChild(p);
+  }
+
+  function verifyAction(body, label, primary, fn) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn ' + (primary ? 'btn--primary' : 'btn--ghost');
+    b.textContent = label;
+    b.addEventListener('click', fn);
+    body.appendChild(b);
+    return b;
+  }
+
+  function openVerify() {
+    stopVerifyCamera();
+    var body = verifyShell();
+    body.textContent = T('web.loading');
+    modFromSheet = false;
+    $('mod').hidden = false;
+    api.verifyStatus().then(verifyShowStatus).catch(function (err) {
+      verifyShell();
+      verifyText($('mod-body'), errorText(err));
+    });
+  }
+
+  // ما تقوله الحالة: تحليلٌ جارٍ، أو نتيجةٌ حديثة، أو منعٌ، أو بدء.
+  function verifyShowStatus(st) {
+    if (!st) return;
+    if (st.state === 'analyzing') return verifyWait(st.message);
+    if (st.state === 'idle') return verifyConsent();
+    var body = verifyShell();
+    verifyText(body, st.message);
+    verifyText(body, st.tips);
+    if (st.can_start) verifyAction(body, T('web.verify_retry'), true, verifyConsent);
+  }
+
+  function verifyConsent() {
+    var body = verifyShell();
+    body.textContent = T('web.loading');
+    api.verifyConsent().then(function (c) {
+      body = verifyShell();
+      if (c.state !== 'ready') { verifyText(body, c.message); return; }
+      $('mod-name').textContent = c.title;
+      verifyText(body, c.body);
+      verifyText(body, c.ai_notice, 'verify__note');
+      verifyAction(body, c.agree, true, verifyChallenge);
+    }).catch(function (err) { verifyText(verifyShell(), errorText(err)); });
+  }
+
+  function verifyChallenge() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia
+        || !window.MediaRecorder) {
+      verifyText(verifyShell(), T('web.verify_unsupported'));
+      return;
+    }
+    var body = verifyShell();
+    body.textContent = T('web.loading');
+    api.verifyChallenge().then(function (ch) {
+      body = verifyShell();
+      if (ch.state !== 'challenge') { verifyText(body, ch.message); return; }
+      verifyText(body, ch.text, 'verify__challenge');
+      var video = document.createElement('video');
+      video.className = 'verify__preview';
+      video.muted = true;
+      video.autoplay = true;
+      video.setAttribute('playsinline', '');
+      video.hidden = true;
+      body.appendChild(video);
+      var line = document.createElement('p');
+      line.className = 'verify__note';
+      body.appendChild(line);
+      var open = verifyAction(body, T('web.verify_open_camera'), true, function () {
+        navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } },
+          audio: true
+        }).then(function (stream) {
+          verifyStream = stream;
+          video.srcObject = stream;
+          video.hidden = false;
+          open.remove();
+          verifyRecord(body, video, line, ch.max_seconds || 15);
+        }).catch(function () {
+          line.textContent = T('web.verify_camera_denied');
+        });
+      });
+    }).catch(function (err) { verifyText(verifyShell(), errorText(err)); });
+  }
+
+  // أوّلُ نوعٍ يدعمه المتصفّح: WebM في كروم وفايرفوكس، وMP4 في سفاري.
+  function verifyMime() {
+    var types = ['video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'];
+    for (var i = 0; i < types.length; i++) {
+      if (!MediaRecorder.isTypeSupported || MediaRecorder.isTypeSupported(types[i])) {
+        return types[i];
+      }
+    }
+    return '';
+  }
+
+  function verifyRecord(body, video, line, maxSeconds) {
+    var chunks = [];
+    var mime = verifyMime();
+    var start = verifyAction(body, T('web.verify_record'), true, function () {
+      start.remove();
+      try {
+        // ⚠️ **معدّلٌ منخفض عمداً**: خمس عشرة ثانية بميغابت واحد ≈ ميغابايتان
+        // — تكفي وجهاً وصوتاً، ولا تثقل رفعاً على شبكة هاتف.
+        verifyRecorder = new MediaRecorder(verifyStream, mime
+          ? { mimeType: mime, videoBitsPerSecond: 1000000 }
+          : { videoBitsPerSecond: 1000000 });
+      } catch (e) {
+        line.textContent = T('web.verify_unsupported');
+        return;
+      }
+      verifyRecorder.ondataavailable = function (ev) {
+        if (ev.data && ev.data.size) chunks.push(ev.data);
+      };
+      verifyRecorder.onstop = function () {
+        var type = (verifyRecorder && verifyRecorder.mimeType) || mime || 'video/webm';
+        var blob = new Blob(chunks, { type: type });
+        stopVerifyCamera();
+        verifyUpload(blob, type);
+      };
+      var left = maxSeconds;
+      line.textContent = T('web.verify_recording', { seconds: left });
+      verifyRecorder.start(1000);
+      verifyTimer = setInterval(function () {
+        left -= 1;
+        line.textContent = T('web.verify_recording', { seconds: Math.max(left, 0) });
+        if (left <= 0 && verifyRecorder && verifyRecorder.state === 'recording') {
+          clearInterval(verifyTimer);
+          verifyTimer = null;
+          verifyRecorder.stop();
+        }
+      }, 1000);
+      var stop = verifyAction(body, T('web.verify_stop'), false, function () {
+        stop.disabled = true;
+        if (verifyRecorder && verifyRecorder.state === 'recording') verifyRecorder.stop();
+      });
+    });
+  }
+
+  function verifyUpload(blob, type) {
+    var body = verifyShell();
+    verifyText(body, T('web.verify_uploading'));
+    api.verifyVideo(blob, type.split(';')[0]).then(function (r) {
+      verifyWait();
+    }).catch(function (err) {
+      var detail = err && err.data && err.data.detail;
+      body = verifyShell();
+      if (detail === 'expired' || detail === 'no_challenge') {
+        verifyText(body, T('web.verify_err_expired'));
+      } else if (detail === 'too_large' || err.status === 413) {
+        verifyText(body, T('web.verify_err_too_large'));
+      } else if (detail === 'bad_type' || detail === 'empty') {
+        verifyText(body, T('web.verify_err_bad_type'));
+      } else if (detail === 'analyzing') {
+        return verifyWait();
+      } else {
+        verifyText(body, errorText(err));
+      }
+      verifyAction(body, T('web.verify_retry'), true, verifyConsent);
+    });
+  }
+
+  // ⚠️ **يسأل ما دامت الشاشة مفتوحة، ولا يسأل بعدها**: القرارُ يصل صاحبه
+  // إشعاراً على كل حال، والسؤالُ من شاشةٍ مغلقة حِملٌ بلا قارئ.
+  function verifyWait(message) {
+    var body = verifyShell();
+    verifyText(body, message || T('web.verify_uploading'));
+    var tick = function () {
+      if ($('mod').hidden || $('mod-name').textContent !== T('web.verify_button')) return;
+      api.verifyStatus().then(function (st) {
+        if (st && st.state === 'analyzing') { setTimeout(tick, 3000); return; }
+        if (st && st.state === 'verified') {
+          var b = verifyShell();
+          verifyText(b, st.message);
+          return;
+        }
+        verifyShowStatus(st);
+      }).catch(function () { setTimeout(tick, 5000); });
+    };
+    setTimeout(tick, 3000);
   }
 
   // ✅ **«من يرى صورتي» والسحب** — كان الموقع يمنح الإذن ولا يسحبه. والسطورُ

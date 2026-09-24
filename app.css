@@ -309,6 +309,14 @@ img.clear-photo {
 
 /* 🎁 الدعوة — النصّ بفقراته، والرابطُ يُقرأ من اليسار */
 .invite__text { white-space: pre-wrap; line-height: 1.7; }
+/* توثيقُ الهوية — نصوصُ البوت متعدّدةُ الأسطر، ومعاينةُ الكاميرا مرآةٌ كما يراها صاحبها. */
+.verify__text, .verify__challenge { white-space: pre-wrap; line-height: 1.7; }
+.verify__challenge { font-size: 1.05rem; }
+.verify__note { color: var(--muted); font-size: .9rem; white-space: pre-wrap; }
+.verify__preview {
+  display: block; width: 100%; max-width: 320px; aspect-ratio: 1; margin: 8px auto;
+  object-fit: cover; border-radius: 50%; transform: scaleX(-1); background: #000;
+}
 .invite__link {
   background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
   padding: 10px 12px; font-family: monospace; font-size: .85rem;

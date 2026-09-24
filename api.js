@@ -236,6 +236,16 @@
     settings: function () { return request('/api/me/settings'); },
     likers: function () { return request('/api/me/likers'); },
     invite: function () { return request('/api/me/invite'); },
+    // توثيقُ الهوية — الفيديو جسمٌ خامّ كالصورة، بنوعه كما سجّله المتصفّح.
+    verifyStatus: function () { return request('/api/me/verify'); },
+    verifyConsent: function () { return request('/api/me/verify/consent'); },
+    verifyChallenge: function () {
+      return request('/api/me/verify/challenge', { method: 'POST' });
+    },
+    verifyVideo: function (blob, type) {
+      return request('/api/me/verify/video', { method: 'POST', raw: blob,
+                                               rawType: type });
+    },
     saveSettings: function (body) {
       return request('/api/me/settings', { method: 'POST', body: body });
     },
