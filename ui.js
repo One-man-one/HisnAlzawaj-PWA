@@ -1738,11 +1738,16 @@
         box.appendChild(link);
       });
 
-      if (googleBlocked) {
+      // ⚠️ **ولا سطرَ إن لم يصل المفتاح بعد**: `T` تعيد اسمَ المفتاح نفسه
+      // حين يغيب، ووسيطٌ لم يُنشر بعد (أو نسخةٌ مخبّأة في `localStorage`
+      // من قبله) كان سيعرض `web.inapp_google_hint` خاماً. فالزرّ يُخفى
+      // على أي حال، والسطرُ يظهر متى وصل نصُّه — فلا يلزم ترتيبُ نشر.
+      var hintText = T('web.inapp_google_hint');
+      if (googleBlocked && hintText !== 'web.inapp_google_hint') {
         // ⚠️ `textContent` لا `innerHTML`: النصّ من الوسيط.
         var hint = document.createElement('p');
         hint.className = 'prov-hint';
-        hint.textContent = T('web.inapp_google_hint');
+        hint.textContent = hintText;
         box.appendChild(hint);
       }
 
