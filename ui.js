@@ -3069,11 +3069,63 @@
   }
 
   // ما تقوله الحالة: تحليلٌ جارٍ، أو نتيجةٌ حديثة، أو منعٌ، أو بدء.
+  // ✅ **«تحتاج صورةً» ومعها زرُّ الرفع** (بطلب صاحب المشروع، ٢٤ سبتمبر
+  // ٢٠٢٦): كانت الشاشة تطلب صورةً ولا تعطي طريقاً إليها. الرفعُ نفسُه رفعُ
+  // «ملفي» (`prepareJpeg` ثم `uploadPhoto` — تصغيرٌ ونزعُ EXIF)، ثم تنتظر
+  // الشاشةُ أن يحملها البوت إلى تيليجرام وتكمل إلى الموافقة وحدها.
+  function verifyNeedPhoto(body, message) {
+    verifyText(body, message);
+    api.me().then(function (mine) {
+      if (!mine || !mine.photo_upload) return;       // بلا قناة تخزين لا رفع
+      var input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.hidden = true;
+      body.appendChild(input);
+      var line = document.createElement('p');
+      line.className = 'verify__note';
+      body.appendChild(line);
+      var pick = verifyAction(body, T('web.photo_add'), true, function () { input.click(); });
+      var waitReady = function (tries) {
+        if ($('mod').hidden || tries <= 0) return;
+        setTimeout(function () {
+          api.me().then(function (m) {
+            if (m && m.has_photo && !m.photo_pending) verifyConsent();
+            else waitReady(tries - 1);
+          }).catch(function () { waitReady(tries - 1); });
+        }, 4000);
+      };
+      if (mine.photo_pending) {
+        pick.disabled = true;
+        line.textContent = T('web.photo_pending');
+        waitReady(22);
+      }
+      input.addEventListener('change', function () {
+        var file = input.files && input.files[0];
+        input.value = '';
+        if (!file) return;
+        pick.disabled = true;
+        line.textContent = T('web.photo_pending');
+        prepareJpeg(file).then(function (blob) {
+          return api.uploadPhoto(blob);
+        }).then(function () {
+          waitReady(22);
+        }).catch(function (err) {
+          pick.disabled = false;
+          line.textContent = '';
+          if (err.code === 'unauthorized') return boot();
+          toast(err.code === 'http' || !err.code ? T('web.photo_bad') : errorText(err));
+        });
+      });
+    }).catch(function () { /* الرسالة وحدها تكفي */ });
+  }
+
   function verifyShowStatus(st) {
     if (!st) return;
     if (st.state === 'analyzing') return verifyWait(st.message);
     if (st.state === 'idle') return verifyConsent();
     var body = verifyShell();
+    if (st.state === 'no_photo') return verifyNeedPhoto(body, st.message);
     verifyText(body, st.message);
     verifyText(body, st.tips);
     if (st.can_start) verifyAction(body, T('web.verify_retry'), true, verifyConsent);
@@ -3084,6 +3136,7 @@
     body.textContent = T('web.loading');
     api.verifyConsent().then(function (c) {
       body = verifyShell();
+      if (c.state === 'no_photo') return verifyNeedPhoto(body, c.message);
       if (c.state !== 'ready') { verifyText(body, c.message); return; }
       $('mod-name').textContent = c.title;
       verifyText(body, c.body);
