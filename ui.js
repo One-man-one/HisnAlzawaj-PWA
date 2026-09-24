@@ -4611,8 +4611,14 @@
       renderProviders();
       langPicker($('gate-lang'));
       if (handoff && handoff.error) {
+        // ⚠️ `banned` من الوسيط عند عودة المزوّد — كان المحظور يعود إلى هنا
+        // بلا كلمة فيظنّ الموقع معطّلاً. ومفتاحٌ لم يصل بعد (وسيطٌ أقدم)
+        // يرتدّ إلى الرسالة العامّة لا إلى اسمه خاماً.
+        var bannedText = T('web.err_banned');
         providerNote(handoff.error === 'invite' ? T('web.err_invite')
-                                                : T('web.err_generic'));
+                     : handoff.error === 'banned' && bannedText !== 'web.err_banned'
+                       ? bannedText
+                       : T('web.err_generic'));
       }
     };
 
