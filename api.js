@@ -298,6 +298,14 @@
     payManual: function (body) {
       return request('/api/me/pay/manual', { method: 'POST', body: body });
     },
+    // الدفعُ الآليّ — النجومُ رابطٌ تُنشئه مهمّةُ البوت فيُسأل عنه، والرقميةُ فورية.
+    payStars: function (plan) {
+      return request('/api/me/pay/stars', { method: 'POST', body: { plan: plan } });
+    },
+    payStarsStatus: function (id) { return request('/api/me/pay/stars/' + id); },
+    payCrypto: function (plan) {
+      return request('/api/me/pay/crypto', { method: 'POST', body: { plan: plan } });
+    },
     search: function (params) {
       // ⚠️ **القائمة تُكرَّر مفتاحاً لا تُلصق بفاصلة** (`?job=a&job=b`):
       // هكذا يقرؤها الوسيط `List[str]`، و«a,b» تصله قيمةً واحدة لا

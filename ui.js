@@ -1152,7 +1152,7 @@
   }
 
   // ==========================================================
-  // الاشتراك المميّز — الدفعُ اليدويّ
+  // الاشتراك المميّز — الدفعُ الآليّ (نجوم/رقمية) واليدويّ
   // ==========================================================
   //
   // ⚠️ **الطرقُ من الوسيط لا من هذه الصفحة** (`/api/me/pay`): الفارغُ
@@ -1201,14 +1201,17 @@
       payState.plan, function (k) { payState.plan = k; renderPay(); })));
 
     if (!payState.plan) return;
+    // ✅ الآليّةُ أوّلاً (نجومٌ ثم رقمية): تُفعَّل بلا انتظار مشرف.
+    var all = payMethods(d);
     body.appendChild(payField(T('web.pay_method'), chipRow(
-      d.methods.map(function (m) {
+      all.map(function (m) {
         return { key: m.key, label: m.name + ' — ' + m.prices[payState.plan] };
       }),
       payState.method, function (k) { payState.method = k; renderPay(); })));
 
-    var method = d.methods.filter(function (m) { return m.key === payState.method; })[0];
+    var method = all.filter(function (m) { return m.key === payState.method; })[0];
     if (!method) return;
+    if (method.auto) { body.appendChild(autoPayBox(method)); return; }
 
     var box = document.createElement('div');
     box.className = 'paybox';
@@ -1276,6 +1279,67 @@
     body.appendChild(send);
   }
 
+  function payMethods(d) {
+    return (d.auto_methods || []).concat(d.methods || []);
+  }
+
+  // ⚠️ **الدفعُ نفسه في تطبيق تيليجرام** — والرابطُ يُفتح بلمسةٍ من صاحبه
+  // لا بـ`window.open` بعد انتظار: المتصفّحُ يحجب النافذةَ التي لا تتبع
+  // لمسةً مباشرة، فيبدو الزرُّ ميتاً. فالرابطُ يُجهَّز أوّلاً ثم يصير زرّاً.
+  function autoPayBox(method) {
+    var box = document.createElement('div');
+    box.className = 'paybox';
+    var note = document.createElement('p');
+    note.className = 'pay-status';
+    note.textContent = T('web.pay_auto_note');
+    box.appendChild(note);
+
+    var go = document.createElement('button');
+    go.type = 'button';
+    go.className = 'btn btn--primary';
+    go.textContent = T('web.pay_auto_btn');
+    box.appendChild(go);
+
+    var plan = payState.plan;
+    function ready(url) {
+      var open = document.createElement('a');
+      open.className = 'btn btn--primary';
+      open.href = url;
+      open.target = '_blank';
+      open.rel = 'noopener';
+      open.textContent = T('web.pay_open_tg');
+      box.replaceChild(open, go);
+    }
+    function failed(err) {
+      go.disabled = false;
+      go.textContent = T('web.pay_auto_btn');
+      if (err && err.code === 'unauthorized') return boot();
+      toast(T('web.pay_link_failed'));
+    }
+    // ⚠️ النجومُ تنتظر مهمّةَ البوت (دورتُها عشرُ ثوانٍ) — فتُسأل بمهلةٍ
+    // لا إلى الأبد: خدمةُ البوت المتوقّفة تعني زرّاً يدور بلا نهاية.
+    function poll(id, tries) {
+      api.payStarsStatus(id).then(function (r) {
+        if (r.link) return ready(r.link);
+        if (r.status === 'failed' || tries <= 0) return failed();
+        setTimeout(function () { poll(id, tries - 1); }, 2000);
+      }).catch(failed);
+    }
+    go.addEventListener('click', function () {
+      go.disabled = true;
+      go.textContent = T('web.pay_preparing');
+      if (method.key === 'crypto') {
+        api.payCrypto(plan).then(function (r) { ready(r.url); }).catch(failed);
+        return;
+      }
+      api.payStars(plan).then(function (r) {
+        if (r.link) return ready(r.link);
+        poll(r.id, 20);
+      }).catch(failed);
+    });
+    return box;
+  }
+
   function openPay() {
     $('pay').hidden = false;
     $('pay-body').textContent = T('web.loading');
@@ -1288,7 +1352,7 @@
   // زرُّ «ملفّي» — يُضاف حين توجد طريقةٌ مضبوطة وحدها.
   function payButton(slot) {
     api.payOptions().then(function (data) {
-      if (!data || !data.methods || !data.methods.length) return;
+      if (!data || !payMethods(data).length) return;
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'btn btn--primary';
