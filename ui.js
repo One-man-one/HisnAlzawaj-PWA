@@ -117,6 +117,7 @@
     if (err.status === 400) {
       var field = err.data && err.data.field;
       if (field === 'full_name') return T('web.err_name');
+      if (field === 'preferred_age') return T('web.err_age_range');
       if (field === 'birth_year' || !field) return T('web.err_birth_year');
       return T('web.err_field');
     }
@@ -191,8 +192,10 @@
   // قبل هذه الشاشة، وشاشةٌ عالقة بعد عشرين سؤالاً أسوأ من شاشةٍ غائبة.
   // ومن لم يختر يبقى على افتراض البوت نفسه (النشر، بعد مراجعة المشرف).
   function showConsent() {
+    // ⚠️ **وكلُّ مخرجٍ من هنا يمرّ بالتفضيلات** — لا الزرّ وحده: موافقةٌ
+    // غائبة أو عطلٌ كانا يقفزان إلى التطبيق فيفوت صاحبَهما «من تبحث عنه؟».
     api.publishConsent().then(function (data) {
-      if (!data || !data.available) { boot(); return; }
+      if (!data || !data.available) { showPrefs(true); return; }
       $('complete').hidden = true;
       $('consent-text').textContent = data.text;
       $('consent-yes').textContent = data.yes;
@@ -201,7 +204,7 @@
       $('consent-go').hidden = true;
       $('consent').hidden = false;
       window.scrollTo(0, 0);
-    }).catch(function () { boot(); });
+    }).catch(function () { showPrefs(true); });
   }
 
   function chooseConsent(publish) {
@@ -220,9 +223,11 @@
   function bindConsent() {
     $('consent-yes').addEventListener('click', function () { chooseConsent(true); });
     $('consent-no').addEventListener('click', function () { chooseConsent(false); });
+    // ✅ **ومن الموافقة إلى «من تبحث عنه؟» لا إلى التطبيق مباشرةً** — الشرح
+    // عند `showPrefs`. وهي تُكمل إلى التطبيق بنفسها عند التخطّي أو العطل.
     $('consent-go').addEventListener('click', function () {
       $('consent').hidden = true;
-      boot();
+      showPrefs(true);
     });
   }
 
@@ -552,6 +557,200 @@
     showApp();
     openTab('profile');
     if (saved) toast(T('web.saved'));
+  }
+
+  // ==========================================================
+  // «تفضيلات الشريك» — الشاشةُ نفسها في وضعٍ ثالث (٢٤ سبتمبر ٢٠٢٦)
+  // ==========================================================
+  // ⚠️ **ولماذا وُجدت: عطلٌ صامت.** من سجّل من الموقع لم يكن له بابٌ إلى
+  // تفضيلاته، فبقيت كلُّها فارغة — وفلترُ «المقترحون لك» لا يطبّق فارغاً،
+  // فكان مقترحوه كلَّ من هو من الجنس الآخر.
+  //
+  // ⚠️ **وهي التفضيلاتُ المحفوظة لا مرشّحاتُ شاشة**: الحقولُ وخياراتُها
+  // وقيمُها من الوسيط (`/api/me/preferences` — قائمةُ «تعديل تفضيلاتي» في
+  // البوت نفسها)، وما يُحفظ هنا يراه البوت. فلا قائمةَ مكتوبةً في الصفحة.
+  //
+  // ✅ **وتُعرض بعد الإكمال مباشرةً ويجوز تخطّيها**، لا في الملفّ وحده:
+  // من لا يعرف أنها موجودة لا يفتحها، فيبقى بلا فلتر.
+  var prefsMode = false;
+  var prefsAfterSignup = false;
+  var PREFS = [];
+  var PREF_ANY = '';
+
+  function showPrefs(afterSignup) {
+    prefsMode = true;
+    prefsAfterSignup = !!afterSignup;
+    document.body.classList.remove('is-app');
+    ['boot', 'gate', 'app', 'consent'].forEach(function (id) { $(id).hidden = true; });
+    $('complete').hidden = false;
+    document.querySelector('#complete .brand__name').textContent = T('web.prefs_title');
+    var why = document.querySelector('#complete .brand__line');
+    why.textContent = T('web.prefs_why');
+    why.hidden = false;
+    document.querySelector('#form-complete button[type="submit"]').textContent = T('web.prefs_save');
+    // ⚠️ **بعد التسجيل «تخطَّ» لا «إغلاق»**: الشاشةُ عرضٌ لا حاجز، ومن
+    // لا يريدها الآن يمضي إلى التطبيق بلا أن يظنّ أنه يُلغي تسجيله.
+    $('complete-out').textContent = T(afterSignup ? 'web.prefs_skip' : 'web.close');
+    $('form-complete').querySelector('[data-err]').hidden = true;
+    delete $('form-complete').dataset.tried;
+    window.scrollTo(0, 0);
+
+    var host = $('complete-fields');
+    host.textContent = T('web.loading');
+    api.prefsForm().then(function (data) {
+      host.textContent = '';
+      PREFS = (data && data.fields) || [];
+      PREF_ANY = (data && data.any_label) || T('web.pref_any');
+      PREFS.forEach(function (spec) { host.appendChild(prefNode(spec)); });
+    }).catch(function (err) {
+      if (err.code === 'unauthorized') return boot();
+      // ⚠️ **بعد التسجيل لا تحبس صاحبها**: وسيطٌ أقدم بلا المسار (404)
+      // أو عطلٌ = يمضي إلى التطبيق كما كان يمضي قبل هذه الشاشة.
+      if (prefsAfterSignup) return leavePrefs(false);
+      host.textContent = errorText(err);
+    });
+  }
+
+  function leavePrefs(saved) {
+    var afterSignup = prefsAfterSignup;
+    prefsMode = false;
+    prefsAfterSignup = false;
+    document.querySelector('#complete .brand__name').textContent = T('web.complete_title');
+    document.querySelector('#complete .brand__line').textContent = T('web.complete_why');
+    document.querySelector('#form-complete button[type="submit"]').textContent = T('web.complete_btn');
+    $('complete-out').textContent = T('web.logout');
+    if (afterSignup) {
+      boot();
+    } else {
+      showApp();
+      openTab('profile');
+    }
+    if (saved) toast(T('web.saved'));
+  }
+
+  // حقلٌ واحد — والبناءُ بـ`fieldNode` نفسها حيث يصلح، لا بانيةٌ ثانية.
+  function prefNode(spec) {
+    if (spec.kind === 'range') return prefRange(spec);
+
+    var wrap = fieldNode({
+      name: spec.name, label: spec.label, options: spec.options,
+      // `marriage` قائمةٌ متعدّدة إلزاميّة — والباقي اختياريٌّ كلُّه.
+      kind: spec.kind === 'choice' ? 'choice' : 'multi',
+      required: !!spec.required
+    });
+    // ⚠️ **بلا «(اختياري)» بعد كل عنوان**: كلُّ تفضيلٍ هنا اختياريّ
+    // و«لا يهمّني» هي معنى الفراغ — فالكلمة تتكرّر اثنتي عشرة مرّة بلا خبر.
+    wrap.querySelector('span').textContent = spec.label;
+    var input = wrap.querySelector('[name]');
+
+    if (spec.kind === 'choice') {
+      // الخيارُ الفارغ «لا يهمّني» لا «—»: هو جوابٌ هنا لا سؤالٌ لم يُجَب.
+      input.options[0].text = PREF_ANY;
+      input.value = spec.value || '';
+      return wrap;
+    }
+
+    var picked = spec.value || [];
+    Array.prototype.forEach.call(input.options, function (o) {
+      o.selected = picked.indexOf(o.value) !== -1;
+    });
+    var box = wrap.querySelector('.chips');
+    // ⚠️ **ما لا يُنزع يُعطَّل زرُّه** (التعدد على المتزوّج — `locked` من
+    // الوسيط): زرٌّ يُطفأ ثم يعود عند الحفظ بلا تفسير يبدو عطلاً.
+    (spec.locked || []).forEach(function (key) {
+      var chip = box.querySelector('.chip[data-key="' + key + '"]');
+      if (chip) chip.disabled = true;
+    });
+    if (!spec.required) box.insertBefore(anyChip(input), box.firstChild);
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    return wrap;
+  }
+
+  // «لا يهمّني» زرٌّ في أوّل القائمة المتعدّدة: مضاءٌ حين لا يُختار شيء،
+  // وضغطُه يمسح الاختيار — فالفراغُ يُرى جواباً لا نسياناً.
+  function anyChip(select) {
+    var chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip';
+    chip.textContent = PREF_ANY;
+    function paint() {
+      var none = !select.selectedOptions.length;
+      chip.classList.toggle('on', none);
+      chip.setAttribute('aria-pressed', none ? 'true' : 'false');
+    }
+    chip.addEventListener('click', function () {
+      Array.prototype.forEach.call(select.options, function (o) { o.selected = false; });
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    select.addEventListener('change', paint);
+    return chip;
+  }
+
+  function prefRange(spec) {
+    var wrap = document.createElement('div');
+    wrap.className = 'fld';
+    wrap.setAttribute('data-field', spec.name);
+    var title = document.createElement('span');
+    title.textContent = spec.label;
+    wrap.appendChild(title);
+    var row = document.createElement('div');
+    row.className = 'search__age';
+    [['min', 'web.age_from'], ['max', 'web.age_to']].forEach(function (pair) {
+      var input = document.createElement('input');
+      input.type = 'number';
+      input.inputMode = 'numeric';
+      input.name = spec.name + '__' + pair[0];
+      input.placeholder = T(pair[1]);
+      input.setAttribute('aria-label', T(pair[1]));
+      if (spec.min !== undefined) input.min = spec.min;
+      if (spec.max !== undefined) input.max = spec.max;
+      if (spec.value && spec.value[pair[0]]) input.value = spec.value[pair[0]];
+      row.appendChild(input);
+    });
+    wrap.appendChild(row);
+    return wrap;
+  }
+
+  // ⚠️ **كلُّ تفضيلٍ يُرسَل، والفارغُ `null` أو `[]`** — لا يُحذف كما
+  // يحذفه `collect`: الوسيط لا يمسّ ما لم يُرسَل، فمن مسح اختياراً
+  // وحذفناه من الطلب بقي اختيارُه القديم محفوظاً وهو يظنّه ممسوحاً.
+  function prefsCollect() {
+    var out = {};
+    PREFS.forEach(function (spec) {
+      var q = function (name) {
+        return document.querySelector('#complete-fields [name="' + name + '"]');
+      };
+      if (spec.kind === 'range') {
+        var lo = q(spec.name + '__min').value, hi = q(spec.name + '__max').value;
+        out[spec.name] = (lo === '' && hi === '') ? null
+          : { min: parseInt(lo, 10), max: parseInt(hi, 10) };
+        return;
+      }
+      var el = q(spec.name);
+      if (!el) return;
+      if (el.multiple) {
+        out[spec.name] = Array.prototype.map.call(el.selectedOptions,
+                                                  function (o) { return o.value; });
+      } else {
+        out[spec.name] = el.value || null;
+      }
+    });
+    return out;
+  }
+
+  // المدى نصفين: الحدّان معاً أو لا شيء، والأدنى لا يتجاوز الأعلى —
+  // يُقال هنا قبل الشبكة، والخادمُ يرفض الأمرين أيضاً (`partner_prefs._clean`).
+  function prefsRangeError() {
+    for (var i = 0; i < PREFS.length; i++) {
+      var spec = PREFS[i];
+      if (spec.kind !== 'range') continue;
+      var lo = document.querySelector('#complete-fields [name="' + spec.name + '__min"]').value;
+      var hi = document.querySelector('#complete-fields [name="' + spec.name + '__max"]').value;
+      var at = document.querySelector('#complete-fields [data-field="' + spec.name + '"]');
+      if ((lo === '') !== (hi === '')) return { at: at, text: T('web.err_range_both') };
+      if (lo !== '' && Number(lo) > Number(hi)) return { at: at, text: T('web.err_age_range') };
+    }
+    return null;
   }
 
   function setBell(n) {
@@ -3043,6 +3242,13 @@
       editBtn.textContent = T('web.edit_profile');
       editBtn.addEventListener('click', showEdit);
       view.appendChild(editBtn);
+      // ✅ «تفضيلات الشريك» بجواره — كما في قائمة البوت: البيانات ثم التفضيلات.
+      var prefsBtn = document.createElement('button');
+      prefsBtn.type = 'button';
+      prefsBtn.className = 'btn btn--ghost';
+      prefsBtn.textContent = T('web.prefs_button');
+      prefsBtn.addEventListener('click', function () { showPrefs(false); });
+      view.appendChild(prefsBtn);
       // ⚠️ **وما سوى الملفّ في «⚙️ الإعدادات»** (٢٤ سبتمبر ٢٠٢٦): الإشعارات
       // والخصوصية والحساب والمساعدة — `loadSettings` أدناه.
     }).catch(function (err) {
@@ -4717,12 +4923,24 @@
         missing[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
+      if (prefsMode) {
+        var bad = prefsRangeError();
+        if (bad) {
+          flagField(bad.at, bad.text);
+          box.textContent = bad.text;
+          box.hidden = false;
+          bad.at.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
+      }
       box.hidden = true;
       button.disabled = true;
-      (editMode ? api.profileEdit(collect()) : api.completeProfile(collect()))
+      (prefsMode ? api.savePrefs(prefsCollect())
+       : editMode ? api.profileEdit(collect()) : api.completeProfile(collect()))
       .then(function () {
         button.disabled = false;
-        if (editMode) leaveEdit(true);
+        if (prefsMode) leavePrefs(true);
+        else if (editMode) leaveEdit(true);
         else showConsent();
       }).catch(function (err) {
         button.disabled = false;
@@ -4742,6 +4960,8 @@
     $('complete-out').addEventListener('click', function () {
       // في التعديل: إغلاقٌ بلا حفظ — لا تسجيلُ خروجٍ من الحساب.
       if (editMode) { leaveEdit(false); return; }
+      // وفي التفضيلات: «تخطَّ» بعد التسجيل، أو «إغلاق» من الملفّ.
+      if (prefsMode) { leavePrefs(false); return; }
       api.logout();
       boot();
     });
