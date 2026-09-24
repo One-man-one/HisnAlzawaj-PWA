@@ -307,6 +307,10 @@ img.clear-photo {
   pointer-events: none;
 }
 
+/* ❤️ من أعجب بي — صفٌّ في رأس «مطابقاتي» وعددُه على طرفه */
+.row.likers-entry { justify-content: space-between; }
+.likers-entry__n { position: static; margin-inline-start: auto; }
+
 /* ⚙️ الإعدادات — أقسامٌ بعناوين، وأزرارُها متتابعة */
 .card.settings { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
 .card.settings > .btn, .card.settings > a.btn { margin: 0; }

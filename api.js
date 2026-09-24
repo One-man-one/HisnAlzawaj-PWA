@@ -234,6 +234,7 @@
     },
     pushKey: function () { return request('/api/push/key'); },
     settings: function () { return request('/api/me/settings'); },
+    likers: function () { return request('/api/me/likers'); },
     saveSettings: function (body) {
       return request('/api/me/settings', { method: 'POST', body: body });
     },

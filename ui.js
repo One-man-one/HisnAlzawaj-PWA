@@ -2267,6 +2267,90 @@
     else loadProfile();
   }
 
+  // ==========================================================
+  // ❤️ من أعجب بي (٢٤ سبتمبر ٢٠٢٦)
+  // ==========================================================
+  //
+  // ⚠️ **التعريفُ والقاعدةُ من البوت** (`services/likers.py`): المميَّزُ يرى
+  // الأسماء دائماً، وغيرُه ما دام صاحبُ المشروع فتحها — والمغلقُ يرى العدد
+  // وحده. والضغطُ على شخصٍ يفتح بطاقته بزرّ «إعجاب»، ومنه يقع التطابق.
+  function likersEntry(slot) {
+    api.likers().then(function (d) {
+      if (!d || !d.count) return;
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'row likers-entry';
+      var main = document.createElement('div');
+      main.className = 'row__main';
+      var name = document.createElement('div');
+      name.className = 'row__name';
+      name.textContent = T('web.likers');
+      main.appendChild(name);
+      row.appendChild(main);
+      var n = document.createElement('span');
+      n.className = 'bell__n row__n likers-entry__n';
+      n.textContent = d.count > 99 ? '99+' : String(d.count);
+      row.appendChild(n);
+      row.addEventListener('click', function () { openLikers(d); });
+      slot.appendChild(row);
+    }).catch(function () { /* بلا قائمة لا صفّ — و«مطابقاتي» كاملةٌ بدونه */ });
+  }
+
+  function openLikers(d) {
+    modTarget = null;
+    $('mod-name').textContent = T('web.likers');
+    var body = $('mod-body');
+    body.textContent = '';
+    modFromSheet = false;
+    $('mod').hidden = false;
+
+    if (d.locked) {
+      var lock = document.createElement('p');
+      lock.className = 'empty';
+      lock.textContent = T('web.likers_locked', { count: d.count });
+      body.appendChild(lock);
+      var paySlot = document.createElement('div');
+      body.appendChild(paySlot);
+      payButton(paySlot);
+      return;
+    }
+    if (!d.people || !d.people.length) {
+      var none = document.createElement('p');
+      none.className = 'empty';
+      none.textContent = T('web.likers_empty');
+      body.appendChild(none);
+      return;
+    }
+    d.people.forEach(function (card) {
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'row';
+      var ava = document.createElement('div');
+      ava.className = 'ava';
+      ava.textContent = '👤';
+      row.appendChild(ava);
+      if (card.has_photo) attachPhoto(ava, card);
+      var main = document.createElement('div');
+      main.className = 'row__main';
+      var name = document.createElement('div');
+      name.className = 'row__name';
+      name.textContent = identity(card.who, card.public_id);
+      var sub = document.createElement('div');
+      sub.className = 'row__sub';
+      sub.textContent = String(card.card || '').split('\n')[0] || '';
+      main.appendChild(name);
+      main.appendChild(sub);
+      row.appendChild(main);
+      // ⚠️ **الورقةُ فوق شاشة القائمة**: تُغلق هذه أوّلاً — `#mod` داخل
+      // `.app` وسياقُ تكديسها أدنى من الورقة (الشرح عند `modFromSheet`).
+      row.addEventListener('click', function () {
+        $('mod').hidden = true;
+        openSheet(card);
+      });
+      body.appendChild(row);
+    });
+  }
+
   function loadMutual() {
     var view = $('view-matches');
     view.textContent = '';
@@ -2279,6 +2363,11 @@
       var rows = (data && data.results) || [];
       view.textContent = '';
       $('counter').textContent = '';
+
+      // ✅ «❤️ من أعجب بي» فوق القائمة — موضعُه يُحجز الآن ويُملأ بعد ردّه.
+      var likersSlot = document.createElement('div');
+      view.appendChild(likersSlot);
+      likersEntry(likersSlot);
 
       if (!rows.length) {
         var none = document.createElement('p');
