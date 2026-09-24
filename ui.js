@@ -2836,7 +2836,6 @@
         releasePhotos();
         boot();
       });
-      acct.appendChild(deleteBlock());
 
       // ❓ المساعدة — صفحاتُ الموقع الساكن بلغة القارئ، من الخادم.
       var help = settingsSection(view, 'web.settings_help');
@@ -2855,6 +2854,14 @@
       if (install && install.available()) {
         settingsButton(help, T('web.install_app'), function () { install.run(); });
       }
+
+      // ✅ **«حذف حسابي» في ذيل الشاشة لا وسط «الحساب»** (بطلب صاحب
+      // المشروع، ٢٤ سبتمبر ٢٠٢٦): فعلٌ لا رجعة فيه لا يجاور «خروج» و«افتح
+      // البوت» — ضغطةٌ خاطئة بينها أوّلُ طريقٍ إليه. وتأكيدُه باقٍ كما كان.
+      var danger = document.createElement('section');
+      danger.className = 'card settings__danger';
+      danger.appendChild(deleteBlock());
+      view.appendChild(danger);
     }).catch(function (err) {
       if (err.code === 'unauthorized') return boot();
       view.textContent = '';
