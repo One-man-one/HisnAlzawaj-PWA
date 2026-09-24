@@ -232,6 +232,13 @@
     deletePhoto: function () {
       return request('/api/me/photo', { method: 'DELETE' });
     },
+    pushKey: function () { return request('/api/push/key'); },
+    pushSubscribe: function (sub) {
+      return request('/api/me/push', { method: 'POST', body: sub });
+    },
+    pushUnsubscribe: function (sub) {
+      return request('/api/me/push', { method: 'DELETE', body: sub });
+    },
     unblock: function (body) {
       return request('/api/me/unblock', { method: 'POST', body: body });
     },

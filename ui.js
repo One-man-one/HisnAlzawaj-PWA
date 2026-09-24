@@ -2567,6 +2567,10 @@
       view.appendChild(paySlot);
       payButton(paySlot);
 
+      var pushSlot = document.createElement('div');
+      view.appendChild(pushSlot);
+      pushBlock(pushSlot);
+
       var blockedBtn = document.createElement('button');
       blockedBtn.type = 'button';
       blockedBtn.className = 'btn btn--ghost';
@@ -2586,6 +2590,9 @@
       out.className = 'btn btn--ghost';
       out.textContent = T('web.logout');
       out.addEventListener('click', function () {
+        // ⚠️ **الاشتراكُ يُلغى قبل الخروج**: الهاتفُ المشترك يبقى وإلا
+        // يتلقّى تنبيهاتِ الحساب الذي خرج منه صاحبُه.
+        pushOff();
         api.logout();
         deck = [];
         releasePhotos();
@@ -2752,6 +2759,124 @@
     note.textContent = T('web.photo_note');
     box.appendChild(note);
     return box;
+  }
+
+  // ==========================================================
+  // إشعاراتُ المتصفّح (٢٤ سبتمبر ٢٠٢٦)
+  // ==========================================================
+  //
+  // ⚠️ **مستخدمُ الويب لا يعرف بإعجابٍ أو رسالةٍ إلا إن فتح الصفحة** —
+  // هذا جرسُه خارجها. والاشتراك يحفظه الوسيط، ومهمّةُ البوت تُرسل
+  // (`services/web_push.py`). وغيابُ المفتاح في الخادم يُخفي كلَّ هذا.
+  //
+  // ⚠️ **وعلى آيفون لا إشعارات إلا لتطبيقٍ مُضافٍ إلى الشاشة الرئيسية**
+  // (iOS 16.4+) — فمن فتح الصفحة في سفاري يرى كيف، لا زرّاً لا يعمل.
+  function pushSupported() {
+    return 'serviceWorker' in navigator && 'PushManager' in window
+      && 'Notification' in window;
+  }
+
+  function isIosBrowserTab() {
+    var ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    var standalone = window.navigator.standalone === true
+      || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    return ios && !standalone;
+  }
+
+  function keyBytes(base64url) {
+    var pad = '='.repeat((4 - base64url.length % 4) % 4);
+    var raw = atob((base64url + pad).replace(/-/g, '+').replace(/_/g, '/'));
+    var out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  function currentSubscription() {
+    if (!pushSupported()) return Promise.resolve(null);
+    return navigator.serviceWorker.ready.then(function (reg) {
+      return reg.pushManager.getSubscription();
+    });
+  }
+
+  function pushOff() {
+    return currentSubscription().then(function (sub) {
+      if (!sub) return;
+      var json = sub.toJSON();
+      return api.pushUnsubscribe(json).catch(function () { /* الخروج لا ينتظر الخادم */ })
+        .then(function () { return sub.unsubscribe(); });
+    }).catch(function () { /* لا اشتراك يُلغى — لا شيء يُقال */ });
+  }
+
+  function pushBlock(slot) {
+    slot.textContent = '';
+    api.pushKey().then(function (d) {
+      var key = d && d.key;
+      if (!key) return;
+
+      var note = document.createElement('p');
+      note.className = 'pcard__note';
+
+      if (isIosBrowserTab()) {
+        note.textContent = T('web.push_ios');
+        slot.appendChild(note);
+        return;
+      }
+      if (!pushSupported()) return;
+      if (Notification.permission === 'denied') {
+        note.textContent = T('web.push_denied');
+        slot.appendChild(note);
+        return;
+      }
+
+      currentSubscription().then(function (sub) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn--ghost';
+        slot.appendChild(btn);
+
+        if (sub) {
+          // ⚠️ **يُعاد إرساله في كل فتح**: الحفظ بالـendpoint، فهذا يُبقي
+          // الخادم على الجهاز نفسه لو ضاع الصفّ أو تبدّل الحساب.
+          api.pushSubscribe(sub.toJSON()).catch(function () {});
+          btn.textContent = T('web.push_disable');
+          btn.addEventListener('click', function () {
+            btn.disabled = true;
+            pushOff().then(function () {
+              toast(T('web.push_off'));
+              pushBlock(slot);
+            });
+          });
+          return;
+        }
+
+        btn.textContent = T('web.push_enable');
+        btn.addEventListener('click', function () {
+          btn.disabled = true;
+          Notification.requestPermission().then(function (perm) {
+            if (perm !== 'granted') {
+              btn.disabled = false;
+              if (perm === 'denied') pushBlock(slot);
+              return;
+            }
+            return navigator.serviceWorker.ready.then(function (reg) {
+              return reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: keyBytes(key)
+              });
+            }).then(function (fresh) {
+              return api.pushSubscribe(fresh.toJSON());
+            }).then(function () {
+              toast(T('web.push_on'));
+              pushBlock(slot);
+            });
+          }).catch(function (err) {
+            btn.disabled = false;
+            if (err && err.code === 'unauthorized') return boot();
+            toast(errorText(err));
+          });
+        });
+      });
+    }).catch(function () { /* بلا مفتاح أو بلا شبكة — لا زرّ، ولا خطأ */ });
   }
 
   // ⚠️ **حذفُ الحساب بخطوتين في الصفحة، وبكلمةٍ في المسار.** الزرّ

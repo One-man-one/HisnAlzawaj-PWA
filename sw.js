@@ -10,7 +10,7 @@
 // السبب: السيرفر يحمل الجديد، والمستخدم يرى القديم.
 //
 // ✅ فالقاعدة: **كل دفعةٍ تمسّ ملفّاً في ‎SHELL‎ ترفع هذا الرقم.**
-const VERSION = 'v31';
+const VERSION = 'v32';
 const CACHE = 'hisn-shell-' + VERSION;
 
 // ⚠️ مسارات نسبيّة بلا شرطة بادئة — الاستضافة قد تكون على مسارٍ فرعي
@@ -111,5 +111,47 @@ self.addEventListener('fetch', (event) => {
     }).catch(() => null);
 
     return hit || (await update) || Response.error();
+  })());
+});
+
+// ------------------------------------------------------------
+// إشعاراتُ المتصفّح (٢٤ سبتمبر ٢٠٢٦)
+// ------------------------------------------------------------
+// ⚠️ **النصّ يصل مشفّراً من مهمّة البوت** (`services/web_push.py` في
+// مستودع البوت) ويفكّه المتصفّح قبل أن يصل هنا. وهو عامٌّ بقرار —
+// «رسالةٌ جديدة» لا نصُّها: التنبيه يظهر على شاشة القفل.
+//
+// ⚠️ **وكلُّ `push` يُظهر تنبيهاً، بلا استثناء**: الاشتراك بـ
+// `userVisibleOnly`، ودفعٌ بلا تنبيهٍ ظاهر يعاقبه المتصفّح بتنبيهٍ عامٍّ
+// من عنده («تحدّث الموقع في الخلفية») ثم بسحب الإذن.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = {}; }
+  event.waitUntil(self.registration.showNotification(data.title || 'حصن الزواج', {
+    body: data.body || '',
+    icon: 'icons/icon-192.png',
+    badge: 'icons/favicon-32.png',
+    dir: 'auto',
+    // ⚠️ **وسمٌ واحد**: التنبيه الجديد يحلّ محلّ القديم لا يتراكم فوقه —
+    // و`renotify` كي يرنّ الهاتف مع ذلك.
+    tag: 'hisn',
+    renotify: true,
+    data: { url: data.url || './' },
+  }));
+});
+
+// الضغطُ على التنبيه: تبويبٌ مفتوح يُستعاد، وإلا يُفتح التطبيق.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || './',
+                         self.registration.scope).href;
+  event.waitUntil((async () => {
+    const open = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of open) {
+      if (client.url.startsWith(self.registration.scope) && 'focus' in client) {
+        return client.focus();
+      }
+    }
+    return clients.openWindow(target);
   })());
 });
