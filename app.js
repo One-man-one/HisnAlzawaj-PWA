@@ -183,4 +183,13 @@
     if (howto) howto.hidden = true;
   });
 
+  // ✅ **للإعدادات** (٢٤ سبتمبر ٢٠٢٦): «ثبّت التطبيق» في قسم المساعدة يمرّ
+  // بالمسار نفسه — لا نسخةَ ثانية من التعامل مع `prompt()` وتقلّباته.
+  // ⚠️ ويظهر حين يعرض المتصفّح التثبيت فعلاً وحده؛ غيرُ ذلك لا زرّ.
+  window.HISN = window.HISN || {};
+  window.HISN.install = {
+    available: function () { return !!deferred && !isInstalled(); },
+    run: function () { if (installBtn) installBtn.click(); }
+  };
+
 })();

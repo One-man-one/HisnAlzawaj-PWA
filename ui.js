@@ -2259,9 +2259,11 @@
     $('swipe').hidden = !browsing;
     $('view-matches').hidden = name !== 'matches';
     $('view-profile').hidden = name !== 'profile';
+    $('view-settings').hidden = name !== 'settings';
 
     if (browsing) { if (!deck.length) loadDeck(); else renderDeck(); }
     else if (name === 'matches') loadMutual();
+    else if (name === 'settings') loadSettings();
     else loadProfile();
   }
 
@@ -2568,36 +2570,126 @@
       editBtn.textContent = T('web.edit_profile');
       editBtn.addEventListener('click', showEdit);
       view.appendChild(editBtn);
-      // 💎 الاشتراك — تحت «تعديل بياناتي» حين توجد طريقة دفعٍ مضبوطة.
-      // ⚠️ **موضعٌ يُحجز الآن ويُملأ بعد الردّ**: الزرّ يصل بعد أن تُرسم
-      // بقيةُ الأزرار، فإلحاقُه يومها يرميه أسفل الصفحة تحت «حذف حسابي».
-      var paySlot = document.createElement('div');
-      view.appendChild(paySlot);
-      payButton(paySlot);
+      // ⚠️ **وما سوى الملفّ في «⚙️ الإعدادات»** (٢٤ سبتمبر ٢٠٢٦): الإشعارات
+      // والخصوصية والحساب والمساعدة — `loadSettings` أدناه.
+    }).catch(function (err) {
+      if (err.code === 'unauthorized') return boot();
+      view.textContent = '';
+      var line = document.createElement('p');
+      line.className = 'empty';
+      line.textContent = errorText(err);
+      view.appendChild(line);
+    });
+  }
 
+
+  // ==========================================================
+  // ⚙️ الإعدادات (٢٤ سبتمبر ٢٠٢٦، بطلب صاحب المشروع)
+  // ==========================================================
+  //
+  // ✅ **أربعة أقسام، و«ملفّي» للملفّ وحده**: الصورة والبطاقة والتعديل هناك،
+  // وكلُّ ما سواها هنا. وكلُّ مفتاحٍ عَلَمُ البوت نفسه
+  // (`services/web_settings.py`) — لا إعدادٌ للموقع يخالف ما في البوت.
+  function settingsSection(view, titleKey) {
+    var box = document.createElement('section');
+    box.className = 'card settings';
+    var h = document.createElement('h3');
+    h.className = 'settings__title';
+    h.textContent = T(titleKey);
+    box.appendChild(h);
+    view.appendChild(box);
+    return box;
+  }
+
+  function settingsButton(box, text, onClick, cls) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn ' + (cls || 'btn--ghost');
+    b.textContent = text;
+    b.addEventListener('click', onClick);
+    box.appendChild(b);
+    return b;
+  }
+
+  // ⚠️ **المفتاحُ يُرسل وحده** (`{reminders: …}`) — والخادم لا يقرأ الغائب
+  // إيقافاً. وعند الفشل يعود المربّع إلى حاله: مربّعٌ يقول «مفعّل» والخادمُ
+  // لم يسمع أسوأُ من رسالة خطأ.
+  function settingsToggle(box, text, checked, key) {
+    var row = document.createElement('label');
+    row.className = 'toggle';
+    var span = document.createElement('span');
+    span.textContent = text;
+    var input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = !!checked;
+    row.appendChild(span);
+    row.appendChild(input);
+    input.addEventListener('change', function () {
+      var body = {};
+      body[key] = input.checked;
+      input.disabled = true;
+      api.saveSettings(body).then(function () {
+        input.disabled = false;
+        toast(T('web.saved'));
+      }).catch(function (err) {
+        input.disabled = false;
+        input.checked = !input.checked;
+        if (err.code === 'unauthorized') return boot();
+        toast(errorText(err));
+      });
+    });
+    box.appendChild(row);
+  }
+
+  function loadSettings() {
+    var view = $('view-settings');
+    view.textContent = '';
+    $('counter').textContent = '';
+
+    var wait = document.createElement('p');
+    wait.className = 'empty';
+    wait.textContent = T('web.loading');
+    view.appendChild(wait);
+
+    api.settings().then(function (st) {
+      view.textContent = '';
+      st = st || {};
+
+      // 🔔 الإشعارات
+      var notes = settingsSection(view, 'web.settings_notifications');
       var pushSlot = document.createElement('div');
-      view.appendChild(pushSlot);
+      notes.appendChild(pushSlot);
       pushBlock(pushSlot);
+      settingsToggle(notes, T('web.reminders'), st.reminders, 'reminders');
 
-      var blockedBtn = document.createElement('button');
-      blockedBtn.type = 'button';
-      blockedBtn.className = 'btn btn--ghost';
-      blockedBtn.textContent = T('web.blocked_list');
-      blockedBtn.addEventListener('click', openBlocked);
-      view.appendChild(blockedBtn);
+      // 🔒 الخصوصية
+      var priv = settingsSection(view, 'web.settings_privacy');
+      settingsButton(priv, T('web.photo_access'), openPhotoAccess);
+      settingsButton(priv, T('web.photo_requests'), openPhotoRequests);
+      settingsButton(priv, T('web.blocked_list'), openBlocked);
+      if (st.publish && st.publish.available) {
+        settingsToggle(priv, T('web.publish_profile'), st.publish.on, 'publish');
+      }
 
+      // 👤 الحساب
+      var acct = settingsSection(view, 'web.settings_account');
+      var langRow = document.createElement('div');
+      langRow.className = 'langpick';
+      acct.appendChild(langRow);
+      langPicker(langRow);
+      // 💎 الاشتراك — ⚠️ **موضعٌ يُحجز ويُملأ بعد الردّ**، وإلا نزل الزرّ
+      // تحت «حذف حسابي» حين يصل.
+      var paySlot = document.createElement('div');
+      acct.appendChild(paySlot);
+      payButton(paySlot);
+      var links = st.links || {};
       var bot = document.createElement('a');
       bot.className = 'btn btn--ghost';
-      bot.href = 'https://t.me/HisnAlzawaj_bot';
+      bot.href = links.bot || 'https://t.me/HisnAlzawaj_bot';
       bot.rel = 'noopener';
       bot.textContent = T('web.open_bot');
-      view.appendChild(bot);
-
-      var out = document.createElement('button');
-      out.type = 'button';
-      out.className = 'btn btn--ghost';
-      out.textContent = T('web.logout');
-      out.addEventListener('click', function () {
+      acct.appendChild(bot);
+      settingsButton(acct, T('web.logout'), function () {
         // ⚠️ **الاشتراكُ يُلغى قبل الخروج**: الهاتفُ المشترك يبقى وإلا
         // يتلقّى تنبيهاتِ الحساب الذي خرج منه صاحبُه.
         pushOff();
@@ -2606,14 +2698,25 @@
         releasePhotos();
         boot();
       });
-      view.appendChild(out);
+      acct.appendChild(deleteBlock());
 
-      var langRow = document.createElement('div');
-      langRow.className = 'langpick';
-      view.appendChild(langRow);
-      langPicker(langRow);
-
-      view.appendChild(deleteBlock());
+      // ❓ المساعدة — صفحاتُ الموقع الساكن بلغة القارئ، من الخادم.
+      var help = settingsSection(view, 'web.settings_help');
+      [['guide', 'web.help_guide'], ['privacy', 'web.help_privacy'],
+       ['terms', 'web.help_terms'], ['channel', 'web.help_channel']].forEach(function (pair) {
+        if (!links[pair[0]]) return;
+        var a = document.createElement('a');
+        a.className = 'btn btn--ghost';
+        a.href = links[pair[0]];
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = T(pair[1]);
+        help.appendChild(a);
+      });
+      var install = window.HISN && window.HISN.install;
+      if (install && install.available()) {
+        settingsButton(help, T('web.install_app'), function () { install.run(); });
+      }
     }).catch(function (err) {
       if (err.code === 'unauthorized') return boot();
       view.textContent = '';
@@ -2621,6 +2724,63 @@
       line.className = 'empty';
       line.textContent = errorText(err);
       view.appendChild(line);
+    });
+  }
+
+  // ✅ **«من يرى صورتي» والسحب** — كان الموقع يمنح الإذن ولا يسحبه. والسطورُ
+  // نصوصُ البوت (`photoaccess.item_*`)، والسحبُ أفعالُه (`apply_revoke`)
+  // ومعها حذفُ نسخة الموقع الواضحة فوراً.
+  function openPhotoAccess() {
+    modTarget = null;
+    $('mod-name').textContent = T('web.photo_access');
+    var body = $('mod-body');
+    body.textContent = T('web.loading');
+    modFromSheet = !$('sheet').hidden;
+    $('sheet').hidden = true;
+    $('mod').hidden = false;
+
+    var empty = function () {
+      var none = document.createElement('p');
+      none.className = 'empty';
+      none.textContent = T('web.photo_access_empty');
+      body.appendChild(none);
+    };
+    api.photoGranted().then(function (d) {
+      body.textContent = '';
+      var people = (d && d.people) || [];
+      if (!people.length) return empty();
+      people.forEach(function (p) {
+        var row = document.createElement('div');
+        row.className = 'row';
+        var main = document.createElement('div');
+        main.className = 'row__main';
+        var name = document.createElement('div');
+        name.className = 'row__name';
+        name.textContent = p.label;
+        main.appendChild(name);
+        row.appendChild(main);
+        var off = document.createElement('button');
+        off.type = 'button';
+        off.className = 'btn btn--danger-soft row__unblock';
+        off.textContent = T('web.revoke');
+        off.addEventListener('click', function () {
+          off.disabled = true;
+          api.photoRevoke(p.public_id).then(function (out) {
+            row.remove();
+            toast((out && out.message) || '');
+            if (!body.querySelector('.row')) empty();
+          }).catch(function (err) {
+            off.disabled = false;
+            if (err.code === 'unauthorized') return boot();
+            toast(errorText(err));
+          });
+        });
+        row.appendChild(off);
+        body.appendChild(row);
+      });
+    }).catch(function (err) {
+      if (err.code === 'unauthorized') return boot();
+      body.textContent = errorText(err);
     });
   }
 

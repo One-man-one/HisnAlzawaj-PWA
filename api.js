@@ -233,6 +233,14 @@
       return request('/api/me/photo', { method: 'DELETE' });
     },
     pushKey: function () { return request('/api/push/key'); },
+    settings: function () { return request('/api/me/settings'); },
+    saveSettings: function (body) {
+      return request('/api/me/settings', { method: 'POST', body: body });
+    },
+    photoGranted: function () { return request('/api/me/photo-granted'); },
+    photoRevoke: function (id) {
+      return request('/api/me/photo-revoke', { method: 'POST', body: { public_id: id } });
+    },
     photoRequests: function () { return request('/api/me/photo-requests'); },
     photoAccess: function (id) {
       return request('/api/me/photo-access/' + encodeURIComponent(id));
