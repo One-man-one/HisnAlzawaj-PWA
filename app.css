@@ -952,6 +952,14 @@ body.is-app {
 .fld__row { display: flex; gap: 10px; }
 .fld__row .fld { flex: 1; }
 .fld__err { color: var(--warn); font-size: .85rem; margin: 10px 0 0; }
+/* الحقلُ المطلوب الفارغ بعد «حفظ» — أحمرُ يلفت النظر لا لونُ التحذير الخافت. */
+.fld--missing > span { color: var(--no); font-weight: 600; }
+.fld--missing input, .fld--missing select, .fld--missing textarea {
+  border-color: var(--no) !important;
+  box-shadow: 0 0 0 1px var(--no);
+}
+.fld--missing .chips { outline: 2px solid var(--no); outline-offset: 4px; border-radius: 12px; }
+.fld__need { display: block; color: var(--no); font-size: .8rem; margin-top: 4px; }
 
 .linkbtn {
   display: block;

@@ -267,7 +267,12 @@
           // الحجاب يظهر للنساء وحدهنّ — والشرط عند الوسيط لا هنا.
           if (input.value && input.value !== schemaGender) {
             var kept = collect();
-            renderSchema(input.value).then(function () { restore(kept); });
+            renderSchema(input.value).then(function () {
+              restore(kept);
+              // ⚠️ إعادةُ الرسم تمحو التحديد الأحمر — فيُعاد إن سبق إرسال.
+              var fm = $('form-complete');
+              if (fm.dataset.tried) markMissing(fm);
+            });
           }
         });
       }
@@ -3970,13 +3975,73 @@
     });
   }
 
+  // ✅ **الحقلُ المطلوب الفارغ يُحدَّد بالأحمر — كلُّها لا أوّلُها** (بطلب
+  // صاحب المشروع، ٢٤ سبتمبر ٢٠٢٦). فحصُ المتصفّح الأصليّ يعرض فقاعةً على
+  // أوّل حقلٍ وحده وتختفي بعد ثانيتين، فمن ترك خمسةً يكتشفها واحداً واحداً
+  // — وعلى الأزرار (المهنة) لا تظهر الفقاعة أصلاً، لأن القائمة تحتها مخفيّة.
+  // فالنموذج `novalidate`، وهذا يحدّد كلَّ حقلٍ ناقص ويعلّق تحته سببه.
+  // ⚠️ **والمعطَّل لا يُفحص** (المدينة قبل الدولة): `checkValidity` تتخطّاه
+  // أصلاً، فلا يُطالَب صاحبه بما لا يستطيع ملأه.
+  function markMissing(form) {
+    form.querySelectorAll('.fld--missing').forEach(clearMissing);
+    var marked = [];
+    form.querySelectorAll('input, select, textarea').forEach(function (el) {
+      if (el.disabled || el.checkValidity()) return;
+      var wrap = el.closest('.fld');
+      if (!wrap || marked.indexOf(wrap) !== -1) return;
+      flagField(wrap, el.validity.valueMissing ? T('web.field_required')
+                                               : T('web.field_invalid'));
+      marked.push(wrap);
+    });
+    return marked;
+  }
+
+  function flagField(wrap, text) {
+    wrap.classList.add('fld--missing');
+    var note = wrap.querySelector('.fld__need');
+    if (!note) {
+      note = document.createElement('small');
+      note.className = 'fld__need';
+      wrap.appendChild(note);
+    }
+    note.textContent = text;
+  }
+
+  function clearMissing(wrap) {
+    wrap.classList.remove('fld--missing');
+    var note = wrap.querySelector('.fld__need');
+    if (note) note.remove();
+  }
+
   function bindComplete() {
-    $('form-complete').addEventListener('submit', function (e) {
+    var formEl = $('form-complete');
+    formEl.noValidate = true;
+    // التحديدُ يزول لحظةَ يصير الحقلُ صالحاً — لا عند الإرسال التالي.
+    ['input', 'change'].forEach(function (type) {
+      formEl.addEventListener(type, function (e) {
+        var wrap = e.target.closest && e.target.closest('.fld--missing');
+        if (!wrap) return;
+        var bad = Array.prototype.some.call(
+          wrap.querySelectorAll('input, select, textarea'),
+          function (el) { return !el.disabled && !el.checkValidity(); });
+        if (!bad) clearMissing(wrap);
+      });
+    });
+
+    formEl.addEventListener('submit', function (e) {
       e.preventDefault();
       var form = this;
       var box = form.querySelector('[data-err]');
       var button = form.querySelector('button[type="submit"]');
 
+      form.dataset.tried = '1';
+      var missing = markMissing(form);
+      if (missing.length) {
+        box.textContent = T('web.fill_required', { n: missing.length });
+        box.hidden = false;
+        missing[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
       box.hidden = true;
       button.disabled = true;
       (editMode ? api.profileEdit(collect()) : api.completeProfile(collect()))
@@ -3990,7 +4055,10 @@
         // خمسةٍ وعشرين سؤالاً تترك صاحبها يبحث عن أيّها.
         var field = err.data && err.data.field;
         var at = field && document.querySelector('#complete-fields [data-field="' + field + '"]');
-        if (at) at.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (at) {
+          flagField(at, errorText(err));
+          at.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
         box.textContent = errorText(err);
         box.hidden = false;
       });
