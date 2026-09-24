@@ -2259,10 +2259,65 @@
   // ==========================================================
   // ٦) التبويبات
   // ==========================================================
+  // ✅ **الجيبُ المنحني حول التبويب الحاليّ** — الشرح عند `.tabs__shape`
+  // في app.css. المسارُ من موضع التبويب الفعليّ (`getBoundingClientRect`)
+  // لا من ترتيبه، فلا حسابَ لاتجاه الصفحة ولا لعدد التبويبات.
+  function drawTabNotch() {
+    var bar = document.querySelector('.tabs');
+    var on = bar && bar.querySelector('.tab.on');
+    if (!bar || !on) return;
+    var svg = bar.querySelector('.tabs__shape');
+    var NS = 'http://www.w3.org/2000/svg';
+    if (!svg) {
+      svg = document.createElementNS(NS, 'svg');
+      svg.setAttribute('class', 'tabs__shape');
+      svg.setAttribute('aria-hidden', 'true');
+      var fill = document.createElementNS(NS, 'path');
+      fill.setAttribute('class', 'fill');
+      // ⚠️ **والجيبُ مملوءٌ بلون الصفحة لا شفّاف**: المحتوى يمرّ تحت الشريط
+      // عند التمرير، فجيبٌ شفّاف يُظهر نصَّ الصفحة خلف أيقونة التبويب.
+      var pocket = document.createElementNS(NS, 'path');
+      pocket.setAttribute('class', 'pocket');
+      svg.appendChild(pocket);
+      var edge = document.createElementNS(NS, 'path');
+      edge.setAttribute('class', 'edge');
+      svg.appendChild(fill);
+      svg.appendChild(edge);
+      bar.insertBefore(svg, bar.firstChild);
+    }
+    var box = bar.getBoundingClientRect();
+    var tab = on.getBoundingClientRect();
+    var W = box.width, H = box.height;
+    var pad = 6, r = 16;                                  // هامشُ الجيب وانحناءُ كتفيه
+    var a = Math.max(0, tab.left - box.left + pad);
+    var b = Math.min(W, tab.right - box.left - pad);
+    var d = H - 6;                                        // عمقُ الجيب
+    var y = 1;                                            // الخطّ داخل الحافة لا عليها
+    // الحافة: خطٌّ مستقيم، ثم كتفٌ منحنٍ إلى الداخل، ثم قاعُ حرف U، ثم صعود.
+    var edgePath = 'M0 ' + y + ' H' + (a - r) +
+      ' Q' + a + ' ' + y + ' ' + a + ' ' + (y + r) +
+      ' V' + (d - r) +
+      ' Q' + a + ' ' + d + ' ' + (a + r) + ' ' + d +
+      ' H' + (b - r) +
+      ' Q' + b + ' ' + d + ' ' + b + ' ' + (d - r) +
+      ' V' + (y + r) +
+      ' Q' + b + ' ' + y + ' ' + (b + r) + ' ' + y +
+      ' H' + W;
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.querySelector('.edge').setAttribute('d', edgePath);
+    // الخلفيةُ: الحافةُ نفسها مغلقةً من الأسفل — فالجيبُ خارجها بلون الصفحة.
+    svg.querySelector('.fill').setAttribute('d', edgePath + ' V' + H + ' H0 Z');
+    svg.querySelector('.pocket').setAttribute('d',
+      'M' + a + ' 0 V' + (d - r) + ' Q' + a + ' ' + d + ' ' + (a + r) + ' ' + d +
+      ' H' + (b - r) + ' Q' + b + ' ' + d + ' ' + b + ' ' + (d - r) + ' V0 Z');
+  }
+  window.addEventListener('resize', drawTabNotch);
+
   function openTab(name) {
     document.querySelectorAll('.tab').forEach(function (button) {
       button.classList.toggle('on', button.getAttribute('data-tab') === name);
     });
+    drawTabNotch();
 
     var browsing = name === 'browse';
     $('search-btn').hidden = !browsing;

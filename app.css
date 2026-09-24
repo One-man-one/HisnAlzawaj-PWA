@@ -855,28 +855,19 @@ body.is-app {
 }
 .tab i { font-size: 19px; font-style: normal; }
 .tab.on { color: var(--accent); }
-/* ✅ **التبويب الحاليّ في دائرةٍ مرفوعة يحتضنها الشريط** (بطلب صاحب
-   المشروع، ٢٤ سبتمبر ٢٠٢٦، برسمٍ على لقطة الشاشة). الحلقةُ بلون الصفحة
-   حول الدائرة هي ما يرسم «التجويف» في حافة الشريط — بلا SVG ولا حساب
-   مواضع، فتتبع الدائرةُ التبويبَ في RTL وLTR معاً. */
-.tabs { overflow: visible; }
-.tab i {
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-  width: 30px; height: 30px; border-radius: 50%;
-  transition: transform .25s ease, width .25s ease, height .25s ease,
-              background-color .25s ease, box-shadow .25s ease;
-}
-.tab.on i {
-  width: 54px; height: 54px; font-size: 24px;
-  background: var(--accent);
-  transform: translateY(-22px);
-  box-shadow: 0 0 0 7px var(--bg), 0 6px 14px rgba(0, 0, 0, .35);
-}
-.tab.on span { transform: translateY(-16px); font-weight: 700; }
-.tab span { transition: transform .25s ease; }
-@media (prefers-reduced-motion: reduce) {
-  .tab i, .tab span { transition: none; }
-}
+/* ✅ **التبويب الحاليّ في جيبٍ منحنٍ يقطع الشريط** (بطلب صاحب المشروع،
+   ٢٤ سبتمبر ٢٠٢٦، برسمٍ على نموذجٍ مرسوم): خطٌّ ورديّ على حافة الشريط،
+   ينزل حرفَ U حول التبويب الحاليّ، وداخلُ الجيب بلون الصفحة. يرسمه
+   `drawTabNotch` في ui.js بـSVG من موضع التبويب الفعليّ، فيتبعه في RTL
+   وLTR وأيّ عرضٍ للشاشة. ⚠️ **والشريطُ نفسه بلا خلفية**: الـSVG هو
+   الخلفية، وإلا غطّى لونُه الجيب. */
+.tabs { background: transparent; border-top: 0; overflow: visible; }
+.tabs__shape { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+.tabs__shape .fill { fill: var(--surface); }
+.tabs__shape .pocket { fill: var(--bg); }
+.tabs__shape .edge { fill: none; stroke: var(--accent); stroke-width: 2; }
+.tab { position: relative; z-index: 1; }
+.tab.on span { font-weight: 700; }
 /* «حذف حسابي» وحده في ذيل الإعدادات. */
 .settings__danger .danger { margin-top: 0; padding-top: 0; border-top: 0; }
 .tab:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
