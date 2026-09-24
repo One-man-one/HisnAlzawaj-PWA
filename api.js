@@ -220,6 +220,10 @@
     report: function (body) {
       return request('/api/me/report', { method: 'POST', body: body });
     },
+    blocked: function () { return request('/api/me/blocked'); },
+    unblock: function (body) {
+      return request('/api/me/unblock', { method: 'POST', body: body });
+    },
     block: function (body) {
       return request('/api/me/block', { method: 'POST', body: body });
     },

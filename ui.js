@@ -1395,6 +1395,76 @@
     $('mod').hidden = false;
   }
 
+  // ✅ **«المحظورون» وفكُّ الحظر (٢٤ سبتمبر ٢٠٢٦)** — كان الحظرُ يُكتب من
+  // هنا ولا يُفكّ إلا من البوت، فمن حظر بالخطأ لا رجعة له. والقائمةُ
+  // قائمةُ البوت نفسها (`/api/me/blocked`)، في شاشة الحظر نفسها (`#mod`)
+  // لا شاشةٍ ثالثة.
+  // ⚠️ **والفكُّ يرفع المنعَ ولا يستأنف علاقة** — لا تعِد الصفحةُ بعودة
+  // المحادثة أو الإعجاب؛ الطرفان يلتقيان من جديد كغريبَين.
+  function openBlocked() {
+    modTarget = null;
+    $('mod-name').textContent = T('web.blocked_list');
+    var body = $('mod-body');
+    body.textContent = T('web.loading');
+    modFromSheet = !$('sheet').hidden;
+    $('sheet').hidden = true;
+    $('mod').hidden = false;
+
+    api.blocked().then(function (d) {
+      body.textContent = '';
+      var people = (d && d.people) || [];
+      if (!people.length) {
+        var none = document.createElement('p');
+        none.className = 'empty';
+        none.textContent = T('web.blocked_empty');
+        body.appendChild(none);
+        return;
+      }
+      people.forEach(function (p) {
+        var row = document.createElement('div');
+        row.className = 'row';
+
+        var main = document.createElement('div');
+        main.className = 'row__main';
+        var name = document.createElement('div');
+        name.className = 'row__name';
+        name.textContent = identity(p.name, p.public_id);
+        main.appendChild(name);
+        row.appendChild(main);
+
+        var free = document.createElement('button');
+        free.type = 'button';
+        free.className = 'btn btn--ghost row__unblock';
+        free.textContent = T('web.unblock');
+        free.addEventListener('click', function () {
+          free.disabled = true;
+          api.unblock({ public_id: p.public_id }).then(function () {
+            // ⚠️ **الصفُّ يُزال فوراً**: بقاؤه بعد النجاح يدعو إلى ضغطةٍ
+            // ثانية تقول «ليس محظوراً» فيُظنّ أن الأولى فشلت (نفس درس
+            // `blk_unblock_callback` في البوت).
+            row.remove();
+            toast(T('web.unblocked_done'));
+            if (!body.querySelector('.row')) {
+              var none = document.createElement('p');
+              none.className = 'empty';
+              none.textContent = T('web.blocked_empty');
+              body.appendChild(none);
+            }
+          }).catch(function (err) {
+            free.disabled = false;
+            if (err.code === 'unauthorized') return boot();
+            toast(errorText(err));
+          });
+        });
+        row.appendChild(free);
+        body.appendChild(row);
+      });
+    }).catch(function (err) {
+      if (err.code === 'unauthorized') return boot();
+      body.textContent = errorText(err);
+    });
+  }
+
   function bindNotes() {
     $('bell').addEventListener('click', openNotes);
     $('notes-back').addEventListener('click', function () {
@@ -2493,6 +2563,13 @@
       var paySlot = document.createElement('div');
       view.appendChild(paySlot);
       payButton(paySlot);
+
+      var blockedBtn = document.createElement('button');
+      blockedBtn.type = 'button';
+      blockedBtn.className = 'btn btn--ghost';
+      blockedBtn.textContent = T('web.blocked_list');
+      blockedBtn.addEventListener('click', openBlocked);
+      view.appendChild(blockedBtn);
 
       var bot = document.createElement('a');
       bot.className = 'btn btn--ghost';

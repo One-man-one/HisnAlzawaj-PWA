@@ -292,6 +292,8 @@ body {
 .chat__more { margin-inline-start: auto; font-size: 1.3rem; }
 .mod-row { display: flex; gap: 10px; margin-top: 14px; }
 .mod-row .btn { flex: 1; }
+/* زرُّ الفكّ في صفّ المحظور — بحجم محتواه لا بعرض السطر */
+.row .row__unblock { width: auto; flex: none; margin: 0; padding: 8px 14px; }
 .btn--danger-soft { background: transparent; color: var(--no, #EF5B5B);
   border-color: var(--no, #EF5B5B); }
 textarea.mod-details {
