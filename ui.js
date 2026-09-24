@@ -1275,11 +1275,27 @@
   // الأزرار وتترجم الرفض إلى جملةٍ مفهومة لا أكثر.
   // ⚠️ **والحظرُ صامتٌ للمحظور** — لا نصَّ هنا يوحي بأنه سيُخطَر.
   var modTarget = null;
+  // ⚠️ **الورقةُ تُطوى ما دامت شاشةُ الحظر مفتوحة — عطلٌ رآه صاحب المشروع
+  // على هاتفه:** زرُّ «إبلاغ · حظر» في آخر `.sheet` (طبقة ‎200‎ على مستوى
+  // `body`)، والشاشة داخل `.app` — و`.app` بـ`position: fixed` فهي سياقُ
+  // تكديسٍ مستقلّ، فلا `z-index` داخلها يعلو الورقة مهما كبر. فكانت تُفتح
+  // **خلفها**: حوافّها تُرى من أعلى الشاشة ولا يظهر أمامك شيء.
+  // ⚠️ **ولا تُنقل الشاشة خارج `.app` علاجاً**: `boot()` يُخفي `.app`
+  // حين ينتهي التوكن — فشاشةٌ خارجها تبقى معلّقةً فوق بوّابة الدخول.
+  // والرجوع يُعيد الورقة، فيعود المستخدم إلى الملفّ الذي كان يقرؤه.
+  var modFromSheet = false;
+
+  function closeModeration() {
+    $('mod').hidden = true;
+    if (modFromSheet) $('sheet').hidden = false;
+    modFromSheet = false;
+  }
 
   function afterBlock(publicId) {
     // المحظورُ يختفي فوراً من كل ما أمامك — لا بعد تحديث الصفحة.
     deck = deck.filter(function (c) { return refId(c.public_id) !== publicId; });
     if (chatWith === publicId) closeChat();
+    modFromSheet = false;
     $('mod').hidden = true;
     $('sheet').hidden = true;
     if (!$('view-matches').hidden) loadMutual();
@@ -1321,7 +1337,7 @@
       send.disabled = true;
       api.report({ public_id: modTarget, reason: picked, details: details.value })
         .then(function () {
-          $('mod').hidden = true;
+          closeModeration();
           toast(T('web.reported_done'));
         }).catch(function (err) {
           send.disabled = false;
@@ -1374,6 +1390,8 @@
     row.appendChild(reportBtn);
     row.appendChild(blockBtn);
     body.appendChild(row);
+    modFromSheet = !$('sheet').hidden;
+    $('sheet').hidden = true;
     $('mod').hidden = false;
   }
 
@@ -2812,7 +2830,7 @@
     bindComplete();
     bindChat();
     bindNotes();
-    $('mod-back').addEventListener('click', function () { $('mod').hidden = true; });
+    $('mod-back').addEventListener('click', closeModeration);
     $('chat-more').addEventListener('click', function () {
       openModeration(chatWith, $('chat-name').textContent);
     });
