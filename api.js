@@ -196,6 +196,14 @@
       return request('/api/me/profile/edit',
                      { method: 'POST', body: { answers: answers } });
     },
+    // «تفضيلات الشريك» — أعمدةُ البوت نفسها لا مرشّحاتُ شاشة: ما يُحفظ هنا
+    // يقرؤه فلترُ «المقترحون لك» في البابين. ما لم يُرسَل لا يُمسّ،
+    // و`null` أو `[]` «لا يهمّني» (`services/partner_prefs.py` في مستودع البوت).
+    prefsForm: function () { return request('/api/me/preferences'); },
+    savePrefs: function (answers) {
+      return request('/api/me/preferences',
+                     { method: 'POST', body: { answers: answers } });
+    },
     profileSchema: function (lang, gender) {
       return request('/api/profile/schema/' + encodeURIComponent(lang)
                      + (gender ? '?gender=' + encodeURIComponent(gender) : ''));
