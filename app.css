@@ -337,66 +337,63 @@ img.clear-photo {
 }
 /* ✨ مسرحُ المسح في التوثيق — ui.js::verifyStage. زينةٌ لا فحص. */
 .verify__center { text-align: center; }
-.vscan {
-  --p: 0; --tone: var(--accent);
-  position: relative; width: min(100%, 300px); aspect-ratio: 1; margin: 14px auto;
+.vs {
+  --tone: 236, 143, 178;
+  position: relative; width: min(100%, 300px); aspect-ratio: 1; margin: 14px auto 10px;
 }
-.vscan__clip {
-  position: absolute; inset: 14px; border-radius: 50%; overflow: hidden;
-  background: radial-gradient(circle at 50% 40%, rgba(236,143,178,.18), rgba(0,0,0,.55) 70%);
-  box-shadow: 0 0 0 1px rgba(236,143,178,.25), 0 0 40px rgba(236,143,178,.18) inset;
-  display: grid; place-items: center;
+.vs--done { --tone: 79, 192, 138; }
+/* ٧٢ شَرطة — خافتةٌ، تضيء مع ثواني التسجيل، وتدور موجتُها أثناء التحليل */
+.vs__ticks { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.vs__ticks line {
+  stroke: rgba(255, 255, 255, .13); stroke-width: 1.5; stroke-linecap: round;
+  transition: stroke .25s ease, filter .25s ease;
 }
-.vscan .verify__preview {
-  width: 100%; height: 100%; max-width: none; margin: 0; border-radius: 0;
+.vs__ticks line.on { stroke: rgb(var(--tone)); filter: drop-shadow(0 0 1.6px rgb(var(--tone))); }
+.vs--wait .vs__ticks line { animation: vs-chase 1.8s linear infinite; animation-delay: calc(var(--i) * -0.025s); }
+.vs--done .vs__ticks line {
+  stroke: rgba(255, 255, 255, .13);
+  animation: vs-fill .35s ease-out forwards; animation-delay: calc(.25s + var(--i) * .012s);
 }
-.vscan__icon { width: 46%; color: var(--tone); filter: drop-shadow(0 0 10px var(--tone)); }
-.vscan__icon svg { width: 100%; height: auto; display: block; }
-/* خطُّ المسح — يظهر أثناء التسجيل والتحليل وحدهما */
-.vscan__line {
-  position: absolute; left: 0; right: 0; top: 0; height: 22%; opacity: 0;
-  background: linear-gradient(to bottom, transparent, rgba(236,143,178,.28) 70%, var(--tone) 96%, transparent);
-  pointer-events: none;
+/* الدائرة: الفيديو أو النقاط */
+.vs__clip {
+  position: absolute; inset: 11%; border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 50% 42%, rgba(var(--tone), .16), rgba(0, 0, 0, .6) 72%);
+  box-shadow: 0 0 0 1px rgba(var(--tone), .28), inset 0 0 40px rgba(var(--tone), .16);
 }
-.vscan.is-recording .vscan__line,
-.vscan--wait .vscan__line { opacity: 1; animation: vscan-sweep 2.2s ease-in-out infinite; }
-/* الحلقة — تمتلئ بالثواني أثناء التسجيل، وتدور أثناء التحليل، وتكتمل خضراءَ عند التوثيق */
-.vscan__ring {
-  position: absolute; inset: 4px; border-radius: 50%;
-  background: conic-gradient(var(--tone) calc(var(--p) * 360deg), rgba(255,255,255,.08) 0);
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
-          mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
-  transition: background .6s linear;
+.vs .verify__preview {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  max-width: none; margin: 0; border-radius: 0;
 }
-.vscan--wait .vscan__ring {
-  background: conic-gradient(from 0deg, transparent 0 55%, var(--tone) 100%);
-  animation: vscan-spin 1.4s linear infinite;
+.vs__cv { position: absolute; inset: 0; width: 100%; height: 100%; mix-blend-mode: screen; }
+/* وهجٌ خلف الكلّ — يتنفّس، ويشتعل مرّةً عند التوثيق */
+.vs__glow {
+  position: absolute; inset: 8%; border-radius: 50%; z-index: -1;
+  box-shadow: 0 0 60px 6px rgba(var(--tone), .22);
+  animation: vs-breathe 3s ease-in-out infinite;
 }
-.vscan--done { --tone: var(--ok); --p: 1; }
-.vscan--done .vscan__clip {
-  background: radial-gradient(circle at 50% 45%, rgba(79,192,138,.22), rgba(0,0,0,.5) 70%);
-  box-shadow: 0 0 0 1px rgba(79,192,138,.35), 0 0 40px rgba(79,192,138,.2) inset;
+.vs--done .vs__glow { animation: vs-flare 1.6s ease-out .9s both; }
+.vs--done::after {
+  content: ''; position: absolute; inset: 11%; border-radius: 50%;
+  border: 2px solid rgba(var(--tone), .8); opacity: 0;
+  animation: vs-ripple 1.1s ease-out 1.1s both;
 }
-.vscan--done .vscan__icon { animation: vscan-pop .45s ease-out both; }
-.vscan__tick { stroke-dasharray: 60; stroke-dashoffset: 60; animation: vscan-draw .6s .25s ease-out forwards; }
-/* الزوايا الأربع — تنبض قبل التسجيل، وتثبت أثناءه */
-.vscan__c {
-  position: absolute; width: 26px; height: 26px; border: 3px solid var(--tone);
-  filter: drop-shadow(0 0 6px var(--tone)); animation: vscan-pulse 1.6s ease-in-out infinite;
+@keyframes vs-chase {
+  0%   { stroke: rgb(var(--tone)); filter: drop-shadow(0 0 2px rgb(var(--tone))); }
+  18%  { stroke: rgba(var(--tone), .35); filter: none; }
+  100% { stroke: rgba(255, 255, 255, .1); }
 }
-.vscan.is-recording .vscan__c, .vscan--done .vscan__c { animation: none; }
-.vscan__c--tl { top: 0; left: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 12px; }
-.vscan__c--tr { top: 0; right: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 12px; }
-.vscan__c--bl { bottom: 0; left: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 12px; }
-.vscan__c--br { bottom: 0; right: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 12px; }
-@keyframes vscan-sweep { 0% { transform: translateY(-100%); } 50% { transform: translateY(360%); } 100% { transform: translateY(-100%); } }
-@keyframes vscan-spin  { to { transform: rotate(360deg); } }
-@keyframes vscan-pulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
-@keyframes vscan-pop   { 0% { transform: scale(.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-@keyframes vscan-draw  { to { stroke-dashoffset: 0; } }
+@keyframes vs-fill {
+  0%   { stroke: #fff; filter: drop-shadow(0 0 3px #fff); }
+  100% { stroke: rgb(var(--tone)); filter: drop-shadow(0 0 1.6px rgb(var(--tone))); }
+}
+@keyframes vs-breathe { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+@keyframes vs-flare   { 0% { box-shadow: 0 0 60px 6px rgba(var(--tone), .22); }
+                        35% { box-shadow: 0 0 90px 22px rgba(var(--tone), .5); }
+                        100% { box-shadow: 0 0 60px 6px rgba(var(--tone), .28); } }
+@keyframes vs-ripple  { 0% { opacity: .9; transform: scale(1); } 100% { opacity: 0; transform: scale(1.32); } }
 @media (prefers-reduced-motion: reduce) {
-  .vscan__line, .vscan__ring, .vscan__c, .vscan__icon { animation: none !important; }
-  .vscan__tick { animation: none; stroke-dashoffset: 0; }
+  .vs__ticks line, .vs__glow, .vs--done::after { animation: none !important; }
+  .vs--done .vs__ticks line { stroke: rgb(var(--tone)); }
 }
 .invite__link {
   background: var(--bg); border: 1px solid var(--border); border-radius: 10px;

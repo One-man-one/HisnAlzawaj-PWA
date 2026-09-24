@@ -3386,44 +3386,189 @@
     }).catch(function (err) { verifyText(verifyShell(), errorText(err)); });
   }
 
-  // ✨ **مسرحُ المسح** — إطارٌ دائريّ بزوايا مضيئة، وخطُّ مسحٍ يعبر الوجه،
-  // وحلقةٌ تمتلئ بالثواني. ثلاث حالات: `camera` (المعاينة الحيّة)، و`wait`
-  // (التحليل)، و`done` (وُثِّق). ⚠️ **زينةٌ لا فحص**: الحكمُ من التحليل في
-  // البوت (`services/web_verification.py`)، والمسرحُ لا يعرف عن الوجه شيئاً
-  // — فلا نصَّ فيه يدّعي «تعرّفنا على وجهك» قبل أن يصل القرار.
+  // ✨ **مسرحُ المسح** — ثلاثُ حالات: `camera` (المعاينة الحيّة)، و`wait`
+  // (التحليل)، و`done` (وُثِّق). حلقةٌ من ٧٢ شَرطة تضيء مع ثواني التسجيل
+  // (كإعداد Face ID)، وشبكةُ نقاطٍ فوق الوجه يوقظها خطُّ المسح، ورأسٌ من
+  // نقاطٍ يدور أثناء التحليل، ثم تتجمّع نقاطُه علامةَ ✓ عند التوثيق.
   //
-  // ⚠️ `innerHTML` للأيقونتين آمن: ثابتان مكتوبان هنا، لا نصٌّ من الوسيط.
-  var VSCAN_FACE = '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" '
-    + 'stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-    + '<path d="M22 27v4M42 27v4"/><path d="M32 27v10h-3"/>'
-    + '<path d="M24 44c4.5 4 11.5 4 16 0"/></svg>';
-  var VSCAN_CHECK = '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" '
-    + 'stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-    + '<path class="vscan__tick" d="M19 33l9 9 18-19"/></svg>';
+  // ⚠️ **زينةٌ لا فحص**: الحكمُ من التحليل في البوت
+  // (`services/web_verification.py`)، والمسرحُ لا يعرف عن الوجه شيئاً —
+  // فلا نصَّ فيه يدّعي «تعرّفنا على وجهك» قبل أن يصل القرار.
+  //
+  // ⚠️ **وبلا مكتبة**: Canvas وSVG من المتصفّح وحدهما (لا سكربتَ من طرفٍ
+  // ثالث في صفحةٍ يسكنها التوكن — CLAUDE.md). والحلقةُ تتوقّف بنفسها متى
+  // خرج المسرح من الصفحة (`isConnected`)، فلا تدور في الخلفية بلا قارئ.
+  // ومن طلب تقليل الحركة يرى إطاراً واحداً ثابتاً.
+  var VS_TICKS = 72;
+  var VS_STILL = !!(window.matchMedia
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  // رأسٌ من نقاط: سطحُ مجسّمٍ بيضاويّ، ومعه عينان وأنفٌ وفم — إحداثيّاتٌ بين -1 و1.
+  function vsHead() {
+    var pts = [], i, j;
+    for (i = 0; i <= 22; i++) {
+      var lat = -Math.PI / 2 + Math.PI * i / 22;
+      var ring = Math.max(6, Math.round(34 * Math.cos(lat)));
+      for (j = 0; j < ring; j++) {
+        var lon = 2 * Math.PI * j / ring;
+        pts.push([0.66 * Math.cos(lat) * Math.sin(lon), 0.9 * Math.sin(lat),
+                  0.72 * Math.cos(lat) * Math.cos(lon), 0]);
+      }
+    }
+    var feature = function (x, y, z) { pts.push([x, y, z, 1]); };
+    for (j = 0; j < 14; j++) {
+      var a = 2 * Math.PI * j / 14;
+      feature(-0.25 + 0.1 * Math.cos(a), -0.14 + 0.05 * Math.sin(a), 0.66);
+      feature(0.25 + 0.1 * Math.cos(a), -0.14 + 0.05 * Math.sin(a), 0.66);
+    }
+    for (j = 0; j < 9; j++) feature(0, -0.08 + j * 0.04, 0.7 + j * 0.012);
+    for (j = 0; j < 15; j++) {
+      var m = Math.PI * (0.15 + 0.7 * j / 14);
+      feature(0.2 * Math.cos(m), 0.36 + 0.07 * Math.sin(m), 0.64);
+    }
+    return pts;
+  }
+
+  // موضعُ النقطة `i` من `n` على علامة ✓ — ليتجمّع الرأسُ فيها.
+  function vsCheckAt(i, n) {
+    var P = [[-0.46, 0.02], [-0.13, 0.34], [0.5, -0.34]];
+    var l1 = Math.hypot(P[1][0] - P[0][0], P[1][1] - P[0][1]);
+    var l2 = Math.hypot(P[2][0] - P[1][0], P[2][1] - P[1][1]);
+    var d = (i / n) * (l1 + l2), A, B, f;
+    if (d < l1) { A = P[0]; B = P[1]; f = d / l1; } else { A = P[1]; B = P[2]; f = (d - l1) / l2; }
+    var jit = ((i * 7919) % 13 - 6) / 260;
+    return [A[0] + (B[0] - A[0]) * f + jit, A[1] + (B[1] - A[1]) * f - jit];
+  }
+
+  function vsCanvas(stage, clip, kind) {
+    var cv = document.createElement('canvas');
+    cv.className = 'vs__cv';
+    clip.appendChild(cv);
+    var ctx = cv.getContext('2d');
+    if (!ctx) return;
+    var head = kind === 'camera' ? null : vsHead();
+    var mesh = [];
+    if (kind === 'camera') {
+      for (var y = -0.8; y <= 0.72; y += 0.075) {
+        for (var x = -0.6; x <= 0.6; x += 0.075) {
+          var ex = x / 0.52, ey = (y + 0.06) / 0.72;
+          if (ex * ex + ey * ey <= 1) mesh.push([x + (y * 10 % 2 ? 0.037 : 0), y]);
+        }
+      }
+    }
+    var born = performance.now();
+    var pink = [236, 143, 178], green = [79, 192, 138];
+
+    function frame(now) {
+      if (!cv.isConnected) return;
+      var size = clip.clientWidth || 260, dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (cv.width !== Math.round(size * dpr)) {
+        cv.width = cv.height = Math.round(size * dpr);
+      }
+      var W = cv.width, R = W / 2, t = now - born;
+      ctx.clearRect(0, 0, W, W);
+      // خطُّ المسح: من أعلى إلى أسفل ثم يعود، بين -1 و1
+      var scan = Math.sin(t / 700) * 1.05;
+
+      if (kind === 'camera') {
+        var live = stage.classList.contains('is-recording');
+        mesh.forEach(function (p) {
+          var near = Math.max(0, 1 - Math.abs(p[1] - scan) / 0.22);
+          var alpha = live ? 0.1 + 0.85 * near : 0.08 + 0.06 * Math.sin(t / 400);
+          if (alpha <= 0.02) return;
+          ctx.fillStyle = 'rgba(255,' + (200 + 55 * near | 0) + ',230,' + alpha.toFixed(3) + ')';
+          var r = (1 + 1.4 * near) * dpr;
+          ctx.beginPath(); ctx.arc(R + p[0] * R, R + p[1] * R, r, 0, 6.2832); ctx.fill();
+        });
+        if (live) vsBeam(ctx, W, R + scan * R * 0.95, dpr, pink);
+      } else {
+        var turn = Math.sin(t / 1500) * 0.55;
+        var morph = 0;
+        if (kind === 'done') {
+          var k = Math.min(1, Math.max(0, (t - 250) / 900));
+          morph = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+          turn *= 1 - morph;
+        }
+        var cs = Math.cos(turn), sn = Math.sin(turn), n = head.length;
+        var col = [0, 1, 2].map(function (c) {
+          return Math.round(pink[c] + (green[c] - pink[c]) * morph);
+        });
+        for (var i = 0; i < n; i++) {
+          var p = head[i];
+          var X = p[0] * cs + p[2] * sn, Z = -p[0] * sn + p[2] * cs;
+          var persp = 1 / (1.9 - Z * 0.55);
+          var px = X * persp * 1.55 * 0.78, py = p[1] * persp * 1.55 * 0.78;
+          if (morph) {
+            var c = vsCheckAt(i, n);
+            px += (c[0] - px) * morph; py += (c[1] - py) * morph;
+          }
+          var near2 = kind === 'wait' ? Math.max(0, 1 - Math.abs(p[1] - scan) / 0.2) : 0;
+          var depth = (Z + 0.8) / 1.6;
+          var alpha2 = (0.12 + 0.6 * depth + (p[3] ? 0.25 : 0)) * (1 - morph) + morph;
+          alpha2 = Math.min(1, alpha2 + near2 * 0.7);
+          var lit = near2 > 0.4 ? 255 : col[1];
+          ctx.fillStyle = 'rgba(' + (near2 > 0.4 ? 255 : col[0]) + ',' + lit + ','
+            + (near2 > 0.4 ? 255 : col[2]) + ',' + alpha2.toFixed(3) + ')';
+          var rr = ((p[3] ? 1.5 : 1.1) + depth * 0.9 + near2 * 1.2 + morph * 0.9) * dpr;
+          ctx.beginPath(); ctx.arc(R + px * R, R + py * R, rr, 0, 6.2832); ctx.fill();
+        }
+        if (kind === 'wait') vsBeam(ctx, W, R + scan * R * 0.78 * 0.8, dpr, pink);
+      }
+      if (!VS_STILL && !(kind === 'done' && t > 1400)) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // شعاعُ المسح: خطٌّ مضيء بذيلٍ متلاشٍ فوقه.
+  function vsBeam(ctx, W, y, dpr, rgb) {
+    var tail = ctx.createLinearGradient(0, y - 46 * dpr, 0, y);
+    tail.addColorStop(0, 'rgba(' + rgb + ',0)');
+    tail.addColorStop(1, 'rgba(' + rgb + ',.22)');
+    ctx.fillStyle = tail;
+    ctx.fillRect(0, y - 46 * dpr, W, 46 * dpr);
+    var line = ctx.createLinearGradient(0, 0, W, 0);
+    line.addColorStop(0, 'rgba(255,255,255,0)');
+    line.addColorStop(0.5, 'rgba(255,255,255,.95)');
+    line.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = line;
+    ctx.fillRect(0, y - 1 * dpr, W, 2 * dpr);
+  }
 
   function verifyStage(kind) {
     var stage = document.createElement('div');
-    stage.className = 'vscan vscan--' + kind;
-    var clip = document.createElement('div');
-    clip.className = 'vscan__clip';
-    if (kind !== 'camera') {
-      var icon = document.createElement('i');
-      icon.className = 'vscan__icon';
-      icon.innerHTML = kind === 'done' ? VSCAN_CHECK : VSCAN_FACE;
-      clip.appendChild(icon);
+    stage.className = 'vs vs--' + kind;
+
+    var NS = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 100 100');
+    svg.setAttribute('class', 'vs__ticks');
+    svg.setAttribute('aria-hidden', 'true');
+    for (var i = 0; i < VS_TICKS; i++) {
+      var tick = document.createElementNS(NS, 'line');
+      tick.setAttribute('x1', '50'); tick.setAttribute('y1', '1.5');
+      tick.setAttribute('x2', '50'); tick.setAttribute('y2', '6.5');
+      tick.setAttribute('transform', 'rotate(' + (i * 360 / VS_TICKS) + ' 50 50)');
+      tick.style.setProperty('--i', i);
+      svg.appendChild(tick);
     }
-    var line = document.createElement('div');
-    line.className = 'vscan__line';
-    clip.appendChild(line);
+    stage.appendChild(svg);
+
+    var clip = document.createElement('div');
+    clip.className = 'vs__clip';
     stage.appendChild(clip);
-    var ring = document.createElement('div');
-    ring.className = 'vscan__ring';
-    stage.appendChild(ring);
-    ['tl', 'tr', 'bl', 'br'].forEach(function (c) {
-      var corner = document.createElement('span');
-      corner.className = 'vscan__c vscan__c--' + c;
-      stage.appendChild(corner);
-    });
+    var glow = document.createElement('div');
+    glow.className = 'vs__glow';
+    stage.appendChild(glow);
+
+    // ‏يُستدعى من العدّ التنازليّ: نسبةُ ما مضى بين 0 و1 ← عددُ الشَّرطات المضيئة
+    stage.setProgress = function (p) {
+      var lit = Math.round(Math.max(0, Math.min(1, p)) * VS_TICKS);
+      var ticks = svg.childNodes;
+      for (var k = 0; k < ticks.length; k++) ticks[k].classList.toggle('on', k < lit);
+    };
+    // يُنادى بعد وضع الفيديو في `clip` — كي ترتسم الشبكةُ فوقه لا تحته
+    stage.start = function () { vsCanvas(stage, clip, kind); };
+    if (kind !== 'camera') stage.start();
     return stage;
   }
 
@@ -3445,7 +3590,8 @@
       video.autoplay = true;
       video.setAttribute('playsinline', '');
       var stage = verifyStage('camera');
-      stage.querySelector('.vscan__clip').insertBefore(video, stage.querySelector('.vscan__line'));
+      stage.querySelector('.vs__clip').appendChild(video);
+      stage.start();
       stage.hidden = true;
       body.appendChild(stage);
       var line = document.createElement('p');
@@ -3506,12 +3652,12 @@
       var left = maxSeconds;
       line.textContent = T('web.verify_recording', { seconds: left });
       stage.classList.add('is-recording');
-      stage.style.setProperty('--p', '0');
+      stage.setProgress(0);
       verifyRecorder.start(1000);
       verifyTimer = setInterval(function () {
         left -= 1;
         line.textContent = T('web.verify_recording', { seconds: Math.max(left, 0) });
-        stage.style.setProperty('--p', String(Math.min(1, (maxSeconds - left) / maxSeconds)));
+        stage.setProgress((maxSeconds - left) / maxSeconds);
         if (left <= 0 && verifyRecorder && verifyRecorder.state === 'recording') {
           clearInterval(verifyTimer);
           verifyTimer = null;
