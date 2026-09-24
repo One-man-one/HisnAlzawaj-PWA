@@ -2547,6 +2547,9 @@
       // ⚠️ **ونصُّ «ملفّي» من البوت نفسه لا من نسخةٍ ثانية** — هو ما
       // يراه صاحبه هناك حرفياً.
       lines(card, mine && (mine.text || mine.card));
+      // الصورةُ فوق النصّ — أوّلُ ما يُرى في أي ملفٍّ شخصيّ.
+      var photo = photoBlock(mine);
+      if (photo) view.appendChild(photo);
       view.appendChild(card);
 
       // ✅ «تعديل بياناتي» (٢٣ سبتمبر ٢٠٢٦) — حقولُ البوت نفسها، يقرّرها
@@ -2604,6 +2607,151 @@
       line.textContent = errorText(err);
       view.appendChild(line);
     });
+  }
+
+  // ==========================================================
+  // الصورةُ الشخصية (٢٤ سبتمبر ٢٠٢٦)
+  // ==========================================================
+  //
+  // ⚠️ **الصورة `file_id` من تيليجرام، والوسيط لا يملك توكن البوت** —
+  // فالرفعُ يكتبها في صندوق انتظار، ومهمّةُ البوت تحملها كلَّ عشر ثوانٍ
+  // (`services/web_photo_upload.py`). فالصفحة تقول «جارٍ» وتسأل حتى تظهر.
+  //
+  // ⚠️ **والصورة تُصغَّر ويُعاد ترميزها هنا قبل أن تغادر الهاتف** — لسببين:
+  // حجمٌ يحتمله الخادم (١٢٨٠ بكسل)، و**نزعُ بيانات EXIF، وفيها موقعُ
+  // التصوير بالـGPS** في أغلب الهواتف. فالرسمُ على `canvas` لا ينقلها.
+  var PHOTO_MAX_SIDE = 1280;
+  var PHOTO_MAX_BYTES = 1800 * 1024;
+
+  function prepareJpeg(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        var scale = Math.min(1, PHOTO_MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+        var canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        var attempt = function (quality) {
+          canvas.toBlob(function (blob) {
+            if (!blob) return reject(new Error('encode'));
+            if (blob.size > PHOTO_MAX_BYTES && quality > 0.5) return attempt(quality - 0.15);
+            resolve(blob);
+          }, 'image/jpeg', quality);
+        };
+        attempt(0.85);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('decode')); };
+      img.src = url;
+    });
+  }
+
+  // ⚠️ **سؤالٌ محدود لا حلقةٌ مفتوحة**: دورةُ البوت عشر ثوانٍ، فدقيقةٌ
+  // ونصف تكفي أسوأ الحالات. وبعدها تبقى «جارٍ» ظاهرةً حتى يعود المستخدم.
+  var photoPoll = null;
+
+  function watchPhoto(triesLeft) {
+    clearTimeout(photoPoll);
+    if (triesLeft <= 0) return;
+    photoPoll = setTimeout(function () {
+      if ($('view-profile').hidden) return;
+      api.me().then(function (mine) {
+        if (mine && !mine.photo_pending) loadProfile();
+        else watchPhoto(triesLeft - 1);
+      }).catch(function () { watchPhoto(triesLeft - 1); });
+    }, 4000);
+  }
+
+  function photoBlock(mine) {
+    if (!mine || (!mine.photo_upload && !mine.has_photo)) return null;
+
+    var box = document.createElement('section');
+    box.className = 'card photo-block';
+
+    var row = document.createElement('div');
+    row.className = 'photo-block__row';
+    box.appendChild(row);
+
+    var ava = document.createElement('div');
+    ava.className = 'ava';
+    ava.textContent = '👤';
+    row.appendChild(ava);
+    if (mine.has_photo && !mine.photo_pending) attachPhoto(ava, mine);
+
+    var side = document.createElement('div');
+    side.className = 'photo-block__side';
+    row.appendChild(side);
+
+    var status = document.createElement('p');
+    status.className = 'row__sub';
+    side.appendChild(status);
+    if (mine.photo_pending) {
+      status.textContent = T('web.photo_pending');
+      watchPhoto(22);
+    }
+
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.hidden = true;
+    box.appendChild(input);
+
+    if (mine.photo_upload) {
+      var pick = document.createElement('button');
+      pick.type = 'button';
+      pick.className = 'btn btn--ghost';
+      pick.textContent = T(mine.has_photo ? 'web.photo_change' : 'web.photo_add');
+      pick.addEventListener('click', function () { input.click(); });
+      side.appendChild(pick);
+
+      input.addEventListener('change', function () {
+        var file = input.files && input.files[0];
+        input.value = '';
+        if (!file) return;
+        pick.disabled = true;
+        status.textContent = T('web.photo_pending');
+        prepareJpeg(file).then(function (blob) {
+          return api.uploadPhoto(blob);
+        }).then(function () {
+          toast(T('web.photo_sent'));
+          watchPhoto(22);
+        }).catch(function (err) {
+          pick.disabled = false;
+          status.textContent = '';
+          if (err.code === 'unauthorized') return boot();
+          if (err.code === 'http' || !err.code) return toast(T('web.photo_bad'));
+          toast(errorText(err));
+        });
+      });
+    }
+
+    if (mine.has_photo) {
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'btn btn--danger-soft';
+      del.textContent = T('web.photo_delete');
+      del.addEventListener('click', function () {
+        if (!window.confirm(T('web.photo_delete_confirm'))) return;
+        del.disabled = true;
+        api.deletePhoto().then(function () {
+          toast(T('web.photo_deleted'));
+          loadProfile();
+        }).catch(function (err) {
+          del.disabled = false;
+          if (err.code === 'unauthorized') return boot();
+          toast(errorText(err));
+        });
+      });
+      side.appendChild(del);
+    }
+
+    var note = document.createElement('p');
+    note.className = 'pcard__note';
+    note.textContent = T('web.photo_note');
+    box.appendChild(note);
+    return box;
   }
 
   // ⚠️ **حذفُ الحساب بخطوتين في الصفحة، وبكلمةٍ في المسار.** الزرّ

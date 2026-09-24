@@ -36,11 +36,15 @@
     var token = readToken();
     if (token) headers['Authorization'] = 'Bearer ' + token;
     if (options.body) headers['Content-Type'] = 'application/json';
+    // ✅ **جسمٌ خامّ للصورة وحدها** (`raw` + `rawType`): الوسيط يستلم
+    // JPEG بلا `multipart` (الشرح عند `/api/me/photo` في مستودع البوت).
+    if (options.raw) headers['Content-Type'] = options.rawType;
 
     return fetch(window.HISN.API + path, {
       method: options.method || 'GET',
       headers: headers,
-      body: options.body ? JSON.stringify(options.body) : undefined,
+      body: options.raw ? options.raw
+        : (options.body ? JSON.stringify(options.body) : undefined),
       // ⚠️ `omit` صراحةً: لا كوكيز في هذا المسار أصلاً، وإرسالُها عبر
       // الأصول يستدعي `allow_credentials` في الخادم — وذاك يفتح CSRF
       // بلا مقابل.
@@ -221,6 +225,13 @@
       return request('/api/me/report', { method: 'POST', body: body });
     },
     blocked: function () { return request('/api/me/blocked'); },
+    uploadPhoto: function (blob) {
+      return request('/api/me/photo', { method: 'POST', raw: blob,
+                                        rawType: 'image/jpeg' });
+    },
+    deletePhoto: function () {
+      return request('/api/me/photo', { method: 'DELETE' });
+    },
     unblock: function (body) {
       return request('/api/me/unblock', { method: 'POST', body: body });
     },

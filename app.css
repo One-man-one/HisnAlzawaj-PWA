@@ -292,6 +292,13 @@ body {
 .chat__more { margin-inline-start: auto; font-size: 1.3rem; }
 .mod-row { display: flex; gap: 10px; margin-top: 14px; }
 .mod-row .btn { flex: 1; }
+/* الصورةُ الشخصية في «ملفّي» */
+.photo-block__row { display: flex; align-items: center; gap: 14px; }
+.photo-block__row .ava { width: 72px; height: 72px; font-size: 32px; flex: none; }
+.photo-block__side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.photo-block__side .btn { margin: 0; }
+.photo-block__side .row__sub:empty { display: none; }
+
 /* زرُّ الفكّ في صفّ المحظور — بحجم محتواه لا بعرض السطر */
 .row .row__unblock { width: auto; flex: none; margin: 0; padding: 8px 14px; }
 .btn--danger-soft { background: transparent; color: var(--no, #EF5B5B);
