@@ -152,7 +152,36 @@
     $('app').hidden = true;
     $('complete').hidden = false;
     langPicker($('complete-lang'));
-    renderSchema();
+    renderSchema().then(prefillComplete);
+  }
+
+  // ⚠️ **مستخدمُ البوت القديم لا يعيد كتابة ملفّه** (البند ١١ في
+  // `docs/PRE_ADS_FIXES.md`): يدخل الموقع فيُطلب منه ما نقص — سؤالٌ أُضيف
+  // بعد تسجيله — وكانت الشاشة تعرض الأسئلة كلَّها فارغة. فما أجاب عنه
+  // يُملأ من الوسيط (`/api/me/profile/prefill`)، والناقصُ وحده يبقى فارغاً.
+  //
+  // ⚠️ **وما كتبه في الشاشة لا يُمحى**: الردُّ قد يصل بعد أن بدأ الكتابة،
+  // فيُملأ الفارغُ وحده. ⚠️ **والجنسُ أوّلاً**: سؤالُ الحجاب لا يُرسم إلا
+  // للنساء، فمن جنسُها معروف يُعاد رسمُ النموذج بجنسها قبل الملء.
+  // ⚠️ **وعونٌ لا شرط**: وسيطٌ أقدم بلا المسار، أو عطلٌ، = الشاشة كما كانت.
+  function prefillComplete() {
+    if (editMode || !api.profilePrefill) return;
+    api.profilePrefill().then(function (d) {
+      var values = (d && d.values) || {};
+      if (!Object.keys(values).length || editMode) return;
+      var fill = function () {
+        var typed = collect();
+        var todo = {};
+        Object.keys(values).forEach(function (name) {
+          if (typed[name] === undefined) todo[name] = values[name];
+        });
+        restore(todo);
+      };
+      if (values.gender && values.gender !== schemaGender && !collect().gender) {
+        return renderSchema(values.gender).then(fill);
+      }
+      fill();
+    }).catch(function () { /* الشاشةُ فارغةٌ كما كانت */ });
   }
 
   // ==========================================================
@@ -545,6 +574,10 @@
   function startBell() {
     refreshBell();
     if (!bellTimer) bellTimer = setInterval(refreshBell, 60000);
+    // ✅ **لا يتكرّر بتكرار `showApp`** — وقد ظنّته مراجعةُ ما قبل الإعلانات
+    // عطلاً (البند ١٣): المتصفّح يتجاهل `addEventListener` ثانياً بالدالّة
+    // نفسها والحدث نفسه، و`refreshBell` معرَّفةٌ مرّةً في الوحدة. ولا
+    // «تضاعف» في العدّاد: `setBell` يضع الرقم لا يضيفه. فلا تُلفّ بعلامةٍ.
     document.addEventListener('visibilitychange', refreshBell);
   }
 
@@ -2710,8 +2743,21 @@
     pulling = false;
     pullMessages(true);
     stopChatPolling();
-    chatTimer = setInterval(function () { pullMessages(false); }, CHAT_POLL_MS);
+    // ⚠️ **ولا سؤالَ والتبويبُ مخفيّ** (البند ١٢ في `docs/PRE_ADS_FIXES.md`):
+    // دردشةٌ تُركت مفتوحة في تبويبٍ منسيّ كانت تسأل الوسيط كلَّ أربع ثوانٍ
+    // إلى الأبد — خمسةَ عشرَ طلباً في الدقيقة لشاشةٍ لا يراها أحد. والجرسُ
+    // يفعل هذا من قبل. والعودةُ إلى التبويب تسأل فوراً (`chatVisible`).
+    chatTimer = setInterval(function () {
+      if (!document.hidden) pullMessages(false);
+    }, CHAT_POLL_MS);
   }
+
+  // العائدُ إلى تبويبٍ فيه محادثةٌ مفتوحة يرى الجديد فوراً لا بعد أربع ثوانٍ.
+  // ✅ ويُسجَّل مرّةً عند تحميل الوحدة — والمتصفّح يتجاهل التكرار أصلاً.
+  function chatVisible() {
+    if (!document.hidden && chatWith && chatTimer) pullMessages(false);
+  }
+  document.addEventListener('visibilitychange', chatVisible);
 
   function closeChat() {
     stopChatPolling();

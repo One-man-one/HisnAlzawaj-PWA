@@ -49,7 +49,12 @@
       // الأصول يستدعي `allow_credentials` في الخادم — وذاك يفتح CSRF
       // بلا مقابل.
       credentials: 'omit',
-      cache: 'no-store'
+      // ⚠️ **`no-store` افتراضاً، والصورةُ المموّهة وحدها تُخبَّأ**
+      // (`options.cache`): الوسيطُ يعطيها `private, max-age=3600`، و`no-store`
+      // هنا كان يُبطل ذلك — فكلُّ بطاقةٍ تُعاد قراءتُها بايتاتٍ من القاعدة في
+      // كل تصفّح (البند ١٢ في `docs/PRE_ADS_FIXES.md`). ⚠️ ولا تُخبَّأ
+      // الواضحةُ أبداً (`photoClear`): إذنُها نصفُ ساعة ويُسحب في أيّ لحظة.
+      cache: options.cache || 'no-store'
     }).then(function (res) {
       if (res.status === 401) {
         // توكنٌ منتهٍ أو مزوَّر — تُمسح الجلسة ويُعاد المستخدم للدخول.
@@ -179,6 +184,8 @@
     // ⚠️ الأسئلة وخياراتها من الوسيط لا من الصفحة — الشرح في index.html
     // «تعديل بياناتي» — حقولُ البوت نفسها بقيمها الحالية، والحفظ.
     profileEditForm: function () { return request('/api/me/profile/edit'); },
+    // ما أجاب عنه صاحبُ الملفّ الناقص من قبل — تُملأ به شاشةُ الإكمال.
+    profilePrefill: function () { return request('/api/me/profile/prefill'); },
     profileEdit: function (answers) {
       return request('/api/me/profile/edit',
                      { method: 'POST', body: { answers: answers } });
@@ -339,7 +346,7 @@
     // ولذلك تُجلب بايتاتٍ وتُحوَّل إلى `blob:` — ورابطُ `getFile` من
     // تيليجرام لا يظهر هنا ولا في أي موضع (يحمل توكن البوت).
     photoUrl: function (publicId) {
-      return request('/api/photo/' + publicId).then(function (res) {
+      return request('/api/photo/' + publicId, { cache: 'default' }).then(function (res) {
         return res.blob().then(function (blob) {
           return URL.createObjectURL(blob);
         });
