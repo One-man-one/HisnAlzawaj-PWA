@@ -234,6 +234,25 @@
     },
     pushKey: function () { return request('/api/push/key'); },
     photoRequests: function () { return request('/api/me/photo-requests'); },
+    photoAccess: function (id) {
+      return request('/api/me/photo-access/' + encodeURIComponent(id));
+    },
+    photoAsk: function (id) {
+      return request('/api/me/photo-ask', { method: 'POST', body: { public_id: id } });
+    },
+    photoView: function (id) {
+      return request('/api/me/photo-view/' + encodeURIComponent(id), { method: 'POST' });
+    },
+    // ⚠️ **صورةٌ أو `{status: 'pending'}`** — 202 حين لم يجلبها البوت بعد.
+    photoClear: function (id) {
+      return request('/api/me/photo-clear/' + encodeURIComponent(id)).then(function (res) {
+        if (!res || typeof res.blob !== 'function') return { pending: true };
+        var minutes = res.headers.get('X-Minutes-Left');
+        return res.blob().then(function (blob) {
+          return { blob: blob, minutes: minutes === null ? null : parseInt(minutes, 10) };
+        });
+      });
+    },
     photoRequestReply: function (body) {
       return request('/api/me/photo-requests', { method: 'POST', body: body });
     },

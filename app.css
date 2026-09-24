@@ -299,6 +299,14 @@ body {
 .photo-block__side .btn { margin: 0; }
 .photo-block__side .row__sub:empty { display: none; }
 
+/* الصورةُ الواضحة — لا تحديدَ ولا سحب (ردعٌ لا حماية؛ الشرح في ui.js) */
+img.clear-photo {
+  display: block; width: 100%; max-height: 70vh; object-fit: contain;
+  border-radius: 14px; margin: 8px 0 12px;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  pointer-events: none;
+}
+
 /* طلباتُ رؤية الصورة — الاسمُ فوق، والخياراتُ تحته */
 .row.photo-req { flex-direction: column; align-items: stretch; gap: 10px; }
 .photo-req__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }

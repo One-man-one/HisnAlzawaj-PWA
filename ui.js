@@ -1291,6 +1291,9 @@
   var modFromSheet = false;
 
   function closeModeration() {
+    // ⚠️ **الصورة الواضحة تُحرَّر مع كل إغلاقٍ لهذه الشاشة** — لا تبقى في
+    // ذاكرة الصفحة بعد أن يغادرها صاحبها.
+    closeClearPhoto();
     $('mod').hidden = true;
     if (modFromSheet) $('sheet').hidden = false;
     modFromSheet = false;
@@ -2775,6 +2778,132 @@
     return box;
   }
 
+  // ==========================================================
+  // الصورةُ الواضحة لمشاهدٍ على الموقع (٢٤ سبتمبر ٢٠٢٦)
+  // ==========================================================
+  //
+  // ⚠️ **الإذنُ يُفحص في الخادم عند كل عرض** (`services/web_clear_photo.py`)
+  // — والزرّ هنا تيسيرٌ لا حارس. والصورة تُعرض من `blob:` يُحرَّر عند
+  // الإغلاق، ولا يمرّ ردُّها بعامل الخدمة (نطاقٌ آخر) ولا بالكاش (`no-store`).
+  //
+  // ⚠️ **ولا يمنع هذا لقطةَ الشاشة** — لا تملك صفحةُ ويبٍ ذلك، كما لا يملكه
+  // البوت إلا بـ`protect_content` داخل تيليجرام. فالسطر تحت الصورة يقول ذلك.
+  function photoAccessButton(slot, card) {
+    slot.textContent = '';
+    var id = refId(card.public_id);
+    api.photoAccess(id).then(function (st) {
+      var state = st && st.state;
+      if (!state || state === 'own' || state === 'no_photo') return;
+
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn--ghost';
+      slot.appendChild(btn);
+
+      if (state === 'approved') {
+        btn.textContent = T('web.photo_view');
+        btn.addEventListener('click', function () { openClearPhoto(card); });
+        return;
+      }
+      if (state === 'pending') {
+        btn.textContent = T('web.photo_ask_waiting');
+        btn.disabled = true;
+        return;
+      }
+      btn.textContent = T('web.photo_ask');
+      btn.addEventListener('click', function () {
+        btn.disabled = true;
+        api.photoAsk(id).then(function (out) {
+          toast((out && out.message) || '');
+          photoAccessButton(slot, card);
+        }).catch(function (err) {
+          btn.disabled = false;
+          if (err.code === 'unauthorized') return boot();
+          toast((err.data && err.data.message) || errorText(err));
+          if (err.status === 409) photoAccessButton(slot, card);
+        });
+      });
+    }).catch(function () { /* بلا حالة لا زرّ — والبطاقة كاملةٌ بدونه */ });
+  }
+
+  var clearUrl = null;
+  var clearTimer = null;
+
+  function closeClearPhoto() {
+    clearTimeout(clearTimer);
+    clearTimer = null;
+    if (clearUrl) { URL.revokeObjectURL(clearUrl); clearUrl = null; }
+    var img = $('mod-body').querySelector('img.clear-photo');
+    if (img) img.removeAttribute('src');
+  }
+
+  function openClearPhoto(card) {
+    var id = refId(card.public_id);
+    modTarget = null;
+    closeClearPhoto();
+    $('mod-name').textContent = identity('', card.public_id);
+    var body = $('mod-body');
+    body.textContent = T('web.photo_view_loading');
+    modFromSheet = !$('sheet').hidden;
+    $('sheet').hidden = true;
+    $('mod').hidden = false;
+
+    var tries = 0;
+    var fail = function (text) {
+      if ($('mod').hidden) return;
+      body.textContent = text || T('web.photo_view_unavailable');
+    };
+    var show = function (got) {
+      if ($('mod').hidden) return;
+      body.textContent = '';
+      clearUrl = URL.createObjectURL(got.blob);
+      var img = document.createElement('img');
+      img.className = 'clear-photo';
+      img.alt = '';
+      img.draggable = false;
+      img.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+      img.src = clearUrl;
+      body.appendChild(img);
+
+      if (got.minutes !== null && !isNaN(got.minutes)) {
+        var left = document.createElement('p');
+        left.className = 'pcard__note';
+        left.textContent = T('web.photo_view_window', { minutes: got.minutes });
+        body.appendChild(left);
+        // ⚠️ **الصفحة تُغلق نفسها عند انتهاء النافذة** — والخادم يرفض بعدها
+        // على أيّ حال؛ هذا كي لا تبقى الصورة معروضةً بعد أن انتهى إذنُها.
+        clearTimer = setTimeout(function () {
+          closeClearPhoto();
+          closeModeration();
+          toast(T('web.photo_view_over'));
+        }, Math.max(1, got.minutes) * 60 * 1000);
+      }
+      var note = document.createElement('p');
+      note.className = 'pcard__note';
+      note.textContent = T('web.photo_view_private');
+      body.appendChild(note);
+    };
+    var poll = function () {
+      if ($('mod').hidden) return;
+      api.photoClear(id).then(function (got) {
+        if (got.pending) {
+          if (++tries > 20) return fail();
+          // صفٌّ انتهى أو تبدّلت صورته يُعاد طلبُه، والبوت يجلبها في دورته.
+          if (tries % 5 === 0) api.photoView(id).catch(function () {});
+          return setTimeout(poll, 2000);
+        }
+        show(got);
+      }).catch(function (err) {
+        if (err.code === 'unauthorized') return boot();
+        fail();
+      });
+    };
+    api.photoView(id).then(poll).catch(function (err) {
+      if (err.code === 'unauthorized') return boot();
+      fail();
+    });
+  }
+
   // ✅ **طلباتُ رؤية صورتي (٢٤ سبتمبر ٢٠٢٦)** — كانت تصل الصندوق ولا
   // يُردّ عليها من هنا، فينتظر الطالب ردّاً لن يأتي. والأفعال أفعالُ البوت
   // (`services/photo_consent_core.py`)، وأسماءُ الأزرار نصوصُه يرسلها الوسيط.
@@ -3108,6 +3237,13 @@
     // ✅ **بأقسامٍ وصفوف لا أسطراً** — البطاقة نفسها، بعناوين «المواصفات»
     // و«الدين والحالة» و«التعليم والعمل» (كصفحة الاختبار).
     cardBody(body, card.card, { code: card.public_id, sections: true });
+
+    // ✅ **الصورةُ الواضحة بإذن صاحبها** — طلبٌ أو عرض (٢٤ سبتمبر ٢٠٢٦).
+    if (card.has_photo && card.public_id) {
+      var photoSlot = document.createElement('div');
+      body.appendChild(photoSlot);
+      photoAccessButton(photoSlot, card);
+    }
 
     // ✅ **وإعجابٌ من التفاصيل لبطاقة الرزمة**: من قرأ الملفّ كاملاً
     // وقرّر لا يُعاد إلى الرزمة ليبحث عن الزرّ. وهو `act` نفسه — يسحب
