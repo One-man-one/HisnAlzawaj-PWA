@@ -245,15 +245,6 @@
     var title = document.createElement('span');
     title.textContent = spec.label
                         + (spec.required ? '' : ' (' + T('web.optional') + ')');
-    // ✅ **نجمةٌ حمراء للإلزاميّ قبل الإرسال لا بعده** (بطلب صاحب المشروع،
-    // ٢٤ سبتمبر ٢٠٢٦) — ومعناها في سطرٍ فوق النموذج (`web.required_legend`).
-    if (spec.required) {
-      var star = document.createElement('b');
-      star.className = 'req';
-      star.textContent = ' *';
-      star.setAttribute('aria-hidden', 'true');
-      title.appendChild(star);
-    }
     wrap.appendChild(title);
 
     var input;
