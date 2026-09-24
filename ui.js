@@ -3445,6 +3445,7 @@
 
   function closeClearPhoto() {
     clearTimeout(clearTimer);
+    clearInterval(clearTimer);
     clearTimer = null;
     if (clearUrl) { URL.revokeObjectURL(clearUrl); clearUrl = null; }
     var img = $('mod-body').querySelector('img.clear-photo');
@@ -3479,18 +3480,42 @@
       img.src = clearUrl;
       body.appendChild(img);
 
-      if (got.minutes !== null && !isNaN(got.minutes)) {
-        var left = document.createElement('p');
-        left.className = 'pcard__note';
-        left.textContent = T('web.photo_view_window', { minutes: got.minutes });
-        body.appendChild(left);
-        // ⚠️ **الصفحة تُغلق نفسها عند انتهاء النافذة** — والخادم يرفض بعدها
-        // على أيّ حال؛ هذا كي لا تبقى الصورة معروضةً بعد أن انتهى إذنُها.
-        clearTimer = setTimeout(function () {
-          closeClearPhoto();
-          closeModeration();
-          toast(T('web.photo_view_over'));
-        }, Math.max(1, got.minutes) * 60 * 1000);
+      // ✅ **عدّادٌ حيّ على الصورة نفسها، كلَّ ثانية** (بطلب صاحب المشروع،
+      // ٢٤ سبتمبر ٢٠٢٦) وتحته شريطٌ يتناقص — بدل «⏱ الوقت المتبقّي: ٥ د»
+      // الثابتة. والثواني من الخادم (`X-Seconds-Left`)، وإلا فالدقائق.
+      var total = (got.seconds !== null && !isNaN(got.seconds)) ? got.seconds
+        : ((got.minutes !== null && !isNaN(got.minutes)) ? got.minutes * 60 : null);
+      if (total !== null) {
+        var frame = document.createElement('div');
+        frame.className = 'clear-frame';
+        body.replaceChild(frame, img);
+        frame.appendChild(img);
+        var badge = document.createElement('div');
+        badge.className = 'clear-timer';
+        frame.appendChild(badge);
+        var track = document.createElement('div');
+        track.className = 'clear-track';
+        var fill = document.createElement('div');
+        fill.className = 'clear-track__fill';
+        track.appendChild(fill);
+        body.appendChild(track);
+
+        var endAt = Date.now() + total * 1000;
+        var span = Math.max(total, 1);
+        var tick = function () {
+          var left = Math.max(0, Math.round((endAt - Date.now()) / 1000));
+          badge.textContent = '⏱ ' + Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2);
+          fill.style.width = (100 * left / span) + '%';
+          if (left <= 0) {
+            // ⚠️ **الصفحة تُغلق نفسها عند انتهاء النافذة** — والخادم يرفض
+            // بعدها على أيّ حال؛ هذا كي لا تبقى الصورة بعد أن انتهى إذنُها.
+            closeClearPhoto();
+            closeModeration();
+            toast(T('web.photo_view_over'));
+          }
+        };
+        tick();
+        clearTimer = setInterval(tick, 1000);
       }
       var note = document.createElement('p');
       note.className = 'pcard__note';

@@ -272,8 +272,11 @@
       return request('/api/me/photo-clear/' + encodeURIComponent(id)).then(function (res) {
         if (!res || typeof res.blob !== 'function') return { pending: true };
         var minutes = res.headers.get('X-Minutes-Left');
+        // ✅ الثواني للعدّاد الحيّ — وخادمٌ أقدم لا يرسلها فتبقى الدقائق.
+        var seconds = res.headers.get('X-Seconds-Left');
         return res.blob().then(function (blob) {
-          return { blob: blob, minutes: minutes === null ? null : parseInt(minutes, 10) };
+          return { blob: blob, minutes: minutes === null ? null : parseInt(minutes, 10),
+                   seconds: seconds === null ? null : parseInt(seconds, 10) };
         });
       });
     },

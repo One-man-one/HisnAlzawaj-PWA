@@ -301,6 +301,15 @@ body {
 
 /* الصورةُ الواضحة — لا تحديدَ ولا سحب (ردعٌ لا حماية؛ الشرح في ui.js) */
 img.clear-photo--hidden { filter: blur(28px); }
+/* العدّاد الحيّ فوق الصورة المؤقّتة، والشريط تحتها. */
+.clear-frame { position: relative; }
+.clear-timer {
+  position: absolute; top: 18px; left: 10px;
+  background: rgba(0, 0, 0, .55); color: #fff; font-weight: 700; font-size: 1.1rem;
+  padding: 6px 12px; border-radius: 18px; direction: ltr;
+}
+.clear-track { height: 6px; background: var(--border); border-radius: 4px; margin: 0 0 12px; overflow: hidden; }
+.clear-track__fill { height: 100%; background: var(--accent); width: 100%; transition: width 1s linear; }
 /* ⚠️ ولا تُطبع: الطباعةُ إلى PDF حفظٌ بطريقٍ آخر. */
 @media print { img.clear-photo { display: none !important; } }
 img.clear-photo {
