@@ -2643,6 +2643,14 @@
     if (!$('view-matches').hidden) loadMutual();
   }
 
+  // ✅ **الضغطُ على اسم الشريك يفتح ملفَّه** (بطلب صاحب المشروع) — كما في
+  // تيليجرام وواتساب. والورقةُ فوق المحادثة، فالرجوعُ منها يعيد إليها.
+  function openChatPartner() {
+    if (!chatWith) return;
+    api.person(chatWith).then(function (card) { openSheet(card); })
+      .catch(function (err) { toast(errorText(err)); });
+  }
+
   function stopChatPolling() {
     if (chatTimer) { clearInterval(chatTimer); chatTimer = null; }
   }
@@ -4358,6 +4366,7 @@
       openModeration(chatWith, $('chat-name').textContent);
     });
     $('pay-back').addEventListener('click', function () { $('pay').hidden = true; });
+    $('chat-name').addEventListener('click', openChatPartner);
     bindSearch();
     bindConsent();
 

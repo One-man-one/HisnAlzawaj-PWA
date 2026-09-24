@@ -165,7 +165,13 @@ body {
 }
 /* ⚠️ والسهمُ ينقلب مع الاتجاه: «‹» في RTL تشير يميناً لا يساراً. */
 [dir="rtl"] .chat__back { transform: scaleX(-1); }
-.chat__name { font-weight: 600; }
+.chat__name {
+  font-weight: 600;
+  /* ✅ زرٌّ يفتح ملفَّ الشريك — بلا شكل زرّ: الاسمُ نفسه هو المقبض. */
+  background: none; border: 0; padding: 0; color: inherit; font: inherit;
+  font-weight: 600; text-align: start; cursor: pointer;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 .chat__log {
   flex: 1;
