@@ -2050,7 +2050,9 @@
     if (card.is_verified) {
       var badge = document.createElement('span');
       badge.className = 'pcard__badge';
-      badge.textContent = T('web.verified');
+      // ✅ رمزُ الشارة كما في البوت (يختاره المشرف) — لا الكلمة وحدها.
+      badge.textContent = (card.verified_badge ? card.verified_badge + ' ' : '')
+        + T('web.verified');
       left.appendChild(badge);
     }
     head.appendChild(left);
@@ -3024,7 +3026,8 @@
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'btn btn--primary';
-      b.textContent = T('web.verify_button');
+      // ✅ بشارة التوثيق نفسها التي في البوت (`st.badge`) — كانت 🔵 ثابتة.
+      b.textContent = (st.badge ? st.badge + ' ' : '') + T('web.verify_button');
       b.addEventListener('click', openVerify);
       slot.appendChild(b);
     }).catch(function () { /* بلا حالة لا زرّ */ });
