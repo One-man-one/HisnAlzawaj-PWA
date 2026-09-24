@@ -670,6 +670,28 @@
       openPhotoRequests();
       return;
     }
+    // ✅ **الإعجابُ المجمَّع بلا أسماء** يفتح «مطابقاتي» حيث صفُّ «من أعجب بي».
+    if (go === 'person' && !item.public_id) {
+      $('notes').hidden = true;
+      openTab('matches');
+      return;
+    }
+    // ✅ **رسالةُ البوت بلا مرسل** تُفتح نصّاً كاملاً — لا شخصَ ولا محادثة
+    // (قرارُ مشرف، اشتراك، نتيجةُ توثيق)، وكان الضغطُ عليها بلا أثر.
+    if (go === 'message') {
+      $('notes').hidden = true;
+      modTarget = null;
+      $('mod-name').textContent = T('web.notifications');
+      var mb = $('mod-body');
+      mb.textContent = '';
+      var p = document.createElement('p');
+      p.className = 'verify__text';
+      p.textContent = item.text || '';
+      mb.appendChild(p);
+      modFromSheet = false;
+      $('mod').hidden = false;
+      return;
+    }
     if (go && go !== 'chat' && go !== 'person') {
       $('notes').hidden = true;
       openTab(go);
