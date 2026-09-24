@@ -1673,10 +1673,28 @@
   };
   var pollTimer = null;
 
+  // ⚠️ **متصفّحُ فيسبوك وإنستغرام المدمج يرفضه جوجل** (`disallowed_useragent`
+  // — سياسةُ جوجل لا عطلٌ عندنا): من ضغط إعلاناً على ميتا يفتح الصفحة
+  // داخل التطبيق، فيضغط «المتابعة بجوجل» فيرى صفحةَ خطأٍ من جوجل «403»
+  // لا تشرح شيئاً، ويظنّ الموقع معطّلاً. فالزرّ يُخفى هناك ومكانه سطرٌ
+  // يقول كيف يُفتح في المتصفّح — وفيسبوك وتيليجرام يعملان داخله فيبقيان.
+  // البند ٥ في `docs/PRE_ADS_FIXES.md` بمستودع البوت.
+  //
+  // ⚠️ **الكشفُ بالعلامات التي يضعها التطبيقان في `userAgent`**: `FBAN`
+  // و`FBAV` (فيسبوك وماسنجر) و`Instagram`. وهي تخمينٌ لا ضمان — متصفّحٌ
+  // مدمجٌ لا يعلن نفسه يرى الزرّ كما كان، أي لا أسوأ من قبل.
+  function inMetaInAppBrowser() {
+    return /FBAN|FBAV|FB_IAB|Instagram/i.test(navigator.userAgent || '');
+  }
+
   function renderProviders() {
     api.providers().then(function (data) {
       var names = (data && data.providers) || [];
-      if (!names.length) return;
+      var googleBlocked = inMetaInAppBrowser() && names.indexOf('google') >= 0;
+      if (googleBlocked) {
+        names = names.filter(function (n) { return n !== 'google'; });
+      }
+      if (!names.length && !googleBlocked) return;
 
       var box = document.getElementById('provider-buttons');
       box.textContent = '';
@@ -1719,6 +1737,14 @@
         });
         box.appendChild(link);
       });
+
+      if (googleBlocked) {
+        // ⚠️ `textContent` لا `innerHTML`: النصّ من الوسيط.
+        var hint = document.createElement('p');
+        hint.className = 'prov-hint';
+        hint.textContent = T('web.inapp_google_hint');
+        box.appendChild(hint);
+      }
 
       // حقلُ الدعوة يظهر مع جوجل وفيسبوك وحدهما: الداخل بتيليجرام
       // مستخدمٌ عندنا أصلاً، فلا دعوةَ تُطلب منه.
