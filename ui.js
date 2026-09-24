@@ -2820,6 +2820,70 @@
     return box;
   }
 
+  // ✅ **مؤشّرُ اكتمال الملفّ** (بطلب صاحب المشروع، ٢٤ سبتمبر ٢٠٢٦): نسبةٌ
+  // وشريط، وكلُّ ناقصٍ زرٌّ يفتحه نفسه — التعديلُ أو الصورةُ أو التوثيق.
+  // الحسابُ في الخادم (`services/profile_completion.py`) وهو حسابُ البوت
+  // نفسه، فلا نسبةَ في الموقع تخالف ما في «ملفي» هناك. ويغيب عند المئة.
+  var COMPLETION_SHOWN = 6;
+
+  function completionCard(mine, view) {
+    var info = mine && mine.completion;
+    if (!info || !info.missing || !info.missing.length) return null;
+    // الصورةُ المرفوعة التي تنتظر البوت ليست ناقصة — قالت الصفحة «جارٍ».
+    var missing = info.missing.filter(function (m) {
+      return !(m.action === 'photo' && mine.photo_pending);
+    });
+    if (!missing.length) return null;
+
+    var box = document.createElement('section');
+    box.className = 'card gaps completion';
+    var h = document.createElement('p');
+    h.className = 'gaps__title';
+    h.textContent = T('web.completion_title', { percent: info.percent });
+    box.appendChild(h);
+
+    var track = document.createElement('div');
+    track.className = 'completion__track';
+    var fill = document.createElement('div');
+    fill.className = 'completion__fill';
+    fill.style.width = Math.max(4, Math.min(100, info.percent)) + '%';
+    track.appendChild(fill);
+    box.appendChild(track);
+
+    var p = document.createElement('p');
+    p.className = 'gaps__body';
+    p.textContent = T('web.completion_hint');
+    box.appendChild(p);
+
+    var chips = document.createElement('div');
+    chips.className = 'chips';
+    missing.slice(0, COMPLETION_SHOWN).forEach(function (m) {
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = '+ ' + m.label;
+      chip.addEventListener('click', function () {
+        if (m.action === 'verify') return openVerify();
+        if (m.action === 'photo') {
+          var pick = view.querySelector('.photo-block .btn--ghost');
+          if (pick) { pick.scrollIntoView({ block: 'center' }); return pick.click(); }
+        }
+        showEdit();
+      });
+      chips.appendChild(chip);
+    });
+    if (missing.length > COMPLETION_SHOWN) {
+      var more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'chip';
+      more.textContent = '+' + (missing.length - COMPLETION_SHOWN);
+      more.addEventListener('click', showEdit);
+      chips.appendChild(more);
+    }
+    box.appendChild(chips);
+    return box;
+  }
+
   function loadProfile() {
     var view = $('view-profile');
     view.textContent = '';
@@ -2841,7 +2905,9 @@
       // الصورةُ فوق النصّ — أوّلُ ما يُرى في أي ملفٍّ شخصيّ.
       var photo = photoBlock(mine);
       if (photo) view.appendChild(photo);
-      var gaps = gapsCard(mine && mine.profile_gaps);
+      // ⚠️ `gapsCard` احتياطٌ لوسيطٍ أقدم لا يرسل `completion`.
+      var gaps = (mine && mine.completion) ? completionCard(mine, view)
+                                           : gapsCard(mine && mine.profile_gaps);
       if (gaps) view.appendChild(gaps);
       view.appendChild(card);
 
