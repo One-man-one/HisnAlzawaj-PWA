@@ -3428,6 +3428,21 @@
   var clearUrl = null;
   var clearTimer = null;
 
+  // ✅ **طمسُ الواضحة لحظةَ تغادر الصفحةُ العين** (بقرار صاحب المشروع، ٢٤
+  // سبتمبر ٢٠٢٦): تبويبٌ آخر، أو تطبيقٌ آخر، أو نافذةٌ فقدت التركيز —
+  // وهو ما يسبق أغلبَ برامج تسجيل الشاشة على الحاسوب. وتعود بالرجوع.
+  // ⚠️ **ولا يمنع هذا لقطةَ الشاشة** (نظامُ التشغيل يلتقطها لا الصفحة) —
+  // الردعُ الحقيقيّ العلامةُ المائية المطبوعة في الخادم على الصورة نفسها.
+  function guardClearPhoto(hide) {
+    var img = $('mod-body') && $('mod-body').querySelector('img.clear-photo');
+    if (img) img.classList.toggle('clear-photo--hidden', hide);
+  }
+  document.addEventListener('visibilitychange', function () {
+    guardClearPhoto(document.visibilityState !== 'visible');
+  });
+  window.addEventListener('blur', function () { guardClearPhoto(true); });
+  window.addEventListener('focus', function () { guardClearPhoto(false); });
+
   function closeClearPhoto() {
     clearTimeout(clearTimer);
     clearTimer = null;
