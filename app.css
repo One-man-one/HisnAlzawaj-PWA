@@ -963,6 +963,8 @@ body.is-app {
   box-shadow: 0 0 0 1px var(--no);
 }
 .fld--missing .chips { outline: 2px solid var(--no); outline-offset: 4px; border-radius: 12px; }
+.req { color: var(--no); font-weight: 700; }
+.req-legend { margin: 0 0 12px; color: var(--muted); font-size: .85rem; }
 .fld__need { display: block; color: var(--no); font-size: .8rem; margin-top: 4px; }
 
 .linkbtn {
