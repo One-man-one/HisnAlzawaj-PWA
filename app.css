@@ -307,6 +307,14 @@ img.clear-photo {
   pointer-events: none;
 }
 
+/* 🎁 الدعوة — النصّ بفقراته، والرابطُ يُقرأ من اليسار */
+.invite__text { white-space: pre-wrap; line-height: 1.7; }
+.invite__link {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; font-family: monospace; font-size: .85rem;
+  word-break: break-all; text-align: left;
+}
+
 /* ❤️ من أعجب بي — صفٌّ في رأس «مطابقاتي» وعددُه على طرفه */
 .row.likers-entry { justify-content: space-between; }
 .likers-entry__n { position: static; margin-inline-start: auto; }

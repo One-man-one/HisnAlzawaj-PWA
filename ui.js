@@ -2771,6 +2771,9 @@
       var paySlot = document.createElement('div');
       acct.appendChild(paySlot);
       payButton(paySlot);
+      var inviteSlot = document.createElement('div');
+      acct.appendChild(inviteSlot);
+      inviteButton(inviteSlot);
       var links = st.links || {};
       var bot = document.createElement('a');
       bot.className = 'btn btn--ghost';
@@ -2814,6 +2817,73 @@
       line.textContent = errorText(err);
       view.appendChild(line);
     });
+  }
+
+  // ✅ **«ادعُ أصدقاءك» (٢٤ سبتمبر ٢٠٢٦)** — نصوصُ البوت ورابطُه
+  // (`referral_service.web_invite`)؛ ولا زرّ حين تكون الميزة معطَّلة.
+  // ⚠️ **الرابطُ رابطُ البوت**: الإحالةُ مكافأةٌ تُختم هناك، ولا طريقَ ثانياً.
+  function inviteButton(slot) {
+    api.invite().then(function (d) {
+      if (!d || !d.enabled) return;
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn btn--ghost';
+      b.textContent = d.label;
+      b.addEventListener('click', function () { openInvite(d); });
+      slot.appendChild(b);
+    }).catch(function () { /* بلا دعوة لا زرّ */ });
+  }
+
+  function openInvite(d) {
+    modTarget = null;
+    $('mod-name').textContent = d.label;
+    var body = $('mod-body');
+    body.textContent = '';
+    modFromSheet = false;
+    $('mod').hidden = false;
+
+    var text = document.createElement('p');
+    text.className = 'invite__text';
+    text.textContent = d.text;
+    body.appendChild(text);
+
+    var link = document.createElement('p');
+    link.className = 'invite__link';
+    link.dir = 'ltr';
+    link.textContent = d.link;
+    body.appendChild(link);
+
+    var copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'btn btn--primary';
+    copy.textContent = T('web.copy_link');
+    copy.addEventListener('click', function () {
+      var done = function () { toast(T('web.copied')); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(d.link).then(done).catch(function () {
+          window.prompt('', d.link);
+        });
+      } else {
+        window.prompt('', d.link);
+      }
+    });
+    body.appendChild(copy);
+
+    // ✅ **مشاركةُ النظام حين توجد** (هاتف)، وإلا رابطُ مشاركة تيليجرام —
+    // وهو ما يفتحه زرّ البوت نفسه (`handlers/referral.py::_share_url`).
+    var share = document.createElement('button');
+    share.type = 'button';
+    share.className = 'btn btn--ghost';
+    share.textContent = d.share_label;
+    share.addEventListener('click', function () {
+      if (navigator.share) {
+        navigator.share({ text: d.share_text, url: d.link }).catch(function () {});
+        return;
+      }
+      window.open('https://t.me/share/url?url=' + encodeURIComponent(d.link)
+                  + '&text=' + encodeURIComponent(d.share_text), '_blank', 'noopener');
+    });
+    body.appendChild(share);
   }
 
   // ✅ **«من يرى صورتي» والسحب** — كان الموقع يمنح الإذن ولا يسحبه. والسطورُ
