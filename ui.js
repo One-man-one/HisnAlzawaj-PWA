@@ -659,6 +659,11 @@
       }).catch(function (err) { toast(errorText(err)); });
       return;
     }
+    if (go === 'photo_requests') {
+      $('notes').hidden = true;
+      openPhotoRequests();
+      return;
+    }
     if (go && go !== 'chat' && go !== 'person') {
       $('notes').hidden = true;
       openTab(go);
@@ -2754,11 +2759,102 @@
       side.appendChild(del);
     }
 
+    if (mine.has_photo) {
+      var reqs = document.createElement('button');
+      reqs.type = 'button';
+      reqs.className = 'btn btn--ghost';
+      reqs.textContent = T('web.photo_requests');
+      reqs.addEventListener('click', openPhotoRequests);
+      side.appendChild(reqs);
+    }
+
     var note = document.createElement('p');
     note.className = 'pcard__note';
     note.textContent = T('web.photo_note');
     box.appendChild(note);
     return box;
+  }
+
+  // ✅ **طلباتُ رؤية صورتي (٢٤ سبتمبر ٢٠٢٦)** — كانت تصل الصندوق ولا
+  // يُردّ عليها من هنا، فينتظر الطالب ردّاً لن يأتي. والأفعال أفعالُ البوت
+  // (`services/photo_consent_core.py`)، وأسماءُ الأزرار نصوصُه يرسلها الوسيط.
+  // ⚠️ **وهذا لا يكشف صورةً في الموقع** — يمنح الإذن، والعرضُ في البوت.
+  function openPhotoRequests() {
+    modTarget = null;
+    $('mod-name').textContent = T('web.photo_requests');
+    var body = $('mod-body');
+    body.textContent = T('web.loading');
+    modFromSheet = !$('sheet').hidden;
+    $('sheet').hidden = true;
+    $('mod').hidden = false;
+
+    api.photoRequests().then(function (d) {
+      body.textContent = '';
+      var list = (d && d.requests) || [];
+      var empty = function () {
+        var none = document.createElement('p');
+        none.className = 'empty';
+        none.textContent = T('web.photo_requests_empty');
+        body.appendChild(none);
+      };
+      if (!list.length) return empty();
+
+      list.forEach(function (r) {
+        var card = document.createElement('div');
+        card.className = 'row photo-req';
+
+        var name = document.createElement('div');
+        name.className = 'row__name';
+        name.textContent = identity(r.name, r.public_id)
+          + (r.count > 1 ? ' (' + r.count + ')' : '');
+        card.appendChild(name);
+
+        var actions = document.createElement('div');
+        actions.className = 'photo-req__actions';
+        card.appendChild(actions);
+
+        var reply = function (decision, kind, btn) {
+          actions.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+          api.photoRequestReply(kind ? { public_id: r.public_id, decision: decision, kind: kind }
+                                     : { public_id: r.public_id, decision: decision })
+            .then(function (out) {
+              card.remove();
+              toast((out && out.message) || '');
+              if (!body.querySelector('.photo-req')) empty();
+            }).catch(function (err) {
+              if (err.code === 'unauthorized') return boot();
+              if (err.status === 409) {
+                card.remove();
+                toast(T('web.photo_req_gone'));
+                if (!body.querySelector('.photo-req')) empty();
+                return;
+              }
+              actions.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+              toast(errorText(err));
+            });
+        };
+
+        (d.choices || []).forEach(function (c) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'btn btn--ghost';
+          b.textContent = c.label;
+          b.addEventListener('click', function () { reply('approve', c.kind, b); });
+          actions.appendChild(b);
+        });
+        var no = document.createElement('button');
+        no.type = 'button';
+        no.className = 'btn btn--danger-soft';
+        no.textContent = d.deny || '✖';
+        no.addEventListener('click', function () { reply('deny', null, no); });
+        actions.appendChild(no);
+
+        body.appendChild(card);
+      });
+    }).catch(function (err) {
+      if (err.code === 'unauthorized') return boot();
+      body.textContent = errorText(err);
+    });
   }
 
   // ==========================================================

@@ -233,6 +233,10 @@
       return request('/api/me/photo', { method: 'DELETE' });
     },
     pushKey: function () { return request('/api/push/key'); },
+    photoRequests: function () { return request('/api/me/photo-requests'); },
+    photoRequestReply: function (body) {
+      return request('/api/me/photo-requests', { method: 'POST', body: body });
+    },
     pushSubscribe: function (sub) {
       return request('/api/me/push', { method: 'POST', body: sub });
     },
