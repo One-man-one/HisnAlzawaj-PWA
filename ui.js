@@ -1920,6 +1920,14 @@
       + '<path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>',
     facebook: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#FFFFFF" '
       + 'd="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.26h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z"/></svg>',
+    // ✅ **البريدُ «مزوّدٌ رابع»** (٢٥ سبتمبر ٢٠٢٦): يعلنه الوسيط في
+    // `/api/auth/providers` حين يُضبط مفتاحُ Brevo، ويذهب رابطُه إلى صفحةٍ
+    // يخدمها الوسيط — فلا شيء هنا غيرُ أيقونته. ⚠️ `currentColor` لا لونٌ
+    // ثابت: زرُّه بلون السطح، فيتبع النمط.
+    email: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" '
+      + 'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" '
+      + 'stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/>'
+      + '<path d="M3.5 6.5l8.5 6.5 8.5-6.5"/></svg>',
     telegram: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#FFFFFF" '
       + 'd="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>'
   };
@@ -2003,7 +2011,7 @@
         box.appendChild(hint);
       }
 
-      // حقلُ الدعوة يظهر مع جوجل وفيسبوك وحدهما: الداخل بتيليجرام
+      // حقلُ الدعوة يظهر مع جوجل وفيسبوك والبريد: الداخل بتيليجرام
       // مستخدمٌ عندنا أصلاً، فلا دعوةَ تُطلب منه.
       //
       // ⚠️ **و«هل يلزم رمز» من الوسيط لا من تخمينٍ هنا**: الحالة
@@ -2012,7 +2020,8 @@
       // فالتخلّف إلى الإغلاق لا إلى الفتح.
       var required = data.invite_required !== false;
       var needsInvite = required && (names.indexOf('google') >= 0
-                                  || names.indexOf('facebook') >= 0);
+                                  || names.indexOf('facebook') >= 0
+                                  || names.indexOf('email') >= 0);
       document.getElementById('provider-invite').hidden = !needsInvite;
       document.getElementById('providers').hidden = false;
     }).catch(function () {
