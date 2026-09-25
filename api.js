@@ -282,6 +282,11 @@
       return request('/api/me/translate-bio', { method: 'POST',
                                                 body: { public_id: id } });
     },
+    // «💬 راسل مباشرة» — غرفةٌ بلا تطابق للمميّز (فحوصُ البوت وحدُّه اليومي
+    // في الوسيط). والخطأ يحمل `message` بنصّ البوت: لا اشتراك، أو الحدّ.
+    dmOpen: function (id) {
+      return request('/api/me/dm-open', { method: 'POST', body: { public_id: id } });
+    },
     photoAsk: function (id) {
       return request('/api/me/photo-ask', { method: 'POST', body: { public_id: id } });
     },
