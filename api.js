@@ -125,8 +125,13 @@
 
     // رابطُ الذهاب — لا `fetch`: هذه **ملاحةُ صفحة** إلى نطاقٍ آخر،
     // و`fetch` عليها يصطدم بـCORS عند المزوّد بلا أي فائدة.
+    //
+    // ✅ **واللغةُ معه** (٢٥ سبتمبر ٢٠٢٦): صفحةُ البريد يخدمها الوسيط لا
+    // هذه الواجهة، فلا تعرف اللغة المختارة هنا إلا إن حُملت إليها — وبدونها
+    // تتبع لغةَ المتصفّح لا لغةَ المنتقي. وجوجل وفيسبوك يتجاهلانها.
     oauthUrl: function (provider, invite) {
-      var q = invite ? '?invite=' + encodeURIComponent(invite) : '';
+      var q = '?lang=' + encodeURIComponent(window.HISN.LANG || '');
+      if (invite) q += '&invite=' + encodeURIComponent(invite);
       return window.HISN.API + '/api/auth/oauth/'
              + encodeURIComponent(provider) + '/start' + q;
     },
