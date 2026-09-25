@@ -1560,8 +1560,20 @@
     body.appendChild(send);
   }
 
+  // ✅ **PayPal الآليّ** (٢٥ سبتمبر ٢٠٢٦) — حقلٌ مستقلّ من الوسيط
+  // (`paypal_auto`) لا عنصرٌ في `auto_methods`: كلُّ مفتاحٍ هناك غيرُ
+  // `crypto` يذهب إلى مسار النجوم في `autoPayBox`، فكان سيُرسَم زرّاً
+  // يطلب نجوماً. وحين يحضر يُسقط PayPal اليدويّ كما يفعل البوت —
+  // زرّان لـPayPal نفسه، أحدُهما يطلب إيصالاً والآخرُ لا، يُربكان.
   function payMethods(d) {
-    return (d.auto_methods || []).concat(d.methods || []);
+    var manual = d.methods || [];
+    var auto = (d.auto_methods || []).slice();
+    if (d.paypal_auto) {
+      auto.push({ key: 'paypal_auto', auto: true,
+                  name: d.paypal_auto.name, prices: d.paypal_auto.prices });
+      manual = manual.filter(function (m) { return m.key !== 'paypal'; });
+    }
+    return auto.concat(manual);
   }
 
   // ⚠️ **الدفعُ نفسه في تطبيق تيليجرام** — والرابطُ يُفتح بلمسةٍ من صاحبه
@@ -1572,7 +1584,9 @@
     box.className = 'paybox';
     var note = document.createElement('p');
     note.className = 'pay-status';
-    note.textContent = T('web.pay_auto_note');
+    // ⚠️ PayPal وحده لا يمرّ بتيليجرام — فنصُّه غيرُ نصّ النجوم والرقمية.
+    var paypal = method.key === 'paypal_auto';
+    note.textContent = T(paypal ? 'web.pay_paypal_note' : 'web.pay_auto_note');
     box.appendChild(note);
 
     var go = document.createElement('button');
@@ -1588,7 +1602,7 @@
       open.href = url;
       open.target = '_blank';
       open.rel = 'noopener';
-      open.textContent = T('web.pay_open_tg');
+      open.textContent = T(paypal ? 'web.pay_open_paypal' : 'web.pay_open_tg');
       box.replaceChild(open, go);
     }
     function failed(err) {
@@ -1611,6 +1625,10 @@
       go.textContent = T('web.pay_preparing');
       if (method.key === 'crypto') {
         api.payCrypto(plan).then(function (r) { ready(r.url); }).catch(failed);
+        return;
+      }
+      if (paypal) {
+        api.payPaypal(plan).then(function (r) { ready(r.url); }).catch(failed);
         return;
       }
       api.payStars(plan).then(function (r) {
