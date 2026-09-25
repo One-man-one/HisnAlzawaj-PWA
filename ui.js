@@ -4719,6 +4719,28 @@
     body.insertBefore(b, anchor);
   }
 
+  function dmButton(slot, card) {
+    api.me().then(function (mine) {
+      if (!mine || !mine.dm_access) return;
+      var dm = document.createElement('button');
+      dm.type = 'button';
+      dm.className = 'btn btn--ghost';
+      dm.textContent = T('web.dm_button');
+      dm.addEventListener('click', function () {
+        dm.disabled = true;
+        api.dmOpen(refId(card.public_id)).then(function () {
+          $('sheet').hidden = true;
+          openChat(refId(card.public_id), card.public_id);
+        }).catch(function (err) {
+          dm.disabled = false;
+          if (err.code === 'unauthorized') return boot();
+          toast((err.data && err.data.message) || errorText(err));
+        });
+      });
+      slot.appendChild(dm);
+    }).catch(function () { /* بلا حالة لا زرّ — والبطاقة كاملةٌ بدونه */ });
+  }
+
   function openSheet(card, fromDeck) {
     if (!card) return;
     var body = $('sheet-body');
@@ -4792,6 +4814,17 @@
         });
       });
       body.appendChild(reply);
+    }
+
+    // ✅ **«💬 راسل مباشرة» للمميّز** (٢٥ سبتمبر ٢٠٢٦ — «الميزة موجودة في
+    // البوت»): غرفةٌ بلا تطابق، على كل بطاقةٍ إلا من تطابقتَ معه (له زرُّ
+    // «مراسلة» أعلاه). ⚠️ **و`dm_access` من `/api/me` عند فتح الورقة لا
+    // مخزَّناً من الإقلاع**: من اشترك من البوت أثناء الجلسة يرى الزرّ
+    // فوراً. والفحصُ الحقيقيّ في الوسيط — الزرُّ عرضٌ لا إذن.
+    if (!card.mutual && card.public_id) {
+      var dmSlot = document.createElement('div');
+      body.appendChild(dmSlot);
+      dmButton(dmSlot, card);
     }
 
     // 🚩/🚫 في آخر الورقة — لكل بطاقة: من التصفّح أو الإعجاب أو المطابقة.
