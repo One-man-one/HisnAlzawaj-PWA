@@ -20,6 +20,69 @@
       if (value) window.localStorage.setItem(TOKEN_KEY, value);
       else window.localStorage.removeItem(TOKEN_KEY);
     } catch (e) { /* تصفّحٌ خاصّ — الجلسة تعيش حتى إغلاق الصفحة */ }
+    // ✅ **كلُّ أبواب الدخول تمرّ من هنا** (جوجل وفيسبوك والبريد وتيليجرام
+    // وتجديدُ الجلسة) — فإسنادُ الحملة يُعلَّق هنا مرّةً لا في كل باب.
+    if (value) setTimeout(flushAd, 0);
+  }
+
+  // ==========================================================
+  // إسنادُ الحملة — «من أيّ إعلانٍ جئت؟» (٢٦ سبتمبر ٢٠٢٦)
+  // ==========================================================
+  //
+  // ⚠️ **ولماذا:** الإعلان يقود إلى هنا، ومن يسجّل من الموقع لا يمرّ
+  // بـ`?start=ad_` في البوت أبداً — فكانت تسجيلاتُ الموقع كلُّها بلا مصدر
+  // في لوحة الحملات. والرابط يحمل الآن `?ad=<كود الحملة>`، والكودُ نفسه
+  // الذي يولّده البوت لـ`?start=ad_` — حملةٌ واحدة للبابين، لا تتبّعٌ موازٍ.
+  //
+  // ⚠️ **ويُحفظ الكود قبل الدخول ويُرسل بعده**: الدخول بجوجل وفيسبوك
+  // يغادر الصفحة ويعود إليها بلا معالم الرابط الأوّل. والإرسالُ بعد الدخول
+  // لا يؤخّر الإسناد: الوسيط يكتبه `pending` حتى يكتمل الملفّ.
+  //
+  // ⚠️ **وأوّلُ كودٍ يبقى، كما في الوسيط**: من نقر إعلانين لا يُكتب فوقه
+  // الثاني هنا — نسخةٌ تستبدل وأخرى تحفظ الأوّل تعني أرقاماً تختلف
+  // باختلاف الباب.
+  var AD_KEY = 'hisn_ad';
+  var AD_RE = /^[a-z0-9_-]{1,32}$/;            // نمطُ `normalize_code` في الوسيط
+  var AD_MAX_AGE_MS = 30 * 24 * 3600 * 1000;    // نقرةٌ أقدم من شهر ليست إسناداً
+  var adSending = false;
+
+  function captureAd() {
+    try {
+      var code = (new URLSearchParams(window.location.search).get('ad') || '')
+        .trim().toLowerCase();
+      if (!AD_RE.test(code) || window.localStorage.getItem(AD_KEY)) return;
+      window.localStorage.setItem(AD_KEY,
+        JSON.stringify({ code: code, at: Date.now() }));
+    } catch (e) { /* تصفّحٌ خاصّ — يضيع الإسناد وحده، ولا يتعطّل شيء */ }
+  }
+
+  function pendingAd() {
+    try {
+      var saved = JSON.parse(window.localStorage.getItem(AD_KEY) || 'null');
+      if (!saved || !saved.code) return '';
+      if (Date.now() - (saved.at || 0) > AD_MAX_AGE_MS) {
+        window.localStorage.removeItem(AD_KEY);
+        return '';
+      }
+      return saved.code;
+    } catch (e) { return ''; }
+  }
+
+  function flushAd() {
+    // ⚠️ **`adSending` لا زينة**: ردُّ هذا الطلب نفسه قد يحمل توكناً مجدَّداً
+    // فيمرّ بـ`writeToken` ثم يعود إلى هنا — وبلا القفل يُرسَل مرّتين.
+    if (adSending || !readToken()) return;
+    var code = pendingAd();
+    if (!code) return;
+    adSending = true;
+    request('/api/me/ad-source', { method: 'POST', body: { code: code } })
+      .then(function () {
+        // أيّاً كانت النتيجة (مسجَّل، أو إسنادٌ سابق، أو كودٌ مجهول):
+        // جوابُ الوسيط نهائيّ، وإعادةُ الإرسال لا تغيّره.
+        try { window.localStorage.removeItem(AD_KEY); } catch (e) { /* لا شيء */ }
+      })
+      .catch(function () { /* شبكةٌ أو جلسةٌ منتهية — يبقى للدخول القادم */ })
+      .then(function () { adSending = false; });
   }
 
   // ⚠️ **التخزين المحلّي لا كوكي**، والسبب معماريّ لا ذوقيّ: الواجهة على
@@ -381,4 +444,10 @@
       });
     }
   };
+
+  // ✅ الكودُ يُلتقط من الرابط عند كل إقلاع، ويُرسَل فوراً إن كان صاحبه
+  // داخلاً أصلاً (نقر إعلاناً وهو مسجَّل — يُعدّ `existing` في اللوحة،
+  // وهو رقمٌ مقصود: يقول إن الإعلان يُعرض على جمهورك القائم).
+  captureAd();
+  flushAd();
 })();
