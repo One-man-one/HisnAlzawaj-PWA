@@ -533,6 +533,14 @@ textarea.mod-details {
 
 /* شارةُ غير المقروء فوق 💬 — شكلُ `.bell__n` نفسه، مقرَّبةً من الأيقونة. */
 .row__n { top: -2px; inset-inline-end: 0; }
+/* ✅ شارةُ مجموع غير المقروء على تبويب «المحادثات» — `.bell__n` نفسها،
+   فوق الأيقونة. و`<i>` يصير مرجعَ موضعها. */
+.tab i { position: relative; }
+.tab__n { top: -6px; inset-inline-end: -12px; font-style: normal; }
+/* صفُّ المحادثة: السطرُ الثاني سطرٌ واحد مقصوص — لا فقرةٌ كاملة من رسالة. */
+.row--chat .row__sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row__when { flex: none; color: var(--muted); font-size: .7rem; align-self: flex-start; }
+.row--unread .row__sub { color: var(--text); font-weight: 600; }
 
 /* منتقي اللغة — على البوّابة وفي «ملفّي». */
 .langpick { display: flex; justify-content: center; margin: 14px 0 4px; }
