@@ -768,9 +768,16 @@
     // ساعاتٍ يسأل الوسيط كلَّ دقيقة بلا أن ينظر إليه أحد.
     if (document.hidden) return;
     api.notificationsCount().then(function (d) {
-      setBell((d && d.unread) || 0);
+      var n = (d && d.unread) || 0;
+      setBell(n);
+      // ✅ **وشارةُ «المحادثات» تُسأل حين يتغيّر الجرس لا في كل دورة**:
+      // رسالةٌ جديدة تصل جرساً، فتغيّرُ عدّه هو إشارةُ السؤال. وسؤالُ
+      // الصندوق كلَّ دقيقة لكل صفحةٍ مفتوحة ثمنٌ بلا مقابل.
+      if (n !== lastBellCount) refreshChatsBadge();
+      lastBellCount = n;
     }).catch(function () { /* الجرس زينةٌ لا شرط — يعيد في الدورة التالية */ });
   }
+  var lastBellCount = -1;
 
   function startBell() {
     refreshBell();
@@ -2772,11 +2779,13 @@
     $('view-browse').hidden = !browsing;
     $('swipe').hidden = !browsing;
     $('view-matches').hidden = name !== 'matches';
+    $('view-chats').hidden = name !== 'chats';
     $('view-profile').hidden = name !== 'profile';
     $('view-settings').hidden = name !== 'settings';
 
     if (browsing) { if (!deck.length) loadDeck(); else renderDeck(); }
     else if (name === 'matches') loadMutual();
+    else if (name === 'chats') loadChats();
     else if (name === 'settings') loadSettings();
     else loadProfile();
   }
@@ -2862,6 +2871,140 @@
         openSheet(card);
       });
       body.appendChild(row);
+    });
+  }
+
+  // ==========================================================
+  // 💬 المحادثات — صندوقُ الوارد كما في «محادثاتي» بالبوت (٢٦ سبتمبر ٢٠٢٦)
+  // ==========================================================
+  //
+  // ⚠️ **كانت المراسلةُ تُفتح من «مطابقاتي» وحدها**: من راسله صاحبُ عضويةٍ
+  // بلا تطابق (المراسلة المباشرة) لا يجد تلك الغرفة في أيّ قائمة، ومن
+  // أغلق الصفحة لا يعرف من كتب إليه إلا من الجرس. والخادمُ كان جاهزاً
+  // (`GET /api/me/chats` من `inbox_service` التي يقرأ منها البوت) و`api.chats`
+  // معرَّفة — ولا شيء في الصفحة يناديها.
+  //
+  // ✅ **والترتيبُ والعدّادُ من الخادم لا من هنا**: الأحدثُ أوّلاً كما
+  // في البوت، فلا ترتيبَ ثانياً يختلف باختلاف الباب.
+  function setChatsBadge(n) {
+    var badge = $('chats-n');
+    badge.textContent = n > 99 ? '99+' : String(n || '');
+    badge.hidden = !n;
+    $('tab-chats').setAttribute('aria-label', T('web.tab_chats')
+                                + (n ? ' (' + n + ')' : ''));
+  }
+
+  function unreadTotal(rows) {
+    return rows.reduce(function (sum, row) { return sum + (row.unread || 0); }, 0);
+  }
+
+  function refreshChatsBadge() {
+    if (document.hidden) return;
+    api.chats().then(function (data) {
+      setChatsBadge(unreadTotal((data && data.chats) || []));
+    }).catch(function () { /* الشارةُ زينةٌ لا شرط */ });
+  }
+
+  // «١٤:٣٠» لرسالة اليوم، والتاريخ القصير لما قبله.
+  function listTime(iso) {
+    if (!iso) return '';
+    try {
+      var stamp = /(Z|[+-]\d\d:?\d\d)$/.test(iso) ? iso : iso + 'Z';
+      var at = new Date(stamp);
+      if (at.toDateString() === new Date().toDateString()) return shortTime(iso);
+      return at.toLocaleDateString(LANG, { day: 'numeric', month: 'short' });
+    } catch (e) { return ''; }
+  }
+
+  function loadChats() {
+    var view = $('view-chats');
+    view.textContent = '';
+    var wait = document.createElement('p');
+    wait.className = 'empty';
+    wait.textContent = T('web.loading');
+    view.appendChild(wait);
+
+    api.chats().then(function (data) {
+      var rows = (data && data.chats) || [];
+      view.textContent = '';
+      $('counter').textContent = '';
+      setChatsBadge(unreadTotal(rows));
+
+      if (!rows.length) {
+        var none = document.createElement('p');
+        none.className = 'empty';
+        none.style.whiteSpace = 'pre-line';
+        none.textContent = T('web.no_chats');
+        view.appendChild(none);
+        return;
+      }
+
+      rows.forEach(function (chat) {
+        var unread = chat.unread || 0;
+        var row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'row row--chat' + (unread ? ' row--unread' : '');
+
+        var ava = document.createElement('div');
+        ava.className = 'ava';
+        ava.textContent = '👤';
+        row.appendChild(ava);
+        if (chat.has_photo) attachPhoto(ava, chat);
+
+        // ⚠️ **`who` لا `name`**: `name` هو الاسم الكامل كما كُتب في
+        // التسجيل، و`who` «الاسم الأول (العمر)» الذي يعرضه كلُّ مكانٍ آخر.
+        // و`name` احتياطٌ لوسيطٍ أقدم من هذه الصفحة لا أكثر.
+        var who = identity(chat.who || chat.name, chat.public_id);
+
+        var main = document.createElement('div');
+        main.className = 'row__main';
+        var name = document.createElement('div');
+        name.className = 'row__name';
+        name.textContent = who;
+        // ⚠️ **عقدةُ نصٍّ لا `innerHTML`** — آخرُ رسالةٍ كتبها إنسانٌ آخر
+        // (الشرح عند `bubble`).
+        var sub = document.createElement('div');
+        sub.className = 'row__sub';
+        // والاتّجاهُ من النصّ نفسه: رسالةٌ إنجليزية في واجهةٍ عربية تُقصّ
+        // من آخرها لا من أوّلها.
+        sub.dir = 'auto';
+        var line = String(chat.last_text || '').split('\n')[0];
+        sub.textContent = (chat.last_from_me && line ? T('web.chat_you') : '') + line;
+        main.appendChild(name);
+        main.appendChild(sub);
+        row.appendChild(main);
+
+        var side = document.createElement('div');
+        side.className = 'row__go';
+        var when = document.createElement('div');
+        when.className = 'row__when';
+        when.textContent = listTime(chat.last_at);
+        side.appendChild(when);
+        if (unread) {
+          var n = document.createElement('span');
+          n.className = 'bell__n row__n';
+          n.textContent = unread > 99 ? '99+' : String(unread);
+          side.appendChild(n);
+        }
+        row.appendChild(side);
+        row.setAttribute('aria-label', who + (unread ? ' (' + unread + ')' : ''));
+
+        // ✅ **الصفُّ كلُّه يفتح المحادثة** — بخلاف «مطابقاتي» حيث الصفُّ
+        // يفتح البطاقة: هنا القائمةُ قائمةُ محادثات، والملفُّ من اسم
+        // الشريك في رأسها (`openChatPartner`).
+        row.addEventListener('click', function () {
+          openChat(refId(chat.public_id), who);
+        });
+
+        view.appendChild(row);
+      });
+    }).catch(function (err) {
+      if (err.code === 'unauthorized') return boot();
+      view.textContent = '';
+      var line = document.createElement('p');
+      line.className = 'empty';
+      line.textContent = errorText(err);
+      view.appendChild(line);
     });
   }
 
@@ -3014,6 +3157,8 @@
     $('chat').hidden = true;
     // العودةُ تُحدّث الصندوق: عدّادُ غير المقروء تغيّر بالقراءة نفسها.
     if (!$('view-matches').hidden) loadMutual();
+    if (!$('view-chats').hidden) loadChats();
+    else refreshChatsBadge();
   }
 
   // ✅ **الضغطُ على اسم الشريك يفتح ملفَّه** (بطلب صاحب المشروع) — كما في
