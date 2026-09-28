@@ -1380,6 +1380,8 @@
         setSearchMode(b.getAttribute('data-mode'));
       });
     });
+    // «تصفية» مفتاحٌ جديد؛ وقبل أن يصل من الخادم تبقى الكلمة القديمة «بحث».
+    $('search-btn-label').textContent = Topt('web.filter') || T('web.search');
     $('search-btn').setAttribute('aria-label', T('web.search'));
     $('search-btn').addEventListener('click', openSearch);
     $('search-back').addEventListener('click', function () {
@@ -2331,8 +2333,11 @@
     releasePhotos();
     stack.textContent = '';
 
-    $('counter').textContent = deck.length
-      ? T('web.remaining', { count: deck.length }) : '';
+    // الرقم وحده داخل زرّ التصفية («تصفية · 10»)، والجملة الكاملة
+    // لقارئ الشاشة.
+    $('counter').textContent = deck.length ? String(deck.length) : '';
+    $('search-btn').setAttribute('aria-label', T('web.search') + (deck.length
+      ? ' — ' + T('web.remaining', { count: deck.length }) : ''));
     $('btn-like').disabled = $('btn-skip').disabled = !deck.length;
 
     if (!deck.length) {
@@ -2551,7 +2556,21 @@
       img.className = 'ava';
       img.alt = '';
       img.src = url;
-      if (holder.parentNode) holder.parentNode.replaceChild(img, holder);
+      var shown = img;
+      // ✅ **وفي البطاقة قفلٌ على الصورة** (٢٨ سبتمبر ٢٠٢٦): المموّهة بلا
+      // علامة تبدو صورةً رديئة، والقفل يقول إنها تُطلب. وفي صفّ القائمة
+      // لا — لنفس سبب الملاحظة أدناه.
+      if (noteHost) {
+        shown = document.createElement('span');
+        shown.className = 'ava-wrap';
+        shown.appendChild(img);
+        var lock = document.createElement('span');
+        lock.className = 'ava-lock';
+        lock.setAttribute('aria-hidden', 'true');
+        lock.textContent = '🔒';
+        shown.appendChild(lock);
+      }
+      if (holder.parentNode) holder.parentNode.replaceChild(shown, holder);
 
       // ⚠️ والملاحظة في البطاقة وحدها لا في صفّ القائمة: سطرٌ تحت كل
       // صفٍّ يملأ الشاشة بتكرارٍ لا يقرؤه أحد بعد أوّل مرّة.
@@ -4988,7 +5007,10 @@
   function translateButton(body, card) {
     var b = document.createElement('button');
     b.type = 'button';
-    b.className = 'btn btn--ghost';
+    // ✅ **رابطٌ صغير داخل النبذة لا زرٌّ كامل العرض** (٢٨ سبتمبر ٢٠٢٦):
+    // كان بحجم «إعجاب» ومنفصلاً عن النصّ الذي يترجمه. والترجمةُ تبقى
+    // تحت النبذة كما كانت، فالأصل ظاهرٌ للمقارنة.
+    b.className = 'trchip';
     b.textContent = T('web.translate_bio');
     var bio = body.querySelector('.pcard__bio');
     var anchor = bio ? bio.nextSibling : null;
@@ -5005,14 +5027,15 @@
         tr.dir = 'auto';
         tr.textContent = r.text;
         box.appendChild(tr);
-        b.replaceWith(box);
+        b.remove();
+        body.insertBefore(box, anchor);
       }).catch(function (err) {
         if (err.code === 'unauthorized') return boot();
         b.disabled = false;
         toast(T('web.translate_failed'));
       });
     });
-    body.insertBefore(b, anchor);
+    if (bio) bio.appendChild(b); else body.appendChild(b);
   }
 
   function dmButton(slot, card) {
@@ -5020,7 +5043,7 @@
       if (!mine || !mine.dm_access) return;
       var dm = document.createElement('button');
       dm.type = 'button';
-      dm.className = 'btn btn--ghost';
+      dm.className = 'btn btn--ghost btn--gold';
       dm.textContent = T('web.dm_button');
       dm.addEventListener('click', function () {
         dm.disabled = true;
@@ -5056,12 +5079,15 @@
     // الأصلُ ظاهراً للمقارنة كما في البوت.
     if (card.can_translate && card.public_id) translateButton(body, card);
 
-    // ✅ **الصورةُ الواضحة بإذن صاحبها** — طلبٌ أو عرض (٢٤ سبتمبر ٢٠٢٦).
-    if (card.has_photo && card.public_id) {
-      var photoSlot = document.createElement('div');
-      body.appendChild(photoSlot);
-      photoAccessButton(photoSlot, card);
-    }
+    // ✅ **ترتيبُ الأزرار بالأهمّية لا صفّاً متساوياً** (٢٨ سبتمبر ٢٠٢٦ —
+    // «الأزرار لا تعجبني»، العيّنة أ): الرئيسيّ (إعجاب/مراسلة) كبيرٌ أوّلاً،
+    // ثم «الصورة» و«راسل مباشرة» جنباً إلى جنب، ثم «إبلاغ · حظر» و«إغلاق»
+    // نصّاً صغيراً في الأسفل — بعيداً عن الإصبع.
+    var actions = document.createElement('div');
+    actions.className = 'sheet__actions';
+    body.appendChild(actions);
+    var pair = document.createElement('div');
+    pair.className = 'sheet__pair';
 
     // ✅ **وإعجابٌ من التفاصيل لبطاقة الرزمة**: من قرأ الملفّ كاملاً
     // وقرّر لا يُعاد إلى الرزمة ليبحث عن الزرّ. وهو `act` نفسه — يسحب
@@ -5075,7 +5101,7 @@
         $('sheet').hidden = true;
         act('like');
       });
-      body.appendChild(like);
+      actions.appendChild(like);
     }
 
     // ✅ **والبطاقةُ تُردّ عليها لا تُقرأ وحدها**: من أعجب بك ولم تردّ بعد
@@ -5109,7 +5135,17 @@
           toast(errorText(err));
         });
       });
-      body.appendChild(reply);
+      actions.appendChild(reply);
+    }
+
+    // ✅ **الصورةُ الواضحة بإذن صاحبها** — طلبٌ أو عرض (٢٤ سبتمبر ٢٠٢٦).
+    // ⚠️ الخانتان تمتلئان لاحقاً (نداءٌ لكلٍّ)، والفارغةُ تختفي بـ`:empty`
+    // فتأخذ أختُها العرضَ كلّه.
+    actions.appendChild(pair);
+    if (card.has_photo && card.public_id) {
+      var photoSlot = document.createElement('div');
+      pair.appendChild(photoSlot);
+      photoAccessButton(photoSlot, card);
     }
 
     // ✅ **«💬 راسل مباشرة» للمميّز** (٢٥ سبتمبر ٢٠٢٦ — «الميزة موجودة في
@@ -5119,22 +5155,30 @@
     // فوراً. والفحصُ الحقيقيّ في الوسيط — الزرُّ عرضٌ لا إذن.
     if (!card.mutual && card.public_id) {
       var dmSlot = document.createElement('div');
-      body.appendChild(dmSlot);
+      pair.appendChild(dmSlot);
       dmButton(dmSlot, card);
     }
 
     // 🚩/🚫 في آخر الورقة — لكل بطاقة: من التصفّح أو الإعجاب أو المطابقة.
+    // ومعها «إغلاق» في السطر نفسه؛ الزرُّ الثابت في `index.html` يُخفى.
     var modRow = document.createElement('div');
-    modRow.className = 'mod-row';
+    modRow.className = 'sheet__links';
     var more = document.createElement('button');
     more.type = 'button';
-    more.className = 'btn btn--ghost';
+    more.className = 'sheet__link sheet__link--mod';
     more.textContent = T('web.report') + ' · ' + T('web.block');
     more.addEventListener('click', function () {
       openModeration(refId(card.public_id), card.public_id);
     });
     modRow.appendChild(more);
+    var close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'sheet__link';
+    close.textContent = T('web.close');
+    close.addEventListener('click', function () { $('sheet').hidden = true; });
+    modRow.appendChild(close);
     body.appendChild(modRow);
+    $('sheet-close').hidden = true;
 
     $('sheet').hidden = false;
   }

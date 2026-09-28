@@ -171,12 +171,15 @@
   <header class="top">
     <b class="top__name">حصن الزواج</b>
     <span class="top__end">
-      <span class="top__count" id="counter"></span>
-      <!-- البحث: ظاهرٌ في «تصفّح» وحده — نتائجه تُعرض في رزمته. -->
-      <button class="bell" id="search-btn" type="button">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+      <!-- البحث: ظاهرٌ في «تصفّح» وحده — نتائجه تُعرض في رزمته.
+           ⚠️ **زرٌّ بكلمة لا دائرةٌ بعدسة** (٢٨ سبتمبر ٢٠٢٦): الدائرة بجوار
+           الجرس لم يعرف صاحب المشروع أنها تُضغط. والعدّاد داخله: «تصفية · 10». -->
+      <button class="topbtn" id="search-btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <path d="M4 6h16M7 12h10M10 18h4"/></svg>
+        <span id="search-btn-label"></span>
+        <span class="top__count" id="counter"></span>
       </button>
       <!-- الجرس: عددُ غير المقروء، ويفتح صندوق الإشعارات. -->
       <button class="bell" id="bell" type="button">
