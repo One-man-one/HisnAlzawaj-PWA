@@ -2418,8 +2418,17 @@
     rows.className = 'pcard__lines';
     var sections = CARD_SECTIONS.map(function () { return null; });
     var name = null, place = null, bio = null;
+    // ✅ **ترتيبُ البوت نفسه** (٢٩ سبتمبر ٢٠٢٦ — «رتّبها كما في البوت»):
+    // ١) النبذة آخرُ البطاقة في `profile_card_text`، فكلُّ سطرٍ بعد «📝»
+    //    منها — كانت نبذةٌ من ثلاثة أسطر تُقسَم: الأوّل في صندوقها أسفل،
+    //    والباقي سطوراً بلا عنوان أعلى البطاقة.
+    // ٢) السطرُ بلا «عنوان: قيمة» (مثل «🤲 تقبل التعدد») يتبع قسمَ السطر
+    //    الذي قبله — في البوت يأتي تحت «نوع الزواج» مباشرة، وكان يُرمى هنا
+    //    أعلى البطاقة بعيداً عن قسمه.
+    var lastSec = -1;
 
     String(text || '').split('\n').forEach(function (line) {
+      if (bio !== null) { bio += '\n' + line; return; }
       line = line.trim();
       if (!line) return;
       var cut = line.indexOf(': ');
@@ -2427,7 +2436,7 @@
       var value = cut > 0 ? line.slice(cut + 2) : '';
       if (head.indexOf(CARD_NAME) === 0 && !name) { name = value; return; }
       if (head.indexOf(CARD_PLACE) === 0 && !place) { place = value; return; }
-      if (head.indexOf(CARD_BIO) === 0 && !bio) { bio = value; return; }
+      if (head.indexOf(CARD_BIO) === 0) { bio = value; return; }
 
       var row = document.createElement('div');
       if (!head) {
@@ -2444,7 +2453,8 @@
         row.appendChild(l);
         row.appendChild(v);
       }
-      var sec = opts.sections && head ? sectionOf(head) : -1;
+      var sec = !opts.sections ? -1 : (head ? sectionOf(head) : lastSec);
+      if (head) lastSec = sec;
       if (sec < 0) { rows.appendChild(row); return; }
       if (!sections[sec]) {
         sections[sec] = document.createElement('div');
@@ -2476,7 +2486,7 @@
       b.className = 'pcard__bio';
       // ⚠️ `dir=auto`: نبذةٌ إنجليزية في صفحةٍ عربية تنقلب نقطتُها إلى أوّلها.
       b.dir = 'auto';
-      b.textContent = bio;
+      b.textContent = bio.replace(/\s+$/, '');
       node.appendChild(b);
     }
   }
