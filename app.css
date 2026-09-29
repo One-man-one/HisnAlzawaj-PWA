@@ -318,6 +318,34 @@ img.clear-photo--hidden { filter: blur(28px); }
 .clear-track__fill { height: 100%; background: var(--accent); width: 100%; transition: width 1s linear; }
 /* ⚠️ ولا تُطبع: الطباعةُ إلى PDF حفظٌ بطريقٍ آخر. */
 @media print { img.clear-photo { display: none !important; } }
+/* ☝ العرضُ باللمس المستمرّ — الواضحة مخفيّةٌ إلا تحت الإصبع (الشرح في ui.js).
+   ⚠️ `touch-action: none` وإلا ابتلع التمريرُ اللمسةَ فرفع الإصبع قبل أن يُرى شيء. */
+.clear-hold {
+  position: relative; aspect-ratio: 4 / 5; max-width: 100%; max-height: 70vh;
+  margin: 8px auto 12px; border-radius: 14px; overflow: hidden;
+  background: var(--border); cursor: pointer; outline: none;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+  -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+}
+.clear-hold:focus-visible { box-shadow: 0 0 0 3px var(--accent); }
+.clear-hold__veil {
+  position: absolute; inset: -24px; background: center / cover no-repeat;
+  filter: blur(18px);
+}
+.clear-hold img.clear-photo {
+  position: absolute; inset: 0; width: 100%; height: 100%; max-height: none;
+  margin: 0; border-radius: 0; object-fit: cover; visibility: hidden;
+}
+.clear-hold.is-held img.clear-photo { visibility: visible; }
+.clear-hold.is-held img.clear-photo.clear-photo--hidden { visibility: hidden; }
+.clear-hold__hint {
+  position: absolute; inset: auto 12px 12px; padding: 10px 12px; border-radius: 12px;
+  background: rgba(0, 0, 0, .55); color: #fff; text-align: center; line-height: 1.6;
+  pointer-events: none; transition: opacity .12s;
+}
+.clear-hold.is-held .clear-hold__hint { opacity: 0; }
+.clear-hold.is-loading .clear-hold__hint { opacity: .6; }
+@media print { .clear-hold { display: none !important; } }
 img.clear-photo {
   display: block; width: 100%; max-height: 70vh; object-fit: contain;
   border-radius: 14px; margin: 8px 0 12px;

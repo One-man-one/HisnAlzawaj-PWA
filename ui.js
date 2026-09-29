@@ -4579,6 +4579,8 @@
   }
 
   var clearUrl = null;
+  var blurUrl = null;       // غطاءُ العرض باللمس — النسخة المموّهة
+  var clearRelease = null;  // يرفع «الإصبع» حين تغادر الصفحةُ العين
   var clearTimer = null;
 
   // ✅ **طمسُ الواضحة لحظةَ تغادر الصفحةُ العين** (بقرار صاحب المشروع، ٢٤
@@ -4586,7 +4588,10 @@
   // وهو ما يسبق أغلبَ برامج تسجيل الشاشة على الحاسوب. وتعود بالرجوع.
   // ⚠️ **ولا يمنع هذا لقطةَ الشاشة** (نظامُ التشغيل يلتقطها لا الصفحة) —
   // الردعُ الحقيقيّ العلامةُ المائية المطبوعة في الخادم على الصورة نفسها.
+  // ⚠️ **ومع العرض باللمس يُرفع الإصبع أيضاً**: من عاد إلى الصفحة لا تعود
+  // له الواضحة حتى يلمسها من جديد.
   function guardClearPhoto(hide) {
+    if (hide && clearRelease) clearRelease();
     var img = $('mod-body') && $('mod-body').querySelector('img.clear-photo');
     if (img) img.classList.toggle('clear-photo--hidden', hide);
   }
@@ -4601,10 +4606,20 @@
     clearInterval(clearTimer);
     clearTimer = null;
     if (clearUrl) { URL.revokeObjectURL(clearUrl); clearUrl = null; }
+    if (blurUrl) { URL.revokeObjectURL(blurUrl); blurUrl = null; }
+    clearRelease = null;
     var img = $('mod-body').querySelector('img.clear-photo');
     if (img) img.removeAttribute('src');
   }
 
+  // ✅ **العرضُ باللمس المستمرّ** (بقرار صاحب المشروع، ٢٩ سبتمبر ٢٠٢٦): الصورة
+  // مموّهةٌ دائماً، وتظهر واضحةً ما دام الإصبع (أو الفأرة، أو المسافة) عليها،
+  // وتعود مموّهةً لحظةَ رفعه. فلقطةُ الشاشة على الهاتف تحتاج يداً ثانية.
+  // ⚠️ **والعدّاد يبدأ عند أوّل لمسة لا عند فتح الشاشة**: قبلها لا يُطلب إلا
+  // `photoView` (لا يبدأ النافذة)، والبايتاتُ الواضحة (`photoClear` ← `serve`
+  // في الوسيط، وهو ما يبدأ النافذة ويُبلغ صاحب الصورة) تُجلب مع أوّل لمسة.
+  // فمن جعلها تُجلب مسبقاً «تسريعاً» بدأ العدّاد قبل أن يلمس المشاهد شيئاً.
+  // ⚠️ **ثم يجري العدّاد الوقتَ كلَّه** لا وقتَ اللمس وحده — كما في الخادم.
   function openClearPhoto(card) {
     var id = refId(card.public_id);
     modTarget = null;
@@ -4617,83 +4632,166 @@
     $('mod').hidden = false;
 
     var tries = 0;
+    var got = null;        // البايتاتُ الواضحة بعد أوّل لمسة
+    var fetching = false;
+    var held = false;
+    var frame, clearImg, hint;
+
     var fail = function (text) {
       if ($('mod').hidden) return;
       body.textContent = text || T('web.photo_view_unavailable');
     };
-    var show = function (got) {
-      if ($('mod').hidden) return;
-      body.textContent = '';
-      clearUrl = URL.createObjectURL(got.blob);
-      var img = document.createElement('img');
-      img.className = 'clear-photo';
-      img.alt = '';
-      img.draggable = false;
-      img.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-      img.src = clearUrl;
-      body.appendChild(img);
+    var render = function () {
+      if (!frame) return;
+      var on = held && !!got;
+      frame.classList.toggle('is-held', on);
+      frame.classList.toggle('is-loading', held && !got);
+    };
+    var release = function () { held = false; render(); };
+    clearRelease = release;
 
-      // ✅ **عدّادٌ حيّ على الصورة نفسها، كلَّ ثانية** (بطلب صاحب المشروع،
-      // ٢٤ سبتمبر ٢٠٢٦) وتحته شريطٌ يتناقص — بدل «⏱ الوقت المتبقّي: ٥ د»
-      // الثابتة. والثواني من الخادم (`X-Seconds-Left`)، وإلا فالدقائق.
+    var startTimer = function () {
+      // ✅ **عدّادٌ حيّ على الصورة نفسها، كلَّ ثانية** وتحته شريطٌ يتناقص.
+      // والثواني من الخادم (`X-Seconds-Left`)، وإلا فالدقائق.
       var total = (got.seconds !== null && !isNaN(got.seconds)) ? got.seconds
         : ((got.minutes !== null && !isNaN(got.minutes)) ? got.minutes * 60 : null);
-      if (total !== null) {
-        var frame = document.createElement('div');
-        frame.className = 'clear-frame';
-        body.replaceChild(frame, img);
-        frame.appendChild(img);
-        var badge = document.createElement('div');
-        badge.className = 'clear-timer';
-        frame.appendChild(badge);
-        var track = document.createElement('div');
-        track.className = 'clear-track';
-        var fill = document.createElement('div');
-        fill.className = 'clear-track__fill';
-        track.appendChild(fill);
-        body.appendChild(track);
+      if (total === null) return;
+      var badge = document.createElement('div');
+      badge.className = 'clear-timer';
+      frame.appendChild(badge);
+      var track = document.createElement('div');
+      track.className = 'clear-track';
+      var fill = document.createElement('div');
+      fill.className = 'clear-track__fill';
+      track.appendChild(fill);
+      frame.parentNode.insertBefore(track, frame.nextSibling);
 
-        var endAt = Date.now() + total * 1000;
-        var span = Math.max(total, 1);
-        var tick = function () {
-          var left = Math.max(0, Math.round((endAt - Date.now()) / 1000));
-          badge.textContent = '⏱ ' + Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2);
-          fill.style.width = (100 * left / span) + '%';
-          if (left <= 0) {
-            // ⚠️ **الصفحة تُغلق نفسها عند انتهاء النافذة** — والخادم يرفض
-            // بعدها على أيّ حال؛ هذا كي لا تبقى الصورة بعد أن انتهى إذنُها.
-            closeClearPhoto();
-            closeModeration();
-            toast(T('web.photo_view_over'));
-          }
-        };
-        tick();
-        clearTimer = setInterval(tick, 1000);
-      }
+      var endAt = Date.now() + total * 1000;
+      var span = Math.max(total, 1);
+      var tick = function () {
+        var left = Math.max(0, Math.round((endAt - Date.now()) / 1000));
+        badge.textContent = '⏱ ' + Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2);
+        fill.style.width = (100 * left / span) + '%';
+        if (left <= 0) {
+          // ⚠️ **الصفحة تُغلق نفسها عند انتهاء النافذة** — والخادم يرفض
+          // بعدها على أيّ حال؛ هذا كي لا تبقى الصورة بعد أن انتهى إذنُها.
+          closeClearPhoto();
+          closeModeration();
+          toast(T('web.photo_view_over'));
+        }
+      };
+      tick();
+      clearTimer = setInterval(tick, 1000);
+    };
+
+    // أوّلُ لمسة: تُجلب الواضحة (وهنا وحده يبدأ العدّاد في الخادم).
+    var fetchClear = function () {
+      if (got || fetching) return;
+      fetching = true;
+      api.photoClear(id).then(function (res) {
+        fetching = false;
+        if ($('mod').hidden) return;
+        if (res.pending) {
+          // نسخةٌ انتهت أو تبدّلت الصورة بين التجهيز واللمس — تُجهَّز من جديد.
+          release();
+          body.textContent = T('web.photo_view_loading');
+          frame = null;
+          tries = 0;
+          return api.photoView(id).then(waitReady);
+        }
+        got = res;
+        clearUrl = URL.createObjectURL(res.blob);
+        clearImg.src = clearUrl;
+        startTimer();
+        render();
+      }).catch(function (err) {
+        fetching = false;
+        if (err.code === 'unauthorized') return boot();
+        fail();
+      });
+    };
+
+    var press = function (e) {
+      if (e) e.preventDefault();
+      held = true;
+      render();
+      fetchClear();
+    };
+
+    var build = function () {
+      if ($('mod').hidden) return;
+      body.textContent = '';
+      frame = document.createElement('div');
+      frame.className = 'clear-frame clear-hold';
+      frame.tabIndex = 0;
+      frame.setAttribute('role', 'button');
+
+      // الغطاءُ هو النسخة المموّهة نفسها التي في البطاقة — لا الواضحة مطموسةً
+      // بـCSS: فلا تُرسَم بكسلاتٌ واضحة إلا تحت الإصبع.
+      var veil = document.createElement('div');
+      veil.className = 'clear-hold__veil';
+      api.photoUrl(card.public_id).then(function (url) {
+        if (!frame || $('mod').hidden) { URL.revokeObjectURL(url); return; }
+        blurUrl = url;
+        veil.style.backgroundImage = 'url("' + url + '")';
+      }).catch(function () { /* الغطاءُ لونٌ وحده */ });
+      frame.appendChild(veil);
+
+      clearImg = document.createElement('img');
+      clearImg.className = 'clear-photo';
+      clearImg.alt = '';
+      clearImg.draggable = false;
+      frame.appendChild(clearImg);
+
+      // ⚠️ **النصُّ من الوسيط، وغيابُه إصبعٌ وحده** لا اسمُ المفتاح: الصفحة
+      // قد تُنشر قبل الوسيط الذي يحمل `web.photo_view_hold`.
+      hint = document.createElement('div');
+      hint.className = 'clear-hold__hint';
+      var text = T('web.photo_view_hold');
+      hint.textContent = text === 'web.photo_view_hold' ? '☝' : text;
+      frame.setAttribute('aria-label', hint.textContent);
+      frame.appendChild(hint);
+
+      frame.addEventListener('pointerdown', function (e) {
+        try { frame.setPointerCapture(e.pointerId); } catch (_) { /* قديم */ }
+        press(e);
+      });
+      ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (t) {
+        frame.addEventListener(t, release);
+      });
+      frame.addEventListener('keydown', function (e) {
+        if (e.key === ' ' || e.key === 'Enter') { if (!e.repeat) press(e); else e.preventDefault(); }
+      });
+      frame.addEventListener('keyup', function (e) {
+        if (e.key === ' ' || e.key === 'Enter') release();
+      });
+      frame.addEventListener('blur', release);
+      frame.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+      frame.addEventListener('dragstart', function (e) { e.preventDefault(); });
+      frame.addEventListener('selectstart', function (e) { e.preventDefault(); });
+      body.appendChild(frame);
+
       var note = document.createElement('p');
       note.className = 'pcard__note';
       note.textContent = T('web.photo_view_private');
       body.appendChild(note);
     };
-    var poll = function () {
+
+    // ⚠️ **`photoView` لا `photoClear` في الانتظار** — الأوّل لا يبدأ النافذة.
+    var waitReady = function (out) {
       if ($('mod').hidden) return;
-      api.photoClear(id).then(function (got) {
-        if (got.pending) {
-          if (++tries > 20) return fail();
-          // صفٌّ انتهى أو تبدّلت صورته يُعاد طلبُه، والبوت يجلبها في دورته.
-          if (tries % 5 === 0) api.photoView(id).catch(function () {});
-          return setTimeout(poll, 2000);
-        }
-        show(got);
-      }).catch(function (err) {
-        if (err.code === 'unauthorized') return boot();
-        fail();
-      });
+      if (out && out.status === 'ready') return build();
+      if (++tries > 20) return fail();
+      setTimeout(function () {
+        if ($('mod').hidden) return;
+        api.photoView(id).then(waitReady).catch(onError);
+      }, 2000);
     };
-    api.photoView(id).then(poll).catch(function (err) {
+    var onError = function (err) {
       if (err.code === 'unauthorized') return boot();
       fail();
-    });
+    };
+    api.photoView(id).then(waitReady).catch(onError);
   }
 
   // ✅ **طلباتُ رؤية صورتي (٢٤ سبتمبر ٢٠٢٦)** — كانت تصل الصندوق ولا
