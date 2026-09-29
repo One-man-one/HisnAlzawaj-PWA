@@ -1223,6 +1223,12 @@ body.is-app {
    (الدفع، التوثيق، اللغة، الإشعارات، الحذف) باقٍ كما اختُبر. */
 #view-settings { display: flex; flex-direction: column; gap: 12px; }
 #view-settings[hidden] { display: none !important; }
+/* ⚠️ **لا ينكمش شيءٌ هنا، وكلُّه بعرضٍ واحد** (٢٩ سبتمبر ٢٠٢٦ — رآه صاحب
+   المشروع على هاتفه): الشاشة عمودُ flex بارتفاع النافذة، فكان المتصفّح
+   يعصر القائمتين (`overflow: hidden`) حتى تختفيا — المفاتيح واللغة والدليل
+   والبوت كلّها. و`margin-inline: auto` من `.view--list > *` يجعل كلَّ عنصرٍ
+   بعرض محتواه، فجاءت بطاقةُ الحساب والحذف أضيقَ من المربّعات. */
+#view-settings > * { flex-shrink: 0; width: 100%; box-sizing: border-box; }
 
 .sme {
   display: flex; align-items: center; gap: 12px;
