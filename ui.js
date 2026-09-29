@@ -1380,8 +1380,9 @@
         setSearchMode(b.getAttribute('data-mode'));
       });
     });
-    // «تصفية» مفتاحٌ جديد؛ وقبل أن يصل من الخادم تبقى الكلمة القديمة «بحث».
-    $('search-btn-label').textContent = Topt('web.filter') || T('web.search');
+    // ⚠️ **النصّ من `data-i18n` في `index.html` لا من هنا** (٢٩ سبتمبر
+    // ٢٠٢٦): هذا السطر يعمل قبل وصول النصوص، فظهر على الزرّ اسمُ المفتاح
+    // «web.search» حرفياً. و`paint()` يرسمه بعد وصولها كبقية الصفحة.
     $('search-btn').setAttribute('aria-label', T('web.search'));
     $('search-btn').addEventListener('click', openSearch);
     $('search-back').addEventListener('click', function () {
