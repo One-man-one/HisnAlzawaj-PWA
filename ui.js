@@ -3731,7 +3731,8 @@
       var out = document.createElement('button');
       out.type = 'button';
       out.className = 'slogout';
-      out.textContent = T('web.logout');
+      // الرمزُ هنا لا في النصّ — كـ«🤖 فتح البوت»: المفتاحُ مشتركٌ مع البوت.
+      out.textContent = '🚪 ' + T('web.logout');
       out.addEventListener('click', function () {
         // ⚠️ **الاشتراكُ يُلغى قبل الخروج**: الهاتفُ المشترك يبقى وإلا
         // يتلقّى تنبيهاتِ الحساب الذي خرج منه صاحبُه.
