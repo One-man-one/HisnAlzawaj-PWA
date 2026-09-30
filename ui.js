@@ -814,6 +814,38 @@
   // المحادثة وقائمة «مطابقاتي». الاسم الأول ليس هوية (عشرات «أحمد»)،
   // والمعرّف وحده رمزٌ لا إنسان فيه؛ فلا يظهر أحدهما بلا الآخر.
   // ⚠️ ويرتدّ إلى ما وُجد منهما: ردٌّ من وسيطٍ أقدم لا يحمل `who`.
+  // ✅ **الرمزُ «HS-…» يُنسخ بلمسة** (٣٠ سبتمبر ٢٠٢٦ — كما في البوت): يُرسَل
+  // إلى الدعم أو يُلصَق في البحث بلا تحديدٍ يدويّ بين نصٍّ عربيّ.
+  // ⚠️ `stopPropagation`: الرمزُ داخل البطاقة، ولمسُها يفتح الورقة — فبلاه
+  // يفتح النسخُ الورقةَ فوق رسالة «نُسخ».
+  // ⚠️ و`web.code_copied` من الوسيط؛ إن لم يصل بعد فعلامةٌ لا اسمُ مفتاح.
+  function copyableCode(el, code) {
+    if (!code) return;
+    el.classList.add('copyable');
+    el.setAttribute('role', 'button');
+    el.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var done = function () {
+        toast(STRINGS['web.code_copied'] ? T('web.code_copied') : '✅ ' + code);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(done, function () { fallbackCopy(code); done(); });
+      } else { fallbackCopy(code); done(); }
+    });
+  }
+
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) { /* لا شيء أفعله */ }
+    ta.remove();
+  }
+
   function identity(who, pid) {
     if (who && pid) return who + ' · ' + codesWhole(pid);
     return who || codesWhole(pid) || '';
@@ -2515,6 +2547,7 @@
     var pid = document.createElement('div');
     pid.className = 'pcard__id';
     pid.textContent = card.public_id || '';
+    copyableCode(pid, card.public_id);
     left.appendChild(pid);
 
     if (typeof card.score === 'number') {
@@ -2560,8 +2593,11 @@
     });
 
     var hint = document.createElement('p');
+    // ✅ **حبّةٌ تُرى زرّاً** لا سطرٌ باهت (٣٠ سبتمبر ٢٠٢٦، بطلب صاحب
+    // المشروع): «التفاصيل» كانت تُقرأ عنواناً. والضغطُ يقع على البطاقة كلِّها
+    // كما كان، فالحبّة دعوةٌ لا زرٌّ ثانٍ.
     hint.className = 'pcard__hint';
-    hint.textContent = T('web.details');
+    hint.textContent = T('web.details') + ' ⌄';
     node.appendChild(hint);
 
     return node;
@@ -5237,6 +5273,7 @@
     var title = document.createElement('p');
     title.className = 'card__title';
     title.textContent = card.public_id || '';
+    copyableCode(title, card.public_id);
     body.appendChild(title);
 
     // ✅ **بأقسامٍ وصفوف لا أسطراً** — البطاقة نفسها، بعناوين «المواصفات»
@@ -5343,7 +5380,7 @@
     var close = document.createElement('button');
     close.type = 'button';
     close.className = 'sheet__link';
-    close.textContent = T('web.close');
+    close.textContent = '✕ ' + T('web.close');
     close.addEventListener('click', function () { $('sheet').hidden = true; });
     modRow.appendChild(close);
     body.appendChild(modRow);
