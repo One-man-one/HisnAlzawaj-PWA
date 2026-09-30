@@ -1382,11 +1382,14 @@ div.stile { cursor: default; }
 .sdanger .danger > div:not([hidden]) { flex-basis: 100%; }
 .sdanger:has(.danger > div:not([hidden])) .danger { flex-basis: 100%; }
 
+/* ✅ «🚪 خروج» حبّةٌ رمادية مملوءة كـ«✕ إغلاق» (٣٠ سبتمبر ٢٠٢٦، بطلب صاحب
+ * المشروع) — كانت نصّاً باهتاً لا يُعرف أنه يُضغط. */
 .slogout {
-  align-self: center; background: none; border: 0; padding: 10px 16px;
-  color: var(--muted); font: inherit; cursor: pointer;
+  align-self: center; background: rgba(247, 238, 242, .12); border: 0;
+  border-radius: 999px; padding: 10px 22px;
+  color: var(--text); font: inherit; font-weight: 700; cursor: pointer;
 }
-.slogout:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
+.slogout:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 999px; }
 
 @media (prefers-reduced-motion: reduce) {
   .slist .toggle input, .slist .toggle input::before { transition: none; }
