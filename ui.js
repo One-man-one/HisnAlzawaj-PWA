@@ -5174,7 +5174,9 @@
       var dm = document.createElement('button');
       dm.type = 'button';
       dm.className = 'btn btn--ghost btn--gold';
-      dm.textContent = T('web.dm_button');
+      // 💎 بجوار النصّ للجميع (بطلب صاحب المشروع) — علامةُ الميزة المميّزة
+      // تلفت غيرَ المشترك، ولا تغيّر شيئاً في شكل الزرّ عند المشترك.
+      dm.textContent = T('web.dm_button') + ' 💎';
       dm.addEventListener('click', function () {
         if (locked) return dmLockAsk(slot, dm);
         dm.disabled = true;
