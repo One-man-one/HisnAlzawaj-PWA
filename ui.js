@@ -815,8 +815,19 @@
   // والمعرّف وحده رمزٌ لا إنسان فيه؛ فلا يظهر أحدهما بلا الآخر.
   // ⚠️ ويرتدّ إلى ما وُجد منهما: ردٌّ من وسيطٍ أقدم لا يحمل `who`.
   function identity(who, pid) {
-    if (who && pid) return who + ' · ' + pid;
-    return who || pid || '';
+    if (who && pid) return who + ' · ' + codesWhole(pid);
+    return who || codesWhole(pid) || '';
+  }
+
+  // ✅ **المعرّفُ كتلةٌ واحدة لا تنكسر عند الشَّرطة** (٣٠ سبتمبر ٢٠٢٦).
+  // ⚠️ المتصفّح يجيز كسرَ السطر **بعد** الشرطة، فكان «HS-4NDCWZ» في سطرٍ
+  // عربيٍّ ضيّق يخرج «HS-» آخرَ السطر و«4NDCWZ» أوّلَ التالي — رمزٌ لا
+  // يُقرأ ولا يُنسخ. فبعد الشرطة «واصلةُ كلمة» (U+2060) تمنع الكسر ولا
+  // تُرى، والرمزُ كلُّه معزولُ الاتّجاه (U+2068…U+2069) فلا يُقلَب داخل
+  // جملةٍ عربية. ⚠️ للعرض وحده: لا تمرّ نتيجتُه إلى `refId` ولا إلى طلب.
+  function codesWhole(text) {
+    return String(text || '').replace(/\bHS-([A-Z0-9]+)/g,
+                                      '\u2068HS-\u2060$1\u2069');
   }
 
   function renderNotes(data) {
@@ -2890,7 +2901,7 @@
       name.textContent = identity(card.who, card.public_id);
       var sub = document.createElement('div');
       sub.className = 'row__sub';
-      sub.textContent = String(card.card || '').split('\n')[0] || '';
+      sub.textContent = codesWhole(String(card.card || '').split('\n')[0]);
       main.appendChild(name);
       main.appendChild(sub);
       row.appendChild(main);
@@ -3083,7 +3094,7 @@
         var sub = document.createElement('div');
         sub.className = 'row__sub';
         // أوّل سطرٍ من البطاقة يكفي في قائمة — والباقي في الورقة.
-        sub.textContent = String(card.card || '').split('\n')[0] || '';
+        sub.textContent = codesWhole(String(card.card || '').split('\n')[0]);
         main.appendChild(name);
         main.appendChild(sub);
         row.appendChild(main);
