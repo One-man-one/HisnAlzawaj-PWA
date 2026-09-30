@@ -1701,6 +1701,8 @@
   // حين ينتهي التوكن — فشاشةٌ خارجها تبقى معلّقةً فوق بوّابة الدخول.
   // والرجوع يُعيد الورقة، فيعود المستخدم إلى الملفّ الذي كان يقرؤه.
   var modFromSheet = false;
+  // ومثلها لشاشة الاشتراك حين تُفتح من سؤال المراسلة (`dmLockAsk`).
+  var payFromSheet = false;
 
   function closeModeration() {
     // ⚠️ **الصورة الواضحة تُحرَّر مع كل إغلاقٍ لهذه الشاشة** — لا تبقى في
@@ -5161,12 +5163,20 @@
 
   function dmButton(slot, card) {
     api.me().then(function (mine) {
-      if (!mine || !mine.dm_access) return;
+      if (!mine) return;
+      // ✅ **وغيرُ المشترك يرى الزرَّ نفسه** (٣٠ سبتمبر ٢٠٢٦ — «حتى يجلب
+      // انتباه المستخدمين الجدد»)، وضغطُه سؤالٌ مكانه لا شاشةُ شراء.
+      // ⚠️ **إلا إن لم تصل نصوصُ السؤال بعد**: `T` تعيد اسمَ المفتاح حين
+      // يغيب، والصفحةُ قد تُنشر قبل الوسيط — فزرٌّ يفتح «web.dm_lock_info»
+      // خاماً أسوأ من غيابه.
+      var locked = !mine.dm_access;
+      if (locked && !STRINGS['web.dm_lock_info']) return;
       var dm = document.createElement('button');
       dm.type = 'button';
       dm.className = 'btn btn--ghost btn--gold';
       dm.textContent = T('web.dm_button');
       dm.addEventListener('click', function () {
+        if (locked) return dmLockAsk(slot, dm);
         dm.disabled = true;
         api.dmOpen(refId(card.public_id)).then(function () {
           $('sheet').hidden = true;
@@ -5179,6 +5189,42 @@
       });
       slot.appendChild(dm);
     }).catch(function () { /* بلا حالة لا زرّ — والبطاقة كاملةٌ بدونه */ });
+  }
+
+  // 💎 سؤالُ الاشتراك مكانَ الزرّ — نصوصُه نصوصُ البوت (`premium.dm_lock_*`)،
+  // محايدةٌ للطرفين. ⚠️ **والبطاقةُ لا تُغلق**: «لا» تعيد الزرَّ في مكانه،
+  // و«نعم» تفتح الاشتراك ثم يعيد «رجوع» الورقةَ نفسها (`payFromSheet`)،
+  // كزرّ «متابعة التصفّح» في البوت.
+  function dmLockAsk(slot, dm) {
+    slot.textContent = '';
+    slot.className = 'dmlock';
+    var info = document.createElement('div');
+    info.className = 'dmlock__info';
+    info.textContent = T('web.dm_lock_info');
+    slot.appendChild(info);
+    var rowEl = document.createElement('div');
+    rowEl.className = 'dmlock__row';
+    var yes = document.createElement('button');
+    yes.type = 'button';
+    yes.className = 'btn btn--primary';
+    yes.textContent = T('web.dm_lock_yes');
+    yes.addEventListener('click', function () {
+      payFromSheet = true;
+      $('sheet').hidden = true;
+      openPay();
+    });
+    var no = document.createElement('button');
+    no.type = 'button';
+    no.className = 'btn btn--ghost';
+    no.textContent = T('web.dm_lock_no');
+    no.addEventListener('click', function () {
+      slot.textContent = '';
+      slot.className = '';
+      slot.appendChild(dm);
+    });
+    rowEl.appendChild(yes);
+    rowEl.appendChild(no);
+    slot.appendChild(rowEl);
   }
 
   function openSheet(card, fromDeck) {
@@ -5493,7 +5539,12 @@
     $('chat-more').addEventListener('click', function () {
       openModeration(chatWith, $('chat-name').textContent);
     });
-    $('pay-back').addEventListener('click', function () { $('pay').hidden = true; });
+    $('pay-back').addEventListener('click', function () {
+      $('pay').hidden = true;
+      // ✅ من جاء من سؤال «💬 راسل مباشرة» يعود إلى البطاقة التي كان يقرؤها.
+      if (payFromSheet) $('sheet').hidden = false;
+      payFromSheet = false;
+    });
     $('chat-name').addEventListener('click', openChatPartner);
     bindSearch();
     bindConsent();
