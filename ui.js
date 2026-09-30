@@ -814,6 +814,38 @@
   // المحادثة وقائمة «مطابقاتي». الاسم الأول ليس هوية (عشرات «أحمد»)،
   // والمعرّف وحده رمزٌ لا إنسان فيه؛ فلا يظهر أحدهما بلا الآخر.
   // ⚠️ ويرتدّ إلى ما وُجد منهما: ردٌّ من وسيطٍ أقدم لا يحمل `who`.
+  // ✅ **الرمزُ «HS-…» يُنسخ بلمسة** (٣٠ سبتمبر ٢٠٢٦ — كما في البوت): يُرسَل
+  // إلى الدعم أو يُلصَق في البحث بلا تحديدٍ يدويّ بين نصٍّ عربيّ.
+  // ⚠️ `stopPropagation`: الرمزُ داخل البطاقة، ولمسُها يفتح الورقة — فبلاه
+  // يفتح النسخُ الورقةَ فوق رسالة «نُسخ».
+  // ⚠️ و`web.code_copied` من الوسيط؛ إن لم يصل بعد فعلامةٌ لا اسمُ مفتاح.
+  function copyableCode(el, code) {
+    if (!code) return;
+    el.classList.add('copyable');
+    el.setAttribute('role', 'button');
+    el.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var done = function () {
+        toast(STRINGS['web.code_copied'] ? T('web.code_copied') : '✅ ' + code);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(done, function () { fallbackCopy(code); done(); });
+      } else { fallbackCopy(code); done(); }
+    });
+  }
+
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) { /* لا شيء أفعله */ }
+    ta.remove();
+  }
+
   function identity(who, pid) {
     if (who && pid) return who + ' · ' + codesWhole(pid);
     return who || codesWhole(pid) || '';
@@ -1701,6 +1733,8 @@
   // حين ينتهي التوكن — فشاشةٌ خارجها تبقى معلّقةً فوق بوّابة الدخول.
   // والرجوع يُعيد الورقة، فيعود المستخدم إلى الملفّ الذي كان يقرؤه.
   var modFromSheet = false;
+  // ومثلها لشاشة الاشتراك حين تُفتح من سؤال المراسلة (`dmLockAsk`).
+  var payFromSheet = false;
 
   function closeModeration() {
     // ⚠️ **الصورة الواضحة تُحرَّر مع كل إغلاقٍ لهذه الشاشة** — لا تبقى في
@@ -2513,6 +2547,7 @@
     var pid = document.createElement('div');
     pid.className = 'pcard__id';
     pid.textContent = card.public_id || '';
+    copyableCode(pid, card.public_id);
     left.appendChild(pid);
 
     if (typeof card.score === 'number') {
@@ -2558,8 +2593,11 @@
     });
 
     var hint = document.createElement('p');
+    // ✅ **حبّةٌ تُرى زرّاً** لا سطرٌ باهت (٣٠ سبتمبر ٢٠٢٦، بطلب صاحب
+    // المشروع): «التفاصيل» كانت تُقرأ عنواناً. والضغطُ يقع على البطاقة كلِّها
+    // كما كان، فالحبّة دعوةٌ لا زرٌّ ثانٍ.
     hint.className = 'pcard__hint';
-    hint.textContent = T('web.details');
+    hint.textContent = T('web.details') + ' ⌄';
     node.appendChild(hint);
 
     return node;
@@ -5161,12 +5199,22 @@
 
   function dmButton(slot, card) {
     api.me().then(function (mine) {
-      if (!mine || !mine.dm_access) return;
+      if (!mine) return;
+      // ✅ **وغيرُ المشترك يرى الزرَّ نفسه** (٣٠ سبتمبر ٢٠٢٦ — «حتى يجلب
+      // انتباه المستخدمين الجدد»)، وضغطُه سؤالٌ مكانه لا شاشةُ شراء.
+      // ⚠️ **إلا إن لم تصل نصوصُ السؤال بعد**: `T` تعيد اسمَ المفتاح حين
+      // يغيب، والصفحةُ قد تُنشر قبل الوسيط — فزرٌّ يفتح «web.dm_lock_info»
+      // خاماً أسوأ من غيابه.
+      var locked = !mine.dm_access;
+      if (locked && !STRINGS['web.dm_lock_info']) return;
       var dm = document.createElement('button');
       dm.type = 'button';
       dm.className = 'btn btn--ghost btn--gold';
-      dm.textContent = T('web.dm_button');
+      // 💎 بجوار النصّ للجميع (بطلب صاحب المشروع) — علامةُ الميزة المميّزة
+      // تلفت غيرَ المشترك، ولا تغيّر شيئاً في شكل الزرّ عند المشترك.
+      dm.textContent = T('web.dm_button') + ' 💎';
       dm.addEventListener('click', function () {
+        if (locked) return dmLockAsk(slot, dm);
         dm.disabled = true;
         api.dmOpen(refId(card.public_id)).then(function () {
           $('sheet').hidden = true;
@@ -5181,6 +5229,42 @@
     }).catch(function () { /* بلا حالة لا زرّ — والبطاقة كاملةٌ بدونه */ });
   }
 
+  // 💎 سؤالُ الاشتراك مكانَ الزرّ — نصوصُه نصوصُ البوت (`premium.dm_lock_*`)،
+  // محايدةٌ للطرفين. ⚠️ **والبطاقةُ لا تُغلق**: «لا» تعيد الزرَّ في مكانه،
+  // و«نعم» تفتح الاشتراك ثم يعيد «رجوع» الورقةَ نفسها (`payFromSheet`)،
+  // كزرّ «متابعة التصفّح» في البوت.
+  function dmLockAsk(slot, dm) {
+    slot.textContent = '';
+    slot.className = 'dmlock';
+    var info = document.createElement('div');
+    info.className = 'dmlock__info';
+    info.textContent = T('web.dm_lock_info');
+    slot.appendChild(info);
+    var rowEl = document.createElement('div');
+    rowEl.className = 'dmlock__row';
+    var yes = document.createElement('button');
+    yes.type = 'button';
+    yes.className = 'btn btn--primary';
+    yes.textContent = T('web.dm_lock_yes');
+    yes.addEventListener('click', function () {
+      payFromSheet = true;
+      $('sheet').hidden = true;
+      openPay();
+    });
+    var no = document.createElement('button');
+    no.type = 'button';
+    no.className = 'btn btn--ghost';
+    no.textContent = T('web.dm_lock_no');
+    no.addEventListener('click', function () {
+      slot.textContent = '';
+      slot.className = '';
+      slot.appendChild(dm);
+    });
+    rowEl.appendChild(yes);
+    rowEl.appendChild(no);
+    slot.appendChild(rowEl);
+  }
+
   function openSheet(card, fromDeck) {
     if (!card) return;
     var body = $('sheet-body');
@@ -5189,6 +5273,7 @@
     var title = document.createElement('p');
     title.className = 'card__title';
     title.textContent = card.public_id || '';
+    copyableCode(title, card.public_id);
     body.appendChild(title);
 
     // ✅ **بأقسامٍ وصفوف لا أسطراً** — البطاقة نفسها، بعناوين «المواصفات»
@@ -5295,7 +5380,7 @@
     var close = document.createElement('button');
     close.type = 'button';
     close.className = 'sheet__link';
-    close.textContent = T('web.close');
+    close.textContent = '✕ ' + T('web.close');
     close.addEventListener('click', function () { $('sheet').hidden = true; });
     modRow.appendChild(close);
     body.appendChild(modRow);
@@ -5493,7 +5578,12 @@
     $('chat-more').addEventListener('click', function () {
       openModeration(chatWith, $('chat-name').textContent);
     });
-    $('pay-back').addEventListener('click', function () { $('pay').hidden = true; });
+    $('pay-back').addEventListener('click', function () {
+      $('pay').hidden = true;
+      // ✅ من جاء من سؤال «💬 راسل مباشرة» يعود إلى البطاقة التي كان يقرؤها.
+      if (payFromSheet) $('sheet').hidden = false;
+      payFromSheet = false;
+    });
     $('chat-name').addEventListener('click', openChatPartner);
     bindSearch();
     bindConsent();
