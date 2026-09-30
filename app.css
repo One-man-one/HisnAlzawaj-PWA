@@ -434,9 +434,20 @@ img.clear-photo {
   word-break: break-all; text-align: left;
 }
 
-/* ❤️ من أعجب بي — صفٌّ في رأس «مطابقاتي» وعددُه على طرفه */
+/* ❤️ من أعجب بي — صفٌّ في رأس «مطابقاتي» وعددُه على طرفه، **داخلَ الزرّ**.
+ * ⚠️ المحدِّدُ مركّبٌ عمداً: `.bell__n` و`.row__n` (أسفل الملفّ) بقوّة
+ * صنفٍ واحد مثله، والأخيرُ يغلب — فكان العددُ `absolute` يطفو خارج الزرّ
+ * إلى حافّة الشاشة (٣٠ سبتمبر ٢٠٢٦). بصنفين يغلب أينما وقع في الملفّ. */
 .row.likers-entry { justify-content: space-between; }
-.likers-entry__n { position: static; margin-inline-start: auto; }
+.row.likers-entry .likers-entry__n {
+  position: static;
+  margin-inline-start: auto;
+  min-width: 24px;
+  height: 24px;
+  line-height: 24px;
+  border-radius: 12px;
+  font-size: .85rem;
+}
 
 /* ⚙️ الإعدادات — أقسامٌ بعناوين، وأزرارُها متتابعة */
 .card.settings { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
