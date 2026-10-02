@@ -4601,6 +4601,8 @@
       btn.className = 'btn btn--ghost';
       slot.appendChild(btn);
 
+      // ✅ وردي بسهم ما دام يُضغط (عرضٌ أو طلب) — والمعلَّقُ يبقى باهتاً معطَّلاً.
+      if (state !== 'pending') btn.className = 'btn btn--ghost btn--pink btn--go';
       if (state === 'approved') {
         btn.textContent = T('web.photo_view');
         btn.addEventListener('click', function () { openClearPhoto(card); });
@@ -4653,10 +4655,26 @@
     slot.appendChild(info);
 
     if (data.invite && data.invite_label) {
+      // ✅ **بطاقةُ الدعوة لا زرٌّ بحدٍّ رفيع** (العيّنة «ج»): شكلُ بطاقة القائمة
+      // نفسُه (`inviteButton`) وشارةُ «ادعُ الآن» — فتُقرأ فعلاً يُضغط.
+      var parts = splitIcon(data.invite_label);
       var invite = document.createElement('button');
       invite.type = 'button';
-      invite.className = 'btn btn--ghost btn--gold';
-      invite.textContent = data.invite_label;
+      invite.className = 'sinvite';
+      var ic = document.createElement('span');
+      ic.className = 'sinvite__ic';
+      ic.setAttribute('aria-hidden', 'true');
+      ic.textContent = parts[0] || '🎁';
+      invite.appendChild(ic);
+      var txt = document.createElement('b');
+      txt.textContent = parts[1];
+      invite.appendChild(txt);
+      if (Topt('web.invite_cta')) {
+        var go = document.createElement('span');
+        go.className = 'sinvite__go';
+        go.textContent = Topt('web.invite_cta');
+        invite.appendChild(go);
+      }
       invite.addEventListener('click', function () {
         invite.disabled = true;
         api.invite().then(function (d) {
@@ -5282,7 +5300,7 @@
       if (locked && !STRINGS['web.dm_lock_info']) return;
       var dm = document.createElement('button');
       dm.type = 'button';
-      dm.className = 'btn btn--ghost btn--gold';
+      dm.className = 'btn btn--ghost btn--gold btn--go';
       // 💎 بجوار النصّ للجميع (بطلب صاحب المشروع) — علامةُ الميزة المميّزة
       // تلفت غيرَ المشترك، ولا تغيّر شيئاً في شكل الزرّ عند المشترك.
       dm.textContent = T('web.dm_button') + ' 💎';
