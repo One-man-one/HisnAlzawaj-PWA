@@ -4653,10 +4653,26 @@
     slot.appendChild(info);
 
     if (data.invite && data.invite_label) {
+      // ✅ **بطاقةُ الدعوة لا زرٌّ بحدٍّ رفيع** (العيّنة «ج»): شكلُ بطاقة القائمة
+      // نفسُه (`inviteButton`) وشارةُ «ادعُ الآن» — فتُقرأ فعلاً يُضغط.
+      var parts = splitIcon(data.invite_label);
       var invite = document.createElement('button');
       invite.type = 'button';
-      invite.className = 'btn btn--ghost btn--gold';
-      invite.textContent = data.invite_label;
+      invite.className = 'sinvite';
+      var ic = document.createElement('span');
+      ic.className = 'sinvite__ic';
+      ic.setAttribute('aria-hidden', 'true');
+      ic.textContent = parts[0] || '🎁';
+      invite.appendChild(ic);
+      var txt = document.createElement('b');
+      txt.textContent = parts[1];
+      invite.appendChild(txt);
+      if (Topt('web.invite_cta')) {
+        var go = document.createElement('span');
+        go.className = 'sinvite__go';
+        go.textContent = Topt('web.invite_cta');
+        invite.appendChild(go);
+      }
       invite.addEventListener('click', function () {
         invite.disabled = true;
         api.invite().then(function (d) {

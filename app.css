@@ -31,6 +31,11 @@
   /* التخطّي: أحمرُ خفيف كصفحة الاختبار (#ef4444) مخفَّفاً للداكن —
      للختم والتوهّج وزرّ ✕ معاً، فمعناها واحد. */
   --no:        #EF5B5B;
+  /* 💎 ذهبُ الميزات المدفوعة — القفلُ وزرُّه وبطاقةُ الدعوة. */
+  --gold:      #E3B25A;
+  --gold-ink:  #241A10;
+  --gold-soft: rgba(227, 178, 90, .10);
+  --sunk:      #0F0A0D;
 
   --radius: 16px;
   --gap: 16px;
@@ -1447,13 +1452,29 @@ div.stile { cursor: default; }
 /* 💎 سؤالُ الاشتراك مكانَ «راسل مباشرة» — يأخذ السطرَ كلَّه، وأختُه كذلك
  * كي لا يبقى «اطلب رؤية الصورة» نصفَ عرضٍ وحده. */
 .sheet__pair:has(> .dmlock) > * { grid-column: 1 / -1; }
+/* ⚠️ **الإطارُ لا يشبه الزرّ** (٢ أكتوبر ٢٠٢٦، بقرار صاحب المشروع بعد العيّنة
+ * «ج»): كان حدّاً ذهبياً كاملاً كحدّ الأزرار التي فيه وتحته، فلم يعرف المستخدم
+ * ما يُضغط. صار خلفيةً غائرة بشريطٍ جانبيّ، والحدُّ الذهبيّ للأزرار وحدها. */
 .dmlock {
-  border: 1px solid #E3B25A; border-radius: 14px; padding: 12px;
-  display: flex; flex-direction: column; gap: 10px;
+  background: var(--sunk); border-inline-start: 3px solid var(--gold);
+  border-start-start-radius: 4px; border-end-start-radius: 4px;
+  border-start-end-radius: 14px; border-end-end-radius: 14px;
+  padding: 12px; display: flex; flex-direction: column; gap: 10px;
 }
-.dmlock__info { color: #E3B25A; font-weight: 700; text-align: center; font-size: .95rem; }
+.dmlock__info { color: var(--gold); font-weight: 700; text-align: center; font-size: .95rem; }
 .dmlock__row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.btn--gold { border-color: #E3B25A; color: #E3B25A; }
+/* زرٌّ ذهبيّ: تعبئةٌ خفيفة وسهمٌ في آخره — شكلُ ما يُضغط لا شكلُ إطار.
+ * والسهمُ يتبع الاتّجاه: «←» يمنةً و«→» يسرةً. */
+.btn--gold {
+  border-color: var(--gold); color: var(--gold); background: var(--gold-soft);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn--gold::after { content: '←'; font-size: 1.05rem; }
+[dir="ltr"] .btn--gold::after { content: '→'; }
+/* بطاقةُ الدعوة داخل القفل — أصغرُ قليلاً من بطاقة القائمة (`.sinvite`). */
+.dmlock .sinvite { padding: 12px; gap: 10px; }
+.dmlock .sinvite__ic { font-size: 1.4rem; }
+.dmlock .sinvite b { font-size: .9rem; }
 .sheet__links {
   display: flex; justify-content: space-between; align-items: center; gap: 12px;
   margin-top: 18px; padding: 0 4px;
