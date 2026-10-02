@@ -4620,11 +4620,84 @@
         }).catch(function (err) {
           btn.disabled = false;
           if (err.code === 'unauthorized') return boot();
+          // ✅ **لا يحقّ له الطلب بإعداد لوحة الأدمن** — قفلٌ مكانَ الزرّ لا
+          // إشعارٌ يمرّ (`photoLockAsk`). ⚠️ و`STRINGS` شرطٌ: وسيطٌ أقدم لا
+          // يرسل نصّ القفل، فيبقى الإشعار بنصّ الرسالة كما كان.
+          if (err.status === 409 && err.data && err.data.result === 'premium_required'
+              && STRINGS['web.photo_lock_info']) {
+            return photoLockAsk(slot, card, err.data);
+          }
           toast((err.data && err.data.message) || errorText(err));
           if (err.status === 409) photoAccessButton(slot, card);
         });
       });
     }).catch(function () { /* بلا حالة لا زرّ — والبطاقة كاملةٌ بدونه */ });
+  }
+
+  // 🔒 **قفلُ طلب الصورة مكانَ الزرّ (٢ أكتوبر ٢٠٢٦، بقرار صاحب المشروع بعد
+  // العيّنة)** — على نمط `dmLockAsk` وبأصنافه، وهو نمطُ قفل البوت نفسه
+  // (`handlers/photo_privacy/requests.py::photo_lock_callback`):
+  //   💎 سطرُ تعريف · 🎁 ادعُ أصدقاءك (إن كانت الدعوة مفعّلة) ·
+  //   ✅ نعم ← الاشتراك · ↩️ لا ← يعود الزرّ.
+  // ⚠️ **نصُّ زرّ الدعوة من الوسيط (`invite_label`) لا من هنا**: أرقامُ لوحة
+  // الدعوة وصيغةُ العدد العربية تُحسب في مكانٍ واحد للبابين — وحسابُها هنا
+  // نسخةٌ ثانية تختلف يوم تتغيّر اللوحة.
+  // ⚠️ **والورقةُ لا تُغلق**: الاشتراك والدعوة يُفتحان ثم يعيد «رجوع»
+  // الورقةَ نفسها (`payFromSheet` و`modFromSheet`).
+  function photoLockAsk(slot, card, data) {
+    slot.textContent = '';
+    slot.className = 'dmlock';
+    var info = document.createElement('div');
+    info.className = 'dmlock__info';
+    info.textContent = T('web.photo_lock_info');
+    slot.appendChild(info);
+
+    if (data.invite && data.invite_label) {
+      var invite = document.createElement('button');
+      invite.type = 'button';
+      invite.className = 'btn btn--ghost btn--gold';
+      invite.textContent = data.invite_label;
+      invite.addEventListener('click', function () {
+        invite.disabled = true;
+        api.invite().then(function (d) {
+          invite.disabled = false;
+          // عُطّلت الدعوة بين الرفض والضغط — الشاشة كانت ستَعِد بما لا يُصرف
+          if (!d || !d.enabled) { invite.remove(); return; }
+          $('sheet').hidden = true;
+          openInvite(d);
+          modFromSheet = true;   // بعد `openInvite` — هي تصفّره
+        }).catch(function (err) {
+          invite.disabled = false;
+          if (err.code === 'unauthorized') return boot();
+          toast(errorText(err));
+        });
+      });
+      slot.appendChild(invite);
+    }
+
+    var rowEl = document.createElement('div');
+    rowEl.className = 'dmlock__row';
+    var yes = document.createElement('button');
+    yes.type = 'button';
+    yes.className = 'btn btn--primary';
+    yes.textContent = T('web.dm_lock_yes');
+    yes.addEventListener('click', function () {
+      payFromSheet = true;
+      $('sheet').hidden = true;
+      openPay();
+    });
+    var no = document.createElement('button');
+    no.type = 'button';
+    no.className = 'btn btn--ghost';
+    no.textContent = T('web.dm_lock_no');
+    no.addEventListener('click', function () {
+      slot.textContent = '';
+      slot.className = '';
+      photoAccessButton(slot, card);
+    });
+    rowEl.appendChild(yes);
+    rowEl.appendChild(no);
+    slot.appendChild(rowEl);
   }
 
   var clearUrl = null;
