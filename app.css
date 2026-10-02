@@ -36,6 +36,7 @@
   --gold-ink:  #241A10;
   --gold-soft: rgba(227, 178, 90, .10);
   --sunk:      #0F0A0D;
+  --accent-soft: rgba(236, 143, 178, .10);
 
   --radius: 16px;
   --gap: 16px;
@@ -1463,14 +1464,16 @@ div.stile { cursor: default; }
 }
 .dmlock__info { color: var(--gold); font-weight: 700; text-align: center; font-size: .95rem; }
 .dmlock__row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-/* زرٌّ ذهبيّ: تعبئةٌ خفيفة وسهمٌ في آخره — شكلُ ما يُضغط لا شكلُ إطار.
- * والسهمُ يتبع الاتّجاه: «←» يمنةً و«→» يسرةً. */
-.btn--gold {
-  border-color: var(--gold); color: var(--gold); background: var(--gold-soft);
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-}
-.btn--gold::after { content: '←'; font-size: 1.05rem; }
-[dir="ltr"] .btn--gold::after { content: '→'; }
+/* زرٌّ ذهبيّ: تعبئةٌ خفيفة — شكلُ ما يُضغط لا شكلُ إطار. للمدفوع وحده. */
+.btn--gold { border-color: var(--gold); color: var(--gold); background: var(--gold-soft); }
+/* 📷 زرُّ الصورة (العيّنة «أ»، ٢ أكتوبر ٢٠٢٦): ورديُّ الموقع لا الذهب —
+ * ⚠️ الذهبُ علامةُ المدفوع، وطلبُ الصورة مجانيٌّ في الإعداد الافتراضي؛
+ * ولونُ الحدّ الباهت (`btn--ghost`) كان يُقرأ نصّاً بجوار زرّ المراسلة. */
+.btn--pink { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+/* سهمٌ في آخر الزرّ يقول «هذا يُضغط» — ويتبع الاتّجاه: «←» يمنةً و«→» يسرةً. */
+.btn--go { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn--go::after { content: '←'; font-size: 1.05rem; }
+[dir="ltr"] .btn--go::after { content: '→'; }
 /* بطاقةُ الدعوة داخل القفل — أصغرُ قليلاً من بطاقة القائمة (`.sinvite`). */
 .dmlock .sinvite { padding: 12px; gap: 10px; }
 .dmlock .sinvite__ic { font-size: 1.4rem; }

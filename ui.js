@@ -4601,6 +4601,8 @@
       btn.className = 'btn btn--ghost';
       slot.appendChild(btn);
 
+      // ✅ وردي بسهم ما دام يُضغط (عرضٌ أو طلب) — والمعلَّقُ يبقى باهتاً معطَّلاً.
+      if (state !== 'pending') btn.className = 'btn btn--ghost btn--pink btn--go';
       if (state === 'approved') {
         btn.textContent = T('web.photo_view');
         btn.addEventListener('click', function () { openClearPhoto(card); });
@@ -5298,7 +5300,7 @@
       if (locked && !STRINGS['web.dm_lock_info']) return;
       var dm = document.createElement('button');
       dm.type = 'button';
-      dm.className = 'btn btn--ghost btn--gold';
+      dm.className = 'btn btn--ghost btn--gold btn--go';
       // 💎 بجوار النصّ للجميع (بطلب صاحب المشروع) — علامةُ الميزة المميّزة
       // تلفت غيرَ المشترك، ولا تغيّر شيئاً في شكل الزرّ عند المشترك.
       dm.textContent = T('web.dm_button') + ' 💎';
