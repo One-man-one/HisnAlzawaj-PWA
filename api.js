@@ -296,6 +296,11 @@
     notificationsRead: function (body) {
       return request('/api/me/notifications/read', { method: 'POST', body: body });
     },
+    // أيُّ دولةٍ يسمّيها النصّ؟ — لمن اختار «🌍 أخرى» وكتب اسم بلده.
+    countryOf: function (name, lang) {
+      return request('/api/geo/country?name=' + encodeURIComponent(name)
+                     + '&lang=' + encodeURIComponent(lang || 'ar'));
+    },
     // `since` (وقتُ خادم): «من ظهر بعده؟» — فارغةٌ إن لم يظهر أحد.
     matches: function (limit, since) {
       return request('/api/me/matches?limit=' + (limit || 10)

@@ -428,15 +428,77 @@
       });
   }
 
+  // ✅ **«🌍 أخرى» تسأل عن اسم الدولة، لا عن مدينةٍ فيها** (١٠ أكتوبر
+  // ٢٠٢٦) — قاعدةُ البوت نفسها. كانت مدنُها خياراً واحداً «أخرى»، فلا
+  // يقول صاحبها أين يسكن، ومن بلدُه في القائمة ولم يجده يبقى «أخرى» فلا
+  // يجده بحثُ بلده (وقع في البوت: «ايران، 🌍 أخرى»).
+  //
+  // ⚠️ **والحقلُ يتبدّل عنصراً لا نصَّ عنوانٍ وحده**: قائمةٌ لا تقبل
+  // كتابة، فيُوضع مكانها حقلٌ نصّيّ **بالاسم نفسه** `city` — فلا يتغيّر
+  // شيءٌ في `collect` ولا `restore` ولا فحص `required`. والخادم يحوّل
+  // الاسمَ المعروف إلى دولته وإن لم تسأل الصفحة (`web_profile._apply`).
+  function cityInput(country) {
+    var old = document.querySelector('#complete-fields [name="city"]');
+    if (!old) return null;
+    var wrap = old.closest('[data-field="city"]');
+    var title = wrap && wrap.querySelector('span');
+    if (title && !title.hasAttribute('data-city-label')) {
+      title.setAttribute('data-city-label', title.textContent);
+    }
+    var wantText = country === 'other';
+    if (wantText === (old.tagName === 'INPUT')) return old;
+
+    var el;
+    if (wantText) {
+      el = document.createElement('input');
+      el.type = 'text';
+      el.maxLength = 100;
+      el.placeholder = T('web.type_country');
+      el.addEventListener('change', function () { resolveCountry(el.value); });
+    } else {
+      el = document.createElement('select');
+    }
+    el.name = 'city';
+    el.required = old.required;
+    old.parentNode.replaceChild(el, old);
+    if (title) {
+      title.textContent = wantText ? T('web.type_country')
+                                   : title.getAttribute('data-city-label');
+    }
+    return el;
+  }
+
+  // الاسمُ المكتوب دولةٌ في القائمة؟ ← تُختار، وتُعرض مدنُها.
+  function resolveCountry(name) {
+    if (!String(name || '').trim()) return;
+    api.countryOf(name, LANG).then(function (data) {
+      if (!data || !data.country) return;
+      var country = document.querySelector('#complete-fields [name="country"]');
+      if (!country) return;
+      country.value = data.country;
+      loadCities(data.country);
+      if (data.label) toast(data.label);
+    }).catch(function () { /* الخادم يحوّله عند الحفظ على أي حال */ });
+  }
+
   function loadCities(country, preselect) {
-    var select = document.querySelector('#complete-fields [name="city"]');
+    var select = cityInput(country);
     if (!select) return;
+    if (select.tagName === 'INPUT') {
+      select.value = preselect || '';
+      return;
+    }
     select.textContent = '';
     select.appendChild(new Option('—', ''));
     select.disabled = true;
     if (!country) return;
 
+    // ⚠️ **الأحدثُ وحده يكتب**: طلبان متداخلان (تبديلُ الدولة مرّتين
+    // سريعاً، أو `change` مرّتين على اسمٍ مكتوب) كانا يُلحقان مدنهما معاً
+    // بالقائمة نفسها — سبعة عشر خياراً لدولةٍ مدنُها ثمانٍ.
+    var ticket = (loadCities.ticket = (loadCities.ticket || 0) + 1);
     api.cities(country, LANG).then(function (data) {
+      if (ticket !== loadCities.ticket || !select.isConnected) return;
       (data.cities || []).forEach(function (c) {
         select.appendChild(new Option(c.label, c.key));
       });
