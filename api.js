@@ -296,8 +296,10 @@
     notificationsRead: function (body) {
       return request('/api/me/notifications/read', { method: 'POST', body: body });
     },
-    matches: function (limit) {
-      return request('/api/me/matches?limit=' + (limit || 10));
+    // `since` (وقتُ خادم): «من ظهر بعده؟» — فارغةٌ إن لم يظهر أحد.
+    matches: function (limit, since) {
+      return request('/api/me/matches?limit=' + (limit || 10)
+                     + (since ? '&since=' + encodeURIComponent(since) : ''));
     },
     mutual: function (limit) {
       return request('/api/me/mutual?limit=' + (limit || 20));

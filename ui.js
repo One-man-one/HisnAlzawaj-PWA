@@ -2295,6 +2295,7 @@
   // تفسيراً لها. والتفضيلات تُعدَّل في مكانٍ واحد: البوت.
 
   var deck = [];          // بطاقاتٌ لم تُعرض بعد
+  var BATCH = 20;         // طولُ الرزمة — راجع `loadDeck`
   var busy = false;
   var photoUrls = [];     // روابط `blob:` تُحرَّر عند إعادة الرسم
 
@@ -2328,11 +2329,17 @@
   // نفسها، فترى من رفضت التعدد طالبَه بعد آخر مقترَح وتظنّ تفضيلها لا
   // يعمل. فالبطاقةُ العشوائيّة تحمل وسمها، وأوّلُها يُعلَن مرّةً.
   var randomAnnounced = false;
+  // ✅ **وقتُ الخادم الذي نفد عنده المقترحون** — تُسأل به `api.matches`
+  // قبل كل بطاقةٍ عشوائية: «هل ظهر مقترحٌ بعده؟» (١٠ أكتوبر ٢٠٢٦، بطلب
+  // صاحب المشروع). ⚠️ وقتُ الخادم (`as_of`) لا `Date.now()`: ساعةُ الهاتف
+  // قد تبعد ساعات، فيصير «بعده» كلَّ الناس أو لا أحد.
+  var randomSince = null;
 
   function loadDeck() {
     // الرزمةُ تعود مقترحاتٍ — فلا يبقى شريطُ «نتائج البحث» فوقها.
     setSearchLabel('');
     randomAnnounced = false;
+    randomSince = null;
     var stack = $('stack');
     stack.textContent = '';
     var wait = document.createElement('p');
@@ -2340,15 +2347,18 @@
     wait.textContent = T('web.loading');
     stack.appendChild(wait);
 
-    return api.matches(10).then(function (data) {
+    // ✅ **عشرون لا عشرة** (١٠ أكتوبر ٢٠٢٦) — رقمُ رزمة البوت نفسه
+    // (`BATCH_SIZE` في مستودع البوت)، وتُبنى من جديد عند كل تعبئة.
+    return api.matches(BATCH).then(function (data) {
       deck = (data && data.results) || [];
       // ✅ **المقترحون أوّلاً، ثم عشوائيٌّ يُكمل الرزمة بلا زرّ** (بطلب
       // صاحب المشروع): المقترحون قلّةٌ بتفضيلاتٍ صارمة، ورزمةٌ تنفد عند
       // ثلاث بطاقات تُوقف المستخدم أمام «انتهت البطاقات». والبوت يعطي
       // عندها زرّ «🎲 ملفات عشوائية»؛ هنا تأتي من نفسها بعد المقترحين.
       // ⚠️ **وبلا تكرار**: العشوائيّ قد يطابق مقترحاً في الرزمة نفسها.
-      if (deck.length >= 10) return renderDeck();
-      return api.random(10 - deck.length).then(function (more) {
+      if (deck.length >= BATCH) return renderDeck();
+      randomSince = (data && data.as_of) || null;
+      return api.random(BATCH - deck.length).then(function (more) {
         var have = {};
         deck.forEach(function (c) { have[c.public_id] = true; });
         ((more && more.results) || []).forEach(function (c) {
@@ -2787,6 +2797,26 @@
     // ⚠️ التعبئة قبل النفاد لا بعده: طلبٌ يبدأ عند آخر بطاقةٍ يترك
     // الشاشة فارغةً بين ردّين.
     if (deck.length <= 1) { loadDeck(); return; }
+    // ✅ **مقترحٌ جديد يتقدّم على العشوائيّ**: قبل كل بطاقةٍ عشوائية يُسأل
+    // الخادم عمّن ظهر بعد `randomSince`، فيُقدَّم على ما بقي. ⚠️ والسؤالُ
+    // **قبل** الرسم لا بعده: بطاقةٌ تُستبدل تحت إصبعٍ يسحبها تُبتلع.
+    // و`busy` طوال السؤال للسبب نفسه.
+    if (deck[0]._random && randomSince && !searchLabel) {
+      busy = true;
+      api.matches(BATCH, randomSince).then(function (data) {
+        randomSince = (data && data.as_of) || randomSince;
+        var fresh = (data && data.results) || [];
+        if (fresh.length) {
+          var have = {};
+          fresh.forEach(function (c) { have[c.public_id] = true; });
+          deck = fresh.concat(deck.filter(function (c) { return !have[c.public_id]; }));
+          // العشوائيّ يعود بعدهم — فيُعلَن مرّةً أخرى حين يعود.
+          randomAnnounced = false;
+        }
+      }).catch(function () { /* السؤالُ تحسينٌ لا شرط — العشوائيّ يمضي */ })
+        .then(function () { busy = false; renderDeck(); });
+      return;
+    }
     renderDeck();
   }
 
