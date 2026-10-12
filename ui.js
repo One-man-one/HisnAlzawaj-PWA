@@ -4700,12 +4700,19 @@
         btn.addEventListener('click', function () { openClearPhoto(card); });
         return;
       }
-      if (state === 'pending') {
+      // ✅ **التذكير بعد ٤٨ ساعة** (١٢ أكتوبر ٢٠٢٦) — `can_remind` من الوسيط
+      // (`remind_status`)، القاعدةُ نفسها التي تقبل الضغطة، فلا زرّ يُرفض.
+      // ⚠️ و`STRINGS` شرطٌ: وسيطٌ أقدم لا يرسل النصّ ولا العلامة، فيبقى
+      // الزرّ المعطَّل كما كان.
+      var remind = state === 'pending' && st.can_remind
+        && STRINGS['web.photo_ask_remind'];
+      if (state === 'pending' && !remind) {
         btn.textContent = T('web.photo_ask_waiting');
         btn.disabled = true;
         return;
       }
-      btn.textContent = T('web.photo_ask');
+      if (remind) btn.className = 'btn btn--ghost btn--pink btn--go';
+      btn.textContent = T(remind ? 'web.photo_ask_remind' : 'web.photo_ask');
       btn.addEventListener('click', function () {
         btn.disabled = true;
         api.photoAsk(id).then(function (out) {
