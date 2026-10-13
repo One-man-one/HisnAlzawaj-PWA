@@ -2110,7 +2110,14 @@
         link.addEventListener('click', function (e) {
           e.preventDefault();
           var invite = (document.querySelector('#provider-invite input') || {}).value;
-          window.location.href = api.oauthUrl(name, (invite || '').trim());
+          // ⚠️ وعدٌ لا نصّ: الرابط يحمل بصمة سرّ التبويب (الشرح في `api.js`).
+          link.setAttribute('aria-busy', 'true');
+          api.oauthUrl(name, (invite || '').trim()).then(function (url) {
+            window.location.href = url;
+          }).catch(function () {
+            link.removeAttribute('aria-busy');
+            providerNote(T('web.err_generic'));
+          });
         });
         box.appendChild(link);
       });
@@ -2171,6 +2178,7 @@
       // تيليجرام لانقطع السؤال ولم يُسلَّم التوكن لأحد.
       window.open(data.deeplink, '_blank', 'noopener');
       providerNote(T('web.waiting_telegram'));
+      telegramCheck(data);
       telegramFallback(data);
       pollTelegram(data.code, Date.now() + 10 * 60 * 1000, button);
     }).catch(function (err) {
@@ -2191,6 +2199,23 @@
   // ⚠️ **ولا يُخفى خلف «هل فشل؟»**: من لا يُفتح عنده تيليجرام لا يرى
   // فشلاً يضغط عليه — يرى صفحةً تنتظر. فالمخرجُ ظاهرٌ منذ اللحظة
   // الأولى، وهو نفسُ مسار `handlers/deeplink.py` حرفاً بحرف.
+  // ✅ **رمزُ التحقّق القصير** (١٣ أكتوبر ٢٠٢٦): البوت لم يعد يسلّم الجلسة
+  // عند ‎/start‎ بل يسأل «هل أنت من فتح هذا الرابط؟» ويعرض هذه الأحرف
+  // نفسها — فمن رأى في البوت رمزاً غير الذي هنا يعرف أن السؤال ليس له.
+  function telegramCheck(data) {
+    if (!data || !data.check) return;
+    var note = document.getElementById('provider-note');
+    var line = document.createElement('p');
+    line.className = 'tgfb__hint';
+    line.appendChild(document.createTextNode(T('web.tg_check') + ' '));
+    var code = document.createElement('code');
+    code.className = 'tgfb__cmd';
+    code.setAttribute('dir', 'ltr');
+    code.textContent = data.check;
+    line.appendChild(code);
+    note.appendChild(line);
+  }
+
   function telegramFallback(data) {
     if (!data || !data.command) return;
     var note = document.getElementById('provider-note');
