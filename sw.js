@@ -10,7 +10,7 @@
 // السبب: السيرفر يحمل الجديد، والمستخدم يرى القديم.
 //
 // ✅ فالقاعدة: **كل دفعةٍ تمسّ ملفّاً في ‎SHELL‎ ترفع هذا الرقم.**
-const VERSION = 'v82';
+const VERSION = 'v83';
 const CACHE = 'hisn-shell-' + VERSION;
 
 // ⚠️ مسارات نسبيّة بلا شرطة بادئة — الاستضافة قد تكون على مسارٍ فرعي
@@ -85,8 +85,14 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       try {
         const fresh = await fetch(req);
-        const cache = await caches.open(CACHE);
-        cache.put('index.html', fresh.clone());
+        // ⚠️ ‎fresh.ok‎ هنا كما في الأصول أدناه: التنقّل إلى مسارٍ لا
+        // يوجد يعود بصفحة 404 من الاستضافة، وتخزينُها مكان ‎index.html‎
+        // يجعل التطبيق **بلا اتصال** يفتح على صفحة 404 — إلى أن يتبدّل
+        // ‎VERSION‎. والردُّ نفسه يُعاد للمتصفّح كما هو؛ الكاش وحده يُصان.
+        if (fresh.ok) {
+          const cache = await caches.open(CACHE);
+          cache.put('index.html', fresh.clone());
+        }
         return fresh;
       } catch (err) {
         const cache = await caches.open(CACHE);

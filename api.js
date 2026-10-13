@@ -127,7 +127,19 @@
       if (fresh && readToken()) writeToken(fresh);
       if (res.status === 401) {
         // توكنٌ منتهٍ أو مزوَّر — تُمسح الجلسة ويُعاد المستخدم للدخول.
+        var had = readToken();
         writeToken('');
+        // ⚠️ **واشتراكُ الإشعارات يسقط مع الجلسة** (`onUnauthorized` تضبطه
+        // الواجهة): الخادم رفض التوكن فلا يُطلب منه شيء، لكن المتصفّح يبقى
+        // مشتركاً فيصل تنبيهُ حسابٍ انتهت جلسته إلى هاتفٍ قد يكون لغيره.
+        // ويُنادى حين **كان** ثمّة توكن فقط — لا في كل 401 يتكرّر بلا
+        // توكن (كإلغاء الاشتراك نفسه)، وإلا دار الاثنان في حلقة.
+        if (had) {
+          try {
+            var hook = window.HISN.api && window.HISN.api.onUnauthorized;
+            if (typeof hook === 'function') hook();
+          } catch (e) { /* الخروج لا ينتظر شيئاً */ }
+        }
         var err = new Error('unauthorized');
         err.code = 'unauthorized';
         throw err;
@@ -214,6 +226,9 @@
         .then(function (data) { writeToken(data.token); return data; });
     },
     logout: function () { writeToken(''); },
+    // تضبطه الواجهة (`pushDrop` في `ui.js`): يُنادى مرّةً حين يردّ الوسيط
+    // بـ401 على توكنٍ كان موجوداً — راجع `request`.
+    onUnauthorized: null,
 
     // ============================================================
     // الدخول بحسابٍ قائم — المرحلة ٦ ب
@@ -494,7 +509,9 @@
     // ولذلك تُجلب بايتاتٍ وتُحوَّل إلى `blob:` — ورابطُ `getFile` من
     // تيليجرام لا يظهر هنا ولا في أي موضع (يحمل توكن البوت).
     photoUrl: function (publicId) {
-      return request('/api/photo/' + publicId, { cache: 'default' }).then(function (res) {
+      // ⚠️ `encodeURIComponent` كبقية المسارات: المعرّفُ من ردّ الوسيط لا من
+      // يدنا، ومحرفٌ خاصّ فيه (كـ`#`) يُنهي المسار فيصل الطلبُ إلى غيره.
+      return request('/api/photo/' + encodeURIComponent(publicId), { cache: 'default' }).then(function (res) {
         return res.blob().then(function (blob) {
           return URL.createObjectURL(blob);
         });

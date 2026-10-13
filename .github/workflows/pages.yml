@@ -57,6 +57,50 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # ⚠️ التاريخُ كاملاً لا آخرُ لقطة: حارسُ VERSION أدناه يقارن
+          # بالدفعة السابقة (‎github.event.before‎)، وبلا تاريخٍ لا يجدها
+          # فيتخطّى — ويصير حارساً لا يحرس. والمستودع صغير.
+          fetch-depth: 0
+
+      # ⚠️ **حارسُ VERSION — ما يُسقط النشرَ حين يُنسى أخطرُ سطرٍ في
+      # المستودع** (الشرح في رأس ‎sw.js‎ وفي CLAUDE.md): ملفٌّ من ‎SHELL‎
+      # تغيّر منذ الدفعة السابقة و‎VERSION‎ لم يتغيّر = كلُّ مثبِّتٍ عالقٌ
+      # على القديم إلى الأبد. والقائمة تُقرأ من ‎sw.js‎ نفسه لا تُنسخ هنا.
+      # ✅ وحين لا تاريخَ يُقارَن به (تشغيلٌ يدويّ، فرعٌ جديد، دفعٌ قسريّ)
+      # يتخطّى بإشعارٍ لا بفشل: حارسُ نسيانٍ لا حاجزُ نشر.
+      - name: حارس VERSION في sw.js
+        shell: bash
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT" != "push" || -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]] \
+             || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            echo "::notice::لا دفعةَ سابقةً تُقارَن بها — حارس VERSION يتخطّى."
+            exit 0
+          fi
+          changed=$(git diff --name-only "$BEFORE" "$AFTER")
+          shell=$(sed -n '/^const SHELL = \[/,/^\];/p' sw.js \
+                  | grep -o "'[^']*'" | tr -d "'" | grep -v '^\.$' || true)
+          touched=$(grep -Fx -f <(printf '%s\n' "$shell") <<<"$changed" || true)
+          if [[ -z "$touched" ]]; then
+            echo "لا ملفّ من SHELL تغيّر — لا حاجة لرفع VERSION."
+            exit 0
+          fi
+          old=$(git show "$BEFORE:sw.js" 2>/dev/null | grep -m1 '^const VERSION = ' || true)
+          new=$(grep -m1 '^const VERSION = ' sw.js || true)
+          if [[ -z "$old" || -z "$new" ]]; then
+            echo "::notice::تعذّر قراءة VERSION في أحد الطرفين — الحارس يتخطّى."
+            exit 0
+          fi
+          if [[ "$old" == "$new" ]]; then
+            echo "::error file=sw.js::تغيّر من SHELL: $(echo "$touched" | tr '\n' ' ')— و$new لم يتغيّر. ارفع VERSION ثم ادفع ثانيةً."
+            exit 1
+          fi
+          echo "VERSION رُفع ($old ← $new) — المثبِّتون سيرون الجديد."
 
       - name: تهيئة Pages (وتفعيلها إن لم تكن مفعّلة)
         uses: actions/configure-pages@v5
