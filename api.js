@@ -127,7 +127,19 @@
       if (fresh && readToken()) writeToken(fresh);
       if (res.status === 401) {
         // توكنٌ منتهٍ أو مزوَّر — تُمسح الجلسة ويُعاد المستخدم للدخول.
+        var had = readToken();
         writeToken('');
+        // ⚠️ **واشتراكُ الإشعارات يسقط مع الجلسة** (`onUnauthorized` تضبطه
+        // الواجهة): الخادم رفض التوكن فلا يُطلب منه شيء، لكن المتصفّح يبقى
+        // مشتركاً فيصل تنبيهُ حسابٍ انتهت جلسته إلى هاتفٍ قد يكون لغيره.
+        // ويُنادى حين **كان** ثمّة توكن فقط — لا في كل 401 يتكرّر بلا
+        // توكن (كإلغاء الاشتراك نفسه)، وإلا دار الاثنان في حلقة.
+        if (had) {
+          try {
+            var hook = window.HISN.api && window.HISN.api.onUnauthorized;
+            if (typeof hook === 'function') hook();
+          } catch (e) { /* الخروج لا ينتظر شيئاً */ }
+        }
         var err = new Error('unauthorized');
         err.code = 'unauthorized';
         throw err;
@@ -157,6 +169,45 @@
     });
   }
 
+  // ------------------------------------------------------------
+  // سرُّ الرحلة (على طريقة PKCE) — الشرح عند `oauthUrl`
+  // ------------------------------------------------------------
+  var VERIFIER_KEY = 'hisn_pkce';
+
+  function b64url(bytes) {
+    var s = '';
+    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function verifierStore() {
+    // ⚠️ `sessionStorage` أوّلاً: يموت بإغلاق التبويب ولا يصل تبويباً آخر.
+    // وإن رُفض (وضعٌ خاصّ في بعض المتصفّحات) فـ`localStorage` خيرٌ من دخولٍ
+    // لا يكتمل أبداً.
+    try { if (window.sessionStorage) return window.sessionStorage; } catch (e) { /* لا شيء */ }
+    try { return window.localStorage; } catch (e) { return null; }
+  }
+
+  function newVerifier() {
+    var raw = new Uint8Array(32);
+    window.crypto.getRandomValues(raw);
+    var verifier = b64url(raw);
+    var store = verifierStore();
+    if (store) { try { store.setItem(VERIFIER_KEY, verifier); } catch (e) { /* لا شيء */ } }
+    return window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))
+      .then(function (digest) { return b64url(new Uint8Array(digest)); });
+  }
+
+  function takeVerifier() {
+    var store = verifierStore();
+    if (!store) return null;
+    try {
+      var v = store.getItem(VERIFIER_KEY) || null;
+      store.removeItem(VERIFIER_KEY);
+      return v;
+    } catch (e) { return null; }
+  }
+
   window.HISN.api = {
     token: readToken,
     setToken: writeToken,
@@ -175,6 +226,9 @@
         .then(function (data) { writeToken(data.token); return data; });
     },
     logout: function () { writeToken(''); },
+    // تضبطه الواجهة (`pushDrop` في `ui.js`): يُنادى مرّةً حين يردّ الوسيط
+    // بـ401 على توكنٍ كان موجوداً — راجع `request`.
+    onUnauthorized: null,
 
     // ============================================================
     // الدخول بحسابٍ قائم — المرحلة ٦ ب
@@ -192,11 +246,20 @@
     // ✅ **واللغةُ معه** (٢٥ سبتمبر ٢٠٢٦): صفحةُ البريد يخدمها الوسيط لا
     // هذه الواجهة، فلا تعرف اللغة المختارة هنا إلا إن حُملت إليها — وبدونها
     // تتبع لغةَ المتصفّح لا لغةَ المنتقي. وجوجل وفيسبوك يتجاهلانها.
+    // ✅ **ومعه بصمةُ سرٍّ يملكه هذا التبويب وحده** (١٣ أكتوبر ٢٠٢٦): رابطُ
+    // العودة (`#code=…`) كان يفتح الجلسة في أي متصفّحٍ يُلصق فيه — فيدخل
+    // المهاجم بحسابه، ويرسل رابط عودته للضحية، فتُفتح الصفحة عندها بحسابه
+    // هو وكلُّ ما تكتبه يقع عنده. الوسيط لا يبادل الرمز إلا بالسرّ الذي
+    // يطابق البصمة، والسرّ في `sessionStorage` — لا يغادر هذا التبويب.
+    // ⚠️ **والدالّة تعيد وعداً**: حساب البصمة (`SHA-256`) غير متزامن.
     oauthUrl: function (provider, invite) {
       var q = '?lang=' + encodeURIComponent(window.HISN.LANG || '');
       if (invite) q += '&invite=' + encodeURIComponent(invite);
-      return window.HISN.API + '/api/auth/oauth/'
-             + encodeURIComponent(provider) + '/start' + q;
+      return newVerifier().then(function (challenge) {
+        return window.HISN.API + '/api/auth/oauth/'
+               + encodeURIComponent(provider) + '/start' + q
+               + '&ch=' + encodeURIComponent(challenge);
+      });
     },
 
     telegramStart: function () {
@@ -209,7 +272,9 @@
                      { method: 'POST', body: { code: code } });
     },
     exchange: function (code) {
-      return request('/api/auth/exchange', { method: 'POST', body: { code: code } })
+      var verifier = takeVerifier();
+      return request('/api/auth/exchange',
+                     { method: 'POST', body: { code: code, verifier: verifier } })
         .then(function (data) { writeToken(data.token); return data; });
     },
 
@@ -444,7 +509,9 @@
     // ولذلك تُجلب بايتاتٍ وتُحوَّل إلى `blob:` — ورابطُ `getFile` من
     // تيليجرام لا يظهر هنا ولا في أي موضع (يحمل توكن البوت).
     photoUrl: function (publicId) {
-      return request('/api/photo/' + publicId, { cache: 'default' }).then(function (res) {
+      // ⚠️ `encodeURIComponent` كبقية المسارات: المعرّفُ من ردّ الوسيط لا من
+      // يدنا، ومحرفٌ خاصّ فيه (كـ`#`) يُنهي المسار فيصل الطلبُ إلى غيره.
+      return request('/api/photo/' + encodeURIComponent(publicId), { cache: 'default' }).then(function (res) {
         return res.blob().then(function (blob) {
           return URL.createObjectURL(blob);
         });

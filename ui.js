@@ -1059,8 +1059,18 @@
   // الوسيط من صاحب التوكن.
   var SEARCH_TYPES = ['age', 'location', 'nationality', 'religion',
                       'education', 'marital', 'verified'];
+  // اسمُ الحقل في المخطَّط (`/api/profile/schema`) — للعنوان والخيارات.
   var SEARCH_FIELD = { nationality: 'nationality', religion: 'religion',
                        education: 'education_level', marital: 'marital_status' };
+  // ومفتاحُ الوسيط في `/api/search` — وهو اسمُ `<select>` الذي يُرسَل.
+  // ⚠️ **والاسمان يفترقان في التعليم**: المخطَّط يسمّيه `education_level`
+  // والوسيط يقبل `education` (كما في `ADV_FIELDS` أدناه). وكان مفتاحٌ واحد
+  // يقوم بالدورين، فيُرسَل `education_level` مَعلَماً لا يعرفه الوسيط —
+  // وFastAPI يتجاهل ما لا يعرفه **بصمت**: بحثٌ «بالتعليم» يعود بلا تصفية،
+  // ولا خطأ يدلّ. فلا تدمجهما «تبسيطاً»، وطابِق الجديدَ مع توقيع `search()`
+  // في `api/main.py` بمستودع البوت.
+  var SEARCH_PARAM = { nationality: 'nationality', religion: 'religion',
+                       education: 'education', marital: 'marital_status' };
   var searchSpecs = null;
   var searchLabel = '';
   var searchPremium = false;
@@ -1186,7 +1196,7 @@
       box.appendChild(city);
     } else if (SEARCH_FIELD[type]) {
       var spec = searchSpecs[SEARCH_FIELD[type]] || {};
-      var node = selectNode(searchTypeLabel(type), SEARCH_FIELD[type], spec.options);
+      var node = selectNode(searchTypeLabel(type), SEARCH_PARAM[type], spec.options);
       node.querySelector('select').required = true;
       box.appendChild(node);
     }
@@ -2110,7 +2120,14 @@
         link.addEventListener('click', function (e) {
           e.preventDefault();
           var invite = (document.querySelector('#provider-invite input') || {}).value;
-          window.location.href = api.oauthUrl(name, (invite || '').trim());
+          // ⚠️ وعدٌ لا نصّ: الرابط يحمل بصمة سرّ التبويب (الشرح في `api.js`).
+          link.setAttribute('aria-busy', 'true');
+          api.oauthUrl(name, (invite || '').trim()).then(function (url) {
+            window.location.href = url;
+          }).catch(function () {
+            link.removeAttribute('aria-busy');
+            providerNote(T('web.err_generic'));
+          });
         });
         box.appendChild(link);
       });
@@ -2171,6 +2188,7 @@
       // تيليجرام لانقطع السؤال ولم يُسلَّم التوكن لأحد.
       window.open(data.deeplink, '_blank', 'noopener');
       providerNote(T('web.waiting_telegram'));
+      telegramCheck(data);
       telegramFallback(data);
       pollTelegram(data.code, Date.now() + 10 * 60 * 1000, button);
     }).catch(function (err) {
@@ -2191,6 +2209,23 @@
   // ⚠️ **ولا يُخفى خلف «هل فشل؟»**: من لا يُفتح عنده تيليجرام لا يرى
   // فشلاً يضغط عليه — يرى صفحةً تنتظر. فالمخرجُ ظاهرٌ منذ اللحظة
   // الأولى، وهو نفسُ مسار `handlers/deeplink.py` حرفاً بحرف.
+  // ✅ **رمزُ التحقّق القصير** (١٣ أكتوبر ٢٠٢٦): البوت لم يعد يسلّم الجلسة
+  // عند ‎/start‎ بل يسأل «هل أنت من فتح هذا الرابط؟» ويعرض هذه الأحرف
+  // نفسها — فمن رأى في البوت رمزاً غير الذي هنا يعرف أن السؤال ليس له.
+  function telegramCheck(data) {
+    if (!data || !data.check) return;
+    var note = document.getElementById('provider-note');
+    var line = document.createElement('p');
+    line.className = 'tgfb__hint';
+    line.appendChild(document.createTextNode(T('web.tg_check') + ' '));
+    var code = document.createElement('code');
+    code.className = 'tgfb__cmd';
+    code.setAttribute('dir', 'ltr');
+    code.textContent = data.check;
+    line.appendChild(code);
+    note.appendChild(line);
+  }
+
   function telegramFallback(data) {
     if (!data || !data.command) return;
     var note = document.getElementById('provider-note');
@@ -2300,16 +2335,23 @@
     var hash = (window.location.hash || '').replace(/^#/, '');
     if (!hash) return null;
 
-    var params = {};
-    hash.split('&').forEach(function (pair) {
-      var bits = pair.split('=');
-      params[decodeURIComponent(bits[0])] = decodeURIComponent(bits[1] || '');
-    });
-
+    // ⚠️ **تُمسح قبل أن تُقرأ، لا بعدها**: الشظيّة قد تصل مشوَّهة (رابطٌ
+    // قُصّ في تطبيق مراسلة، أو `%` عارية) فتُلقي `decodeURIComponent`
+    // خطأً — وكان ذلك يقتل `boot()` في أوّل سطرٍ منه فتبقى الشاشة على
+    // «لحظة…» بلا زرِّ إعادة، **وتبقى الشظيّةُ في الرابط** فيتكرّر مع كل
+    // تحديث. فالمسحُ أوّلاً، والمشوَّه يُعامَل كأن لا عودةَ من مزوّد.
     try {
       window.history.replaceState(null, '',
         window.location.pathname + window.location.search);
     } catch (e) { window.location.hash = ''; }
+
+    var params = {};
+    try {
+      hash.split('&').forEach(function (pair) {
+        var bits = pair.split('=');
+        params[decodeURIComponent(bits[0])] = decodeURIComponent(bits[1] || '');
+      });
+    } catch (e) { return null; }
 
     // ⚠️ **يُعاد الرمز خاماً لا مترجَماً**: هذه الدالّة تعمل في أوّل
     // سطرٍ من الإقلاع — قبل أن تصل النصوص — فترجمةٌ هنا تعطي اسم
@@ -3876,12 +3918,10 @@
       out.textContent = '🚪 ' + T('web.logout');
       out.addEventListener('click', function () {
         // ⚠️ **الاشتراكُ يُلغى قبل الخروج**: الهاتفُ المشترك يبقى وإلا
-        // يتلقّى تنبيهاتِ الحساب الذي خرج منه صاحبُه.
-        pushOff();
-        api.logout();
-        deck = [];
-        releasePhotos();
-        boot();
+        // يتلقّى تنبيهاتِ الحساب الذي خرج منه صاحبُه — والترتيبُ في
+        // `signOut`.
+        out.disabled = true;
+        signOut().then(boot);
       });
       view.appendChild(out);
     }).catch(function (err) {
@@ -4969,7 +5009,7 @@
       // بـCSS: فلا تُرسَم بكسلاتٌ واضحة إلا تحت الإصبع.
       var veil = document.createElement('div');
       veil.className = 'clear-hold__veil';
-      api.photoUrl(card.public_id).then(function (url) {
+      api.photoUrl(id).then(function (url) {
         if (!frame || $('mod').hidden) { URL.revokeObjectURL(url); return; }
         blurUrl = url;
         veil.style.backgroundImage = 'url("' + url + '")';
@@ -5161,6 +5201,41 @@
     }).catch(function () { /* لا اشتراك يُلغى — لا شيء يُقال */ });
   }
 
+  // إسقاطُ اشتراك المتصفّح وحده، بلا كلمةٍ للخادم — لحالة 401: التوكن
+  // مرفوضٌ أصلاً فنداءُ الإلغاء يعود 401 ثانيةً (ويستدعي هذه نفسَها —
+  // حلقة). والخادم ينظّف صفَّه حين يفشل دفعُه التالي إلى اشتراكٍ ميت.
+  function pushDrop() {
+    return currentSubscription().then(function (sub) {
+      return sub ? sub.unsubscribe() : null;
+    }).catch(function () { /* لا اشتراك يُسقط — لا شيء يُقال */ });
+  }
+  api.onUnauthorized = pushDrop;
+
+  // وعدٌ لا يُنتظر أكثر من مهلته، ولا يرفض أبداً.
+  function withTimeout(promise, ms) {
+    return new Promise(function (resolve) {
+      var t = setTimeout(resolve, ms);
+      var done = function () { clearTimeout(t); resolve(); };
+      Promise.resolve(promise).then(done, done);
+    });
+  }
+
+  // ⚠️ **الخروجُ من مكانٍ واحد، والاشتراكُ يُلغى قبل مسح التوكن.**
+  // `pushOff` تسأل عامل الخدمة أوّلاً (لازمنيّاً) ثم تنادي الخادم — فلو
+  // مُسح التوكن في السطر الذي يليها وصل نداءُ الإلغاء بلا توكن فرُدّ
+  // بـ401، وبقي صفُّ الجهاز في الخادم يتلقّى تنبيهاتِ حسابٍ خرج صاحبُه.
+  // وكان هذا حالَ زرّ الإعدادات حرفياً (`pushOff(); api.logout();`)، أمّا
+  // زرُّ شاشة الإكمال وحذفُ الحساب فلم يُلغيا الاشتراكَ أصلاً.
+  // ⚠️ **ولا يُحبس الخروجُ خلفها**: مهلةٌ قصيرة ثم يمضي مهما كان — عاملُ
+  // خدمةٍ لم يُسجَّل يُبقي `serviceWorker.ready` معلّقةً إلى الأبد.
+  function signOut() {
+    return withTimeout(pushOff(), 2500).then(function () {
+      api.logout();
+      deck = [];
+      releasePhotos();
+    });
+  }
+
   function pushBlock(slot) {
     slot.textContent = '';
     api.pushKey().then(function (d) {
@@ -5278,7 +5353,12 @@
     });
     yes.addEventListener('click', function () {
       yes.disabled = no.disabled = true;
-      api.deleteAccount().then(function () {
+      // ⚠️ **الاشتراكُ يُلغى قبل الحذف لا بعده**: بعده لا توكن يُقبل،
+      // ويبقى المتصفّح مشتركاً بلا سبيلٍ إلى الخادم. وإن تعذّر الإلغاء
+      // أو تأخّر مضى الحذف — فهو ما طُلب (`withTimeout` لا ترفض أبداً).
+      withTimeout(pushOff(), 2500).then(function () {
+        return api.deleteAccount();
+      }).then(function () {
         // ⚠️ **والخروج محلّيّاً بعدها لا اختياريّ**: التوكن يبقى
         // موقَّعاً حتى ينتهي أجله (لا سبيل إلى إبطال توكنٍ بلا حالة)،
         // فلو بقي في التخزين لأقلعت الصفحة عليه ثم رأت 401 — شاشةُ
@@ -5754,8 +5834,8 @@
       if (editMode) { leaveEdit(false); return; }
       // وفي التفضيلات: «تخطَّ» بعد التسجيل، أو «إغلاق» من الملفّ.
       if (prefsMode) { leavePrefs(false); return; }
-      api.logout();
-      boot();
+      // خروجٌ حقيقيّ — ومن هنا كان يُمسح التوكن ويبقى الاشتراك.
+      signOut().then(boot);
     });
   }
 
