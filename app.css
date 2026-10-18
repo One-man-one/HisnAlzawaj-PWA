@@ -1133,6 +1133,25 @@ body.is-app {
 }
 .fld input:focus, .fld select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .fld__row { display: flex; gap: 10px; }
+.fld__hint { display: block; color: var(--muted); font-size: .75rem; margin-top: 4px; }
+/* «ابحث بـ: الرمز» — البادئة ثابتةٌ داخل الإطار، والحقلُ بجوارها بلا إطارٍ ثانٍ */
+.codefld {
+  display: flex;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.codefld > b { padding-left: 12px; color: var(--muted); font-weight: 600; }
+.fld .codefld input {
+  border: 0;
+  background: transparent;
+  padding-left: 4px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.codefld:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+.fld .codefld input:focus { outline: none; }
 .fld__row .fld { flex: 1; }
 .fld__err { color: var(--warn); font-size: .85rem; margin: 10px 0 0; }
 /* الحقلُ المطلوب الفارغ بعد «حفظ» — أحمرُ يلفت النظر لا لونُ التحذير الخافت. */

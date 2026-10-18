@@ -499,6 +499,15 @@
       query = query.join('&');
       return request('/api/search' + (query ? '?' + query : ''));
     },
+    // ✅ «ابحث بـ: الرمز» — بطاقةٌ بشكل نتائج `search` نفسه، فترسمها الرزمة.
+    // ⚠️ **الرمزُ في الاستعلام لا في المسار**: `#` أو مسافةٌ فيه تكسر المسار.
+    byCode: function (code) {
+      return request('/api/me/by-code?code=' + encodeURIComponent(code || ''));
+    },
+    // ✅ «راسل الدعم» — الوسيط يكتب، والبوتُ يدفعها إلى المشرفين.
+    support: function (text) {
+      return request('/api/me/support', { method: 'POST', body: { text: text } });
+    },
     interact: function (publicId, action) {
       return request('/api/interactions', {
         method: 'POST', body: { public_id: publicId, action: action }
