@@ -193,6 +193,57 @@
   // ⚠️ **وأيُّ عطلٍ هنا يُكمل إلى التطبيق لا يحبس صاحبه**: الملفُّ حُفظ
   // قبل هذه الشاشة، وشاشةٌ عالقة بعد عشرين سؤالاً أسوأ من شاشةٍ غائبة.
   // ومن لم يختر يبقى على افتراض البوت نفسه (النشر، بعد مراجعة المشرف).
+  // ==========================================================
+  // سؤالُ الصورة — بعد الأسئلة وقبل الموافقة، ترتيبُ البوت
+  // ==========================================================
+  // ✅ (بقرار صاحب المشروع، ١٩ أكتوبر ٢٠٢٦) البوتُ يسأل الصورةَ في التسجيل
+  // ويُتخطّى سؤالُها، والموقعُ لم يكن يسألها إلا من «ملفّي» لمن يعرف مكانها.
+  //
+  // ⚠️ **وخطوةٌ لا حقلٌ في النموذج**: الصورةُ تُرفع بعد أن يوجد الملفّ —
+  // الرفعُ (`/api/me/photo`) يكتب على صاحب التوكن، وصاحبٌ ناقصٌ يُردّ. ⚠️
+  // **وأيُّ عطلٍ يُكمل إلى الموافقة** كما فيها: الملفُّ حُفظ قبل هذه الشاشة.
+  function showPhotoStep() {
+    api.me().then(function (mine) {
+      if (!mine || !mine.photo_upload || mine.has_photo) { showConsent(); return; }
+      $('complete').hidden = true;
+      $('photostep-status').textContent = '';
+      $('photostep-add').disabled = false;
+      $('photostep').hidden = false;
+      window.scrollTo(0, 0);
+    }).catch(function () { showConsent(); });
+  }
+
+  function leavePhotoStep() {
+    $('photostep').hidden = true;
+    showConsent();
+  }
+
+  function bindPhotoStep() {
+    var input = $('photostep-file');
+    $('photostep-add').addEventListener('click', function () { input.click(); });
+    $('photostep-skip').addEventListener('click', leavePhotoStep);
+    input.addEventListener('change', function () {
+      var file = input.files && input.files[0];
+      input.value = '';
+      if (!file) return;
+      $('photostep-add').disabled = true;
+      $('photostep-status').textContent = T('web.photo_pending');
+      // ⚠️ `prepareJpeg` نفسُها التي يرفع بها «ملفّي» — تصغيرٌ ونزعُ EXIF
+      // (الموقعُ في بيانات الصورة يُسلَّم مع الصورة إن لم يُنزع).
+      prepareJpeg(file).then(function (blob) {
+        return api.uploadPhoto(blob);
+      }).then(function () {
+        toast(T('web.photo_sent'));
+        leavePhotoStep();
+      }).catch(function (err) {
+        $('photostep-add').disabled = false;
+        $('photostep-status').textContent = '';
+        if (err.code === 'unauthorized') return boot();
+        toast(err.code === 'http' || !err.code ? T('web.photo_bad') : errorText(err));
+      });
+    });
+  }
+
   function showConsent() {
     // ⚠️ **وكلُّ مخرجٍ من هنا يمرّ بالتفضيلات** — لا الزرّ وحده: موافقةٌ
     // غائبة أو عطلٌ كانا يقفزان إلى التطبيق فيفوت صاحبَهما «من تبحث عنه؟».
@@ -255,6 +306,7 @@
         SCHEMA[spec.name] = spec;
         host.appendChild(fieldNode(spec));
       });
+      applyConditions();
     }).catch(function (err) {
       if (err.code === 'unauthorized') return boot();
       host.textContent = '';
@@ -395,6 +447,42 @@
     box.required = on && !!el.required;
     if (on && focus) box.focus();
   }
+
+  // ✅ **الأسئلةُ المشروطة — أسئلةُ التعدد كما في البوت** (١٩ أكتوبر ٢٠٢٦):
+  // «هل تقبلين التعدد؟» لمن لم تختره، وعددُ الزوجات للمتزوّج. والشرطُ من
+  // الوسيط (`show_if` في `services/profile_schema.py`) لا مكتوبٌ هنا.
+  //
+  // ⚠️ **والمخفيُّ معطَّلٌ لا مخفيٌّ وحده**: المتصفّح يرفض الإرسال لحقلٍ
+  // مطلوبٍ فارغ ولو لم يُرسم — فسؤالٌ لا يخصّ صاحبه كان سيمنعه الحفظَ بلا
+  // رسالة. و`collect` يتخطّى المعطَّل، فلا يُرسَل جوابٌ بقي من حالةٍ سابقة.
+  function applyConditions() {
+    Object.keys(SCHEMA).forEach(function (name) {
+      var spec = SCHEMA[name];
+      var cond = spec && spec.show_if;
+      if (!cond) return;
+      var wrap = document.querySelector('#complete-fields [data-field="' + name + '"]');
+      var el = wrap && wrap.querySelector('[name]');
+      if (!el) return;
+      var src = document.querySelector('#complete-fields [name="' + cond.field + '"]');
+      var on = false;
+      if (src && cond.equals !== undefined) on = src.value === cond.equals;
+      if (src && cond.lacks !== undefined) {
+        var picked = src.multiple
+          ? Array.prototype.map.call(src.selectedOptions, function (o) { return o.value; })
+          : [src.value];
+        on = picked.indexOf(cond.lacks) === -1;
+      }
+      wrap.hidden = !on;
+      el.disabled = !on;
+      el.required = on && !!spec.required;
+    });
+  }
+
+  document.addEventListener('change', function (e) {
+    if (e.target && e.target.closest && e.target.closest('#complete-fields')) {
+      applyConditions();
+    }
+  });
 
   // قيمةٌ ليست في القائمة = نصُّ «أخرى» (مهنةٌ أو مدينةٌ كُتبت في البوت).
   function setChoice(el, value) {
@@ -569,6 +657,7 @@
   function collect() {
     var out = {};
     document.querySelectorAll('#complete-fields [name]').forEach(function (el) {
+      if (el.disabled) return;   // سؤالٌ مشروطٌ لا يخصّه — `applyConditions`
       if (el.multiple) {
         var picked = [];
         Array.prototype.forEach.call(el.selectedOptions, function (o) {
@@ -620,6 +709,7 @@
       if (name === 'country') loadCities(el.value, kept.city);
       if (name === 'religion') fillGrouped('religion', kept.sect);
     });
+    applyConditions();
   }
 
   function showApp() {
@@ -672,6 +762,7 @@
         }
       });
       restore(values);
+      applyConditions();
     }).catch(function (err) {
       if (err.code === 'unauthorized') return boot();
       host.textContent = errorText(err);
@@ -5980,7 +6071,7 @@
         button.disabled = false;
         if (prefsMode) leavePrefs(true);
         else if (editMode) leaveEdit(true);
-        else showConsent();
+        else showPhotoStep();
       }).catch(function (err) {
         button.disabled = false;
         // ⚠️ واسمُ الحقل من الخادم يُبرز موضعَ الخطأ: رسالةٌ عامّة فوق
@@ -6008,6 +6099,7 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     bindGate();
+    bindPhotoStep();
     bindComplete();
     bindChat();
     bindNotes();

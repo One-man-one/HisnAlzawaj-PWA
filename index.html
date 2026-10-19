@@ -348,6 +348,23 @@
      ⚠️ **النصّ والزرّان من الوسيط** (`/api/me/publish-consent`) — رسالةُ
      البوت نفسها بلغة صاحب الحساب، لا نسخةٌ هنا تتباعد عنها. وكانت مهمّةُ
      الالتحاق تُدخل مستخدمَ الويب طابورَ النشر بلا أن يسأله أحد. -->
+<!-- ✅ سؤالُ الصورة بعد الأسئلة وقبل الموافقة — الشرح عند `showPhotoStep`. -->
+<main class="shell" id="photostep" hidden>
+  <header class="brand">
+    <img src="brand/logo_mark.png" alt="" width="61" height="90" class="brand__mark">
+    <h1 class="brand__name" data-i18n="web.photo_step_title"></h1>
+  </header>
+  <section class="card">
+    <p class="consent__text" data-i18n="web.photo_step_body"></p>
+    <p class="row__sub" id="photostep-status"></p>
+    <input type="file" accept="image/*" id="photostep-file" hidden>
+    <button class="btn btn--primary" id="photostep-add" type="button"
+            data-i18n="web.photo_add"></button>
+    <button class="btn btn--ghost" id="photostep-skip" type="button"
+            data-i18n="web.photo_step_skip"></button>
+  </section>
+</main>
+
 <main class="shell" id="consent" hidden>
   <header class="brand">
     <img src="brand/logo_mark.png" alt="" width="61" height="90" class="brand__mark">
