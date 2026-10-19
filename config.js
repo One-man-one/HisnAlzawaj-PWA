@@ -30,5 +30,8 @@ window.HISN.LANG = (function () {
     if (saved) return saved;
   } catch (e) { /* لا شيء */ }
   var nav = (navigator.language || 'ar').slice(0, 2).toLowerCase();
-  return ['ar', 'en', 'fr', 'es', 'fa', 'id'].indexOf(nav) >= 0 ? nav : 'ar';
+  // ⚠️ القائمةُ نسخةٌ من `locales/` في مستودع البوت: لغةٌ تُشحن هناك ولا
+  // تُضاف هنا يفتح متصفّحُها الموقعَ بالعربية حتى يختارها صاحبُه بيده —
+  // وهو ما كان سيقع للروسية (١٩ أكتوبر ٢٠٢٦).
+  return ['ar', 'en', 'fr', 'es', 'fa', 'id', 'ru'].indexOf(nav) >= 0 ? nav : 'ar';
 })();
