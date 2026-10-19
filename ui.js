@@ -1057,8 +1057,11 @@
   //
   // ⚠️ **والجنس لا يُسأل عنه**: البحث دائماً عن الجنس الآخر، ويقرّره
   // الوسيط من صاحب التوكن.
+  // ✅ **و`code` آخرُها** — «🔢 بالرمز» في البحث المخصّص بالبوت، والمنطقُ
+  // واحد في الوسيط (`services/code_lookup.py`): شروطُ البحث، والحدُّ، و«لا
+  // ملفّ» واحدةٌ لكل ما لا يُعرض. ولا يمرّ بـ`/api/search` — له مساره.
   var SEARCH_TYPES = ['age', 'location', 'nationality', 'religion',
-                      'education', 'marital', 'verified'];
+                      'education', 'marital', 'verified', 'code'];
   // اسمُ الحقل في المخطَّط (`/api/profile/schema`) — للعنوان والخيارات.
   var SEARCH_FIELD = { nationality: 'nationality', religion: 'religion',
                        education: 'education_level', marital: 'marital_status' };
@@ -1122,6 +1125,7 @@
     if (type === 'location') return T('web.country');
     if (type === 'verified') return T('web.search_verified');
     if (type === 'marital') return T('web.marital');
+    if (type === 'code') return T('web.search_code');
     var spec = searchSpecs && searchSpecs[SEARCH_FIELD[type]];
     return (spec && spec.label) || type;
   }
@@ -1160,6 +1164,38 @@
     return wrap;
   }
 
+  // ⚠️ **البادئةُ مكتوبةٌ للمستخدم لا يكتبها**: الرمزُ يُملى من شاشةٍ أو
+  // منشور، ومن كتب «HS» مرّتين أو نسيها لا يُردّ — والوسيطُ يقبل الشكلين.
+  // واتّجاهُه يسارٌ دائماً: حروفٌ لاتينية في صفحةٍ عربية تنقلب بلا ذلك.
+  function codeNode() {
+    var wrap = document.createElement('label');
+    wrap.className = 'fld';
+    var title = document.createElement('span');
+    title.textContent = T('web.code_field');
+    wrap.appendChild(title);
+    var box = document.createElement('div');
+    box.className = 'codefld';
+    box.dir = 'ltr';
+    var prefix = document.createElement('b');
+    prefix.textContent = 'HS-';
+    box.appendChild(prefix);
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.name = 'code';
+    input.required = true;
+    input.maxLength = 9;
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.setAttribute('autocapitalize', 'characters');
+    box.appendChild(input);
+    wrap.appendChild(box);
+    var hint = document.createElement('small');
+    hint.className = 'fld__hint';
+    hint.textContent = T('web.code_hint');
+    wrap.appendChild(hint);
+    return wrap;
+  }
+
   function renderSearchFields(type, target) {
     var box = target || $('search-fields');
     box.textContent = '';
@@ -1194,6 +1230,8 @@
       });
       box.appendChild(country);
       box.appendChild(city);
+    } else if (type === 'code') {
+      box.appendChild(codeNode());
     } else if (SEARCH_FIELD[type]) {
       var spec = searchSpecs[SEARCH_FIELD[type]] || {};
       var node = selectNode(searchTypeLabel(type), SEARCH_PARAM[type], spec.options);
@@ -1436,10 +1474,31 @@
            + (parts.length ? ': ' + parts.join(' · ') : '');
   }
 
+  function runCode(form) {
+    var code = form.code.value;
+    api.byCode(code).then(function (data) {
+      $('search').hidden = true;
+      deck = (data && data.results) || [];
+      // ⚠️ بلا «🔍» الذي تبدأ به بقيةُ العناوين: «🔢» في نصّ الخيار نفسه.
+      setSearchLabel(T('web.search_code') + ': '
+                     + ((deck[0] && deck[0].public_id) || code));
+      renderDeck();
+    }).catch(function (err) {
+      if (err.code === 'unauthorized') return boot();
+      var detail = err.data && err.data.detail;
+      if (err.status === 404) return toast(T('web.code_not_found'));
+      if (err.status === 429) return toast(T('web.code_limited'));
+      if (detail === 'self') return toast(T('web.code_self'));
+      if (err.status === 400) return toast(T('web.code_invalid'));
+      toast(errorText(err));
+    });
+  }
+
   function runSearch(e) {
     e.preventDefault();
     var form = $('search-form');
     if (searchMode === 'advanced') return runAdvanced();
+    if (form.type.value === 'code') return runCode(form);
     var params = searchParams(form);
     if (form.type.value === 'age'
         && Number(params.age_min) > Number(params.age_max)) {
@@ -1879,6 +1938,47 @@
         });
     });
     body.appendChild(send);
+  }
+
+  // ✅ **«راسل الدعم» في شاشة `#mod`** كقائمة المحظورين — لا شاشةٍ ثالثة.
+  // والرمزُ لا يُسأل عنه: الوسيط يُرفقه، والردُّ يصل إشعاراً هنا.
+  function openSupport() {
+    modTarget = null;
+    $('mod-name').textContent = T('web.support');
+    var body = $('mod-body');
+    body.textContent = '';
+    var intro = document.createElement('p');
+    intro.className = 'empty';
+    intro.textContent = T('web.support_body');
+    body.appendChild(intro);
+
+    var text = document.createElement('textarea');
+    text.className = 'mod-details';
+    text.maxLength = 3500;
+    body.appendChild(payField(T('web.support_field'), text));
+
+    var send = document.createElement('button');
+    send.type = 'button';
+    send.className = 'btn btn--primary';
+    send.textContent = T('web.support_send');
+    send.addEventListener('click', function () {
+      if (!text.value.trim()) { toast(T('web.support_empty')); return; }
+      send.disabled = true;
+      api.support(text.value).then(function () {
+        closeModeration();
+        toast(T('web.support_sent'));
+      }).catch(function (err) {
+        send.disabled = false;
+        if (err.code === 'unauthorized') return boot();
+        if (err.status === 429) return toast(T('web.support_limited'));
+        if (err.status === 400) return toast(T('web.support_empty'));
+        toast(errorText(err));
+      });
+    });
+    body.appendChild(send);
+    modFromSheet = !$('sheet').hidden;
+    $('sheet').hidden = true;
+    $('mod').hidden = false;
   }
 
   function openModeration(publicId, label) {
@@ -3881,6 +3981,8 @@
         a.textContent = T(pair[1]);
         rest.appendChild(a);
       });
+      // ✅ «راسل الدعم» — بابُ البوت نفسه (`services/support_core.py`).
+      settingsButton(rest, T('web.support'), openSupport);
       var install = window.HISN && window.HISN.install;
       if (install && install.available()) {
         settingsButton(rest, T('web.install_app'), function () { install.run(); });
