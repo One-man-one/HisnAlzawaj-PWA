@@ -292,6 +292,7 @@
       (spec.options || []).forEach(function (o) {
         input.appendChild(new Option(o.label, o.key));
       });
+      if (spec.other) input.appendChild(new Option(spec.other_label, OTHER));
       // ⚠️ **والمذهب يتبع الدين كما تتبع المدينةُ الدولة.** وخياراته
       // تصل مجموعةً (تسعةٌ في المجموع) فلا تحتاج رحلةً ثانية.
       if (spec.options_by) {
@@ -353,7 +354,62 @@
     if (spec.kind === 'multi' || CHIP_FIELDS.indexOf(spec.name) !== -1) {
       wrap.appendChild(chipsFor(input));
     }
+    if (spec.other) {
+      wrap.appendChild(otherBox(spec));
+      // ⚠️ على الحاوية لا على القائمة: المدينةُ تُستبدل عنصراً كلما تبدّلت
+      // الدولة (`cityInput`)، فمستمعٌ على القائمة الأولى يموت معها.
+      wrap.addEventListener('change', function (e) {
+        if (e.target && e.target.name === spec.name) syncOther(wrap, true);
+      });
+    }
     return wrap;
+  }
+
+  // ✅ **«أخرى» تفتح نصّاً حرّاً** (١٩ أكتوبر ٢٠٢٦) — زرُّ `job_other`
+  // و`city_other` في البوت نفسه، وبحدّه: عشرون حرفاً (`other_max` من
+  // الوسيط لا رقماً هنا). كان الموقع يعرض القائمة وحدها، فمن كتب مهنته
+  // أو مدينته في البوت بيده يفتح «تعديل بياناتي» على خانةٍ فارغة.
+  //
+  // ⚠️ **والحقلُ النصّيّ بلا `name`**: `collect` يقرأ القائمة باسمها كما
+  // كان، ويأخذ النصَّ منها حين تكون على «أخرى» — فلا يُرسَل الحقل مرّتين،
+  // ولا يتغيّر شيءٌ في `restore` إلا قيمةٌ ليست في القائمة.
+  var OTHER = '__other__';
+
+  function otherBox(spec) {
+    var box = document.createElement('input');
+    box.type = 'text';
+    box.className = 'fld__other';
+    box.maxLength = spec.other_max || 20;
+    box.placeholder = spec.other_label || '';
+    box.setAttribute('data-other-for', spec.name);
+    box.hidden = true;
+    return box;
+  }
+
+  function syncOther(wrap, focus) {
+    var box = wrap && wrap.querySelector('.fld__other');
+    if (!box) return;
+    var el = wrap.querySelector('[name]');
+    var on = !!(el && el.tagName === 'SELECT' && el.value === OTHER);
+    box.hidden = !on;
+    box.required = on && !!el.required;
+    if (on && focus) box.focus();
+  }
+
+  // قيمةٌ ليست في القائمة = نصُّ «أخرى» (مهنةٌ أو مدينةٌ كُتبت في البوت).
+  function setChoice(el, value) {
+    var known = Array.prototype.some.call(el.options, function (o) {
+      return o.value === value;
+    });
+    var wrap = el.closest('.fld');
+    var box = wrap && wrap.querySelector('.fld__other');
+    if (!known && value && box && el.querySelector('option[value="' + OTHER + '"]')) {
+      el.value = OTHER;
+      box.value = value;
+    } else {
+      el.value = value;
+    }
+    syncOther(wrap);
   }
 
   // ✅ **الاختيارُ أزرارٌ تُضغط لا قائمةٌ منسدلة** (بطلب صاحب المشروع، ٢٣
@@ -452,7 +508,7 @@
     if (wantText) {
       el = document.createElement('input');
       el.type = 'text';
-      el.maxLength = 100;
+      el.maxLength = (SCHEMA.city || {}).other_max || 20;
       el.placeholder = T('web.type_country');
       el.addEventListener('change', function () { resolveCountry(el.value); });
     } else {
@@ -461,6 +517,7 @@
     el.name = 'city';
     el.required = old.required;
     old.parentNode.replaceChild(el, old);
+    syncOther(wrap);
     if (title) {
       title.textContent = wantText ? T('web.type_country')
                                    : title.getAttribute('data-city-label');
@@ -502,8 +559,10 @@
       (data.cities || []).forEach(function (c) {
         select.appendChild(new Option(c.label, c.key));
       });
+      var spec = SCHEMA.city || {};
+      if (spec.other) select.appendChild(new Option(spec.other_label, OTHER));
       select.disabled = false;
-      if (preselect) select.value = preselect;
+      if (preselect) setChoice(select, preselect);
     }).catch(function () { /* تبقى معطَّلة، والخادم يرفض الفراغ */ });
   }
 
@@ -516,6 +575,11 @@
           picked.push(o.value);
         });
         if (picked.length) out[el.name] = picked;
+      } else if (el.value === OTHER) {
+        var box = document.querySelector(
+          '#complete-fields [data-other-for="' + el.name + '"]');
+        var typed = box ? box.value.trim() : '';
+        if (typed) out[el.name] = typed;
       } else if (el.value !== '') {
         out[el.name] = el.type === 'number' ? parseInt(el.value, 10) : el.value;
       }
@@ -548,7 +612,8 @@
       // مثلُها — قائمتُه تُبنى من الدين لا من المخطَّط.
       if (name === 'city' || name === 'sect') return;
 
-      el.value = kept[name];
+      if (el.tagName === 'SELECT') setChoice(el, kept[name]);
+      else el.value = kept[name];
       if (CHIP_FIELDS.indexOf(name) !== -1) {
         el.dispatchEvent(new Event('change', { bubbles: true }));
       }
