@@ -180,32 +180,41 @@
     return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
 
-  function verifierStore() {
-    // ⚠️ `sessionStorage` أوّلاً: يموت بإغلاق التبويب ولا يصل تبويباً آخر.
-    // وإن رُفض (وضعٌ خاصّ في بعض المتصفّحات) فـ`localStorage` خيرٌ من دخولٍ
-    // لا يكتمل أبداً.
-    try { if (window.sessionStorage) return window.sessionStorage; } catch (e) { /* لا شيء */ }
-    try { return window.localStorage; } catch (e) { return null; }
+  // ⚠️ **في المخزنين معاً لا في أحدهما** (١٩ أكتوبر ٢٠٢٦): الدخولُ بفيسبوك
+  // على أندرويد قد يقفز إلى تطبيق فيسبوك، فيعيد هو رابطَ العودة إلى المتصفّح
+  // **في تبويبٍ جديد** — و`sessionStorage` لا يعبر التبويبات، فيصل
+  // `/api/auth/exchange` بلا سرّ ويُردّ بأربعمئة: «تعذّر إتمام الطلب» ثلاث
+  // مرّات متتالية في سجلّ الوسيط، وجوجل في الدقيقة نفسها ناجح (لا يغادر
+  // التبويب). ⚠️ **والحمايةُ باقية**: الهجومُ رابطُ عودةٍ يُفتح في متصفّح
+  // الضحية، و`localStorage` هناك لا يحمل سرَّ المهاجم أيضاً — فالمتصفّحُ هو
+  // الحدّ لا التبويب. و`sessionStorage` أوّلاً: يحسم بين رحلتين في تبويبين.
+  function verifierStores() {
+    var out = [];
+    try { if (window.sessionStorage) out.push(window.sessionStorage); } catch (e) { /* لا شيء */ }
+    try { if (window.localStorage) out.push(window.localStorage); } catch (e) { /* لا شيء */ }
+    return out;
   }
 
   function newVerifier() {
     var raw = new Uint8Array(32);
     window.crypto.getRandomValues(raw);
     var verifier = b64url(raw);
-    var store = verifierStore();
-    if (store) { try { store.setItem(VERIFIER_KEY, verifier); } catch (e) { /* لا شيء */ } }
+    verifierStores().forEach(function (store) {
+      try { store.setItem(VERIFIER_KEY, verifier); } catch (e) { /* لا شيء */ }
+    });
     return window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))
       .then(function (digest) { return b64url(new Uint8Array(digest)); });
   }
 
   function takeVerifier() {
-    var store = verifierStore();
-    if (!store) return null;
-    try {
-      var v = store.getItem(VERIFIER_KEY) || null;
-      store.removeItem(VERIFIER_KEY);
-      return v;
-    } catch (e) { return null; }
+    var found = null;
+    verifierStores().forEach(function (store) {
+      try {
+        found = found || store.getItem(VERIFIER_KEY) || null;
+        store.removeItem(VERIFIER_KEY);
+      } catch (e) { /* لا شيء */ }
+    });
+    return found;
   }
 
   window.HISN.api = {
@@ -250,7 +259,7 @@
     // العودة (`#code=…`) كان يفتح الجلسة في أي متصفّحٍ يُلصق فيه — فيدخل
     // المهاجم بحسابه، ويرسل رابط عودته للضحية، فتُفتح الصفحة عندها بحسابه
     // هو وكلُّ ما تكتبه يقع عنده. الوسيط لا يبادل الرمز إلا بالسرّ الذي
-    // يطابق البصمة، والسرّ في `sessionStorage` — لا يغادر هذا التبويب.
+    // يطابق البصمة، والسرّ في هذا المتصفّح وحده (`verifierStores`).
     // ⚠️ **والدالّة تعيد وعداً**: حساب البصمة (`SHA-256`) غير متزامن.
     oauthUrl: function (provider, invite) {
       var q = '?lang=' + encodeURIComponent(window.HISN.LANG || '');
