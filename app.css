@@ -1132,6 +1132,37 @@ body.is-app {
   font-size: 1rem;   /* ⚠️ دون 16px يكبّر سفاري الصفحةَ عند التركيز */
 }
 .fld .fld__other { margin-top: 8px; }
+
+/* عجلةُ تاريخ الميلاد — داخل النموذج (الشرح عند `birthWheel` في ui.js) */
+.bw-labels { display: flex; gap: 6px; padding: 0 6px; margin-bottom: 4px; }
+.bw-labels span { flex: 1; text-align: center; font-size: .72rem; color: var(--muted); }
+.bw-labels .bw-m, .bw .bw-m { flex: 1.5; }
+.bw {
+  position: relative; display: flex; gap: 6px; height: calc(44px * 3 + 12px);
+  padding: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+}
+.bw:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+.bw::before {
+  content: ""; position: absolute; inset-inline: 6px; top: 50px; height: 44px;
+  border-radius: 10px; background: var(--accent-soft); pointer-events: none;
+}
+.bw-col {
+  flex: 1; min-width: 0; overflow-y: scroll; scroll-snap-type: y mandatory;
+  scrollbar-width: none; overscroll-behavior: contain; padding: 44px 0;
+  position: relative; z-index: 1; outline: none;
+  -webkit-mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent);
+          mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent);
+}
+.bw-col::-webkit-scrollbar { display: none; }
+.bw-item {
+  height: 44px; display: flex; align-items: center; justify-content: center;
+  scroll-snap-align: center; color: var(--muted); cursor: pointer; user-select: none;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.bw-item.on { color: var(--text); font-weight: 600; }
+.bw-line { margin: 6px 0 0; font-size: .85rem; color: var(--muted); }
+.bw-line.bw-ok { color: var(--ok); }
+.bw-line.bw-bad { color: var(--danger); }
 .fld .fld__ask { display: block; color: var(--muted); font-size: .75rem; margin: -2px 0 6px; }
 .fld input:focus, .fld select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .fld__row { display: flex; gap: 10px; }
