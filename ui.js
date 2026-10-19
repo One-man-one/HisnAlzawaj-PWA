@@ -155,8 +155,79 @@
     $('app').hidden = true;
     $('complete').hidden = false;
     langPicker($('complete-lang'));
-    renderSchema().then(prefillComplete);
+    renderSchema().then(restoreDraft).then(prefillComplete);
   }
+
+  // ==========================================================
+  // مسوّدةُ «أكمل ملفّك» — ما اختاره يبقى ولو لم يضغط الحفظ
+  // ==========================================================
+  // ✅ (بطلب صاحب المشروع، ١٩ أكتوبر ٢٠٢٦) كان النموذجُ يُحفظ بزرّه وحده،
+  // فمن أغلق الصفحة أو انقطع اتصالُه بعد عشرين سؤالاً يعود إليها فارغة —
+  // والبوتُ يحفظ مسوّدته بعد كل خطوة (`save_draft_progress`).
+  //
+  // ⚠️ **في هذا المتصفّح وحده لا في الخادم**: الإكمالُ عند الوسيط مرّةٌ
+  // واحدة (`complete_profile`) ونصفُ ملفٍّ هناك يُعرض ناقصاً. ⚠️ **ولصاحب
+  // التوكن وحده**: جهازٌ يتبادله اثنان كان سيملأ نموذجَ الثاني بإجابات
+  // الأوّل — فالمسوّدة تحمل ذيلَ توكنه وتُمحى عند الخروج (`signOut`).
+  // ⚠️ **وما كتبه في الشاشة يغلب المسوّدة، والمسوّدةُ تغلب المحفوظ عند
+  // الوسيط** (`prefillComplete` يملأ الفارغ وحده) — فلا يُمحى ما اختاره.
+  var DRAFT_KEY = 'hisn_complete_draft';
+  var DRAFT_DAYS = 30;
+  var draftTimer = null;
+
+  function draftOwner() { return String(api.token() || '').slice(-16); }
+
+  function saveDraft() {
+    if (editMode || prefsMode || $('complete').hidden) return;
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(function () {
+      try {
+        var values = collect();
+        // ⚠️ المدينةُ والمذهب تُملآن بعد طلب قائمتهما — وحفظٌ بينهما كان
+        // يُسقط المدينة من المسوّدة لأن قائمتها لم تصل بعد (معطَّلةٌ فارغة).
+        var old = readDraft() || {};
+        ['city', 'sect'].forEach(function (name) {
+          var el = document.querySelector('#complete-fields [name="' + name + '"]');
+          if (values[name] === undefined && old[name] !== undefined && el && el.disabled) {
+            values[name] = old[name];
+          }
+        });
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+          owner: draftOwner(), at: Date.now(), values: values
+        }));
+      } catch (e) { /* تخزينٌ محجوب — يبقى النموذجُ كما كان */ }
+    }, 300);
+  }
+
+  function readDraft() {
+    try {
+      var d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
+      if (!d || d.owner !== draftOwner() || !d.values) return null;
+      if (Date.now() - (d.at || 0) > DRAFT_DAYS * 86400000) return null;
+      return d.values;
+    } catch (e) { return null; }
+  }
+
+  function clearDraft() {
+    clearTimeout(draftTimer);
+    try { localStorage.removeItem(DRAFT_KEY); } catch (e) { /* لا شيء */ }
+  }
+
+  function restoreDraft() {
+    var values = readDraft();
+    if (editMode || !values) return;
+    // الجنسُ أوّلاً: الحجابُ وأسئلةُ التعدد لا تُرسم إلا بجنسها.
+    if (values.gender && values.gender !== schemaGender) {
+      return renderSchema(values.gender).then(function () { restore(values); });
+    }
+    restore(values);
+  }
+
+  ['change', 'input'].forEach(function (type) {
+    document.addEventListener(type, function (e) {
+      if (e.target && e.target.closest && e.target.closest('#complete-fields')) saveDraft();
+    });
+  });
 
   // ⚠️ **مستخدمُ البوت القديم لا يعيد كتابة ملفّه** (البند ١١ في
   // `docs/PRE_ADS_FIXES.md`): يدخل الموقع فيُطلب منه ما نقص — سؤالٌ أُضيف
@@ -193,6 +264,57 @@
   // ⚠️ **وأيُّ عطلٍ هنا يُكمل إلى التطبيق لا يحبس صاحبه**: الملفُّ حُفظ
   // قبل هذه الشاشة، وشاشةٌ عالقة بعد عشرين سؤالاً أسوأ من شاشةٍ غائبة.
   // ومن لم يختر يبقى على افتراض البوت نفسه (النشر، بعد مراجعة المشرف).
+  // ==========================================================
+  // سؤالُ الصورة — بعد الأسئلة وقبل الموافقة، ترتيبُ البوت
+  // ==========================================================
+  // ✅ (بقرار صاحب المشروع، ١٩ أكتوبر ٢٠٢٦) البوتُ يسأل الصورةَ في التسجيل
+  // ويُتخطّى سؤالُها، والموقعُ لم يكن يسألها إلا من «ملفّي» لمن يعرف مكانها.
+  //
+  // ⚠️ **وخطوةٌ لا حقلٌ في النموذج**: الصورةُ تُرفع بعد أن يوجد الملفّ —
+  // الرفعُ (`/api/me/photo`) يكتب على صاحب التوكن، وصاحبٌ ناقصٌ يُردّ. ⚠️
+  // **وأيُّ عطلٍ يُكمل إلى الموافقة** كما فيها: الملفُّ حُفظ قبل هذه الشاشة.
+  function showPhotoStep() {
+    api.me().then(function (mine) {
+      if (!mine || !mine.photo_upload || mine.has_photo) { showConsent(); return; }
+      $('complete').hidden = true;
+      $('photostep-status').textContent = '';
+      $('photostep-add').disabled = false;
+      $('photostep').hidden = false;
+      window.scrollTo(0, 0);
+    }).catch(function () { showConsent(); });
+  }
+
+  function leavePhotoStep() {
+    $('photostep').hidden = true;
+    showConsent();
+  }
+
+  function bindPhotoStep() {
+    var input = $('photostep-file');
+    $('photostep-add').addEventListener('click', function () { input.click(); });
+    $('photostep-skip').addEventListener('click', leavePhotoStep);
+    input.addEventListener('change', function () {
+      var file = input.files && input.files[0];
+      input.value = '';
+      if (!file) return;
+      $('photostep-add').disabled = true;
+      $('photostep-status').textContent = T('web.photo_pending');
+      // ⚠️ `prepareJpeg` نفسُها التي يرفع بها «ملفّي» — تصغيرٌ ونزعُ EXIF
+      // (الموقعُ في بيانات الصورة يُسلَّم مع الصورة إن لم يُنزع).
+      prepareJpeg(file).then(function (blob) {
+        return api.uploadPhoto(blob);
+      }).then(function () {
+        toast(T('web.photo_sent'));
+        leavePhotoStep();
+      }).catch(function (err) {
+        $('photostep-add').disabled = false;
+        $('photostep-status').textContent = '';
+        if (err.code === 'unauthorized') return boot();
+        toast(err.code === 'http' || !err.code ? T('web.photo_bad') : errorText(err));
+      });
+    });
+  }
+
   function showConsent() {
     // ⚠️ **وكلُّ مخرجٍ من هنا يمرّ بالتفضيلات** — لا الزرّ وحده: موافقةٌ
     // غائبة أو عطلٌ كانا يقفزان إلى التطبيق فيفوت صاحبَهما «من تبحث عنه؟».
@@ -255,6 +377,7 @@
         SCHEMA[spec.name] = spec;
         host.appendChild(fieldNode(spec));
       });
+      applyConditions();
     }).catch(function (err) {
       if (err.code === 'unauthorized') return boot();
       host.textContent = '';
@@ -268,8 +391,186 @@
   // ⚠️ **يُبنى من وصف الحقل لا من `innerHTML`**: عناوين الخيارات نصٌّ
   // يأتي من الوسيط، ولصقُه سلسلةَ HTML يجعل أي وسمٍ فيه كوداً يعمل في
   // الصفحة — وهي الثغرة التي تقرأ التوكن من التخزين المحلّي.
+  // ==========================================================
+  // عجلةُ تاريخ الميلاد — داخل النموذج، بلا نافذة (١٩ أكتوبر ٢٠٢٦)
+  // ==========================================================
+  // ✅ عجلةُ البوت نفسُها (`webapp/birthdate.html` في مستودعه): يومٌ وشهرٌ
+  // وسنة، فيُحسب العمرُ باليوم — ويُقبل من أتمّ الثامنة عشرة اليوم، وكانت
+  // خانةُ السنة تردّه حتى السنة التالية. والخادمُ يعيد الحساب ولا يصدّق.
+  //
+  // ⚠️ **ولا قيمةَ قبل أن يلمسها صاحبها**: العجلةُ تقف على تاريخٍ ما من أوّل
+  // لحظة، ولو كان ذلك جوابَه لأُرسل عمرٌ لم يختره أحد. فالحقلُ فارغٌ (ومطلوب)
+  // حتى يمرّر عموداً أو ينقر يوماً — أو حتى يُملأ من المحفوظ.
+  //
+  // ⚠️ **والحقلُ نصٌّ مخفيٌّ بصرياً لا `type=hidden`**: المخفيُّ لا يدخل فحص
+  // `required` في المتصفّح، فيُرسَل النموذج بلا ميلاد ولا رسالة.
+  function birthWheel(spec, wrap) {
+    var ROW = 44;
+    var minAge = spec.min_age || 18, maxAge = spec.max_age || 80;
+    var today = new Date();
+    var years = [];
+    for (var y = today.getFullYear() - minAge; y >= today.getFullYear() - maxAge; y--) years.push(y);
+    var monthName = function (m) {
+      try {
+        return new Intl.DateTimeFormat(LANG, { month: 'long' }).format(new Date(2000, m - 1, 1));
+      } catch (e) { return String(m); }
+    };
+    var state = { day: 1, month: 1, year: today.getFullYear() - 25 };
+    var touched = false;
+
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'sr-select';
+    input.tabIndex = -1;
+
+    var labels = document.createElement('div');
+    labels.className = 'bw-labels';
+    labels.setAttribute('aria-hidden', 'true');
+    ['web.wheel_day', 'web.wheel_month', 'web.wheel_year'].forEach(function (k, i) {
+      var l = document.createElement('span');
+      if (i === 1) l.className = 'bw-m';
+      l.textContent = T(k);
+      labels.appendChild(l);
+    });
+
+    var box = document.createElement('div');
+    box.className = 'bw';
+    var cols = {};
+    ['day', 'month', 'year'].forEach(function (key) {
+      var col = document.createElement('div');
+      col.className = 'bw-col' + (key === 'month' ? ' bw-m' : '');
+      col.tabIndex = 0;
+      col.setAttribute('role', 'listbox');
+      col.setAttribute('aria-label', T('web.wheel_' + key));
+      cols[key] = col;
+      box.appendChild(col);
+    });
+
+    var line = document.createElement('p');
+    line.className = 'bw-line';
+    line.setAttribute('aria-live', 'polite');
+
+    var daysIn = function (yy, mm) { return new Date(yy, mm, 0).getDate(); };
+
+    function fill(col, values, label) {
+      col.textContent = '';
+      values.forEach(function (v, i) {
+        var el = document.createElement('div');
+        el.className = 'bw-item';
+        el.setAttribute('role', 'option');
+        el.textContent = label ? label(v) : v;
+        el.addEventListener('click', function () { touched = true; go(col, i, true); settle(); });
+        col.appendChild(el);
+      });
+      col._values = values;
+    }
+    function mark(col, i) {
+      Array.prototype.forEach.call(col.children, function (el, k) {
+        el.classList.toggle('on', k === i);
+        el.setAttribute('aria-selected', k === i ? 'true' : 'false');
+      });
+    }
+    function at(col) {
+      return Math.max(0, Math.min(col._values.length - 1, Math.round(col.scrollTop / ROW)));
+    }
+    function go(col, i, smooth) {
+      // ⚠️ تمريرُ الصفحة لا يُحسب لمسةً: الحدثُ `scroll` لا يفرّق بين يدٍ
+      // وكود، فالتمريرُ من الكود يُعلَّم بنافذةٍ قصيرة يتجاهلها `settle`.
+      if (!smooth) col._quietUntil = Date.now() + 400;
+      col.scrollTo({ top: i * ROW, behavior: smooth ? 'smooth' : 'auto' });
+      mark(col, i);
+    }
+    function days() {
+      var max = daysIn(state.year, state.month), out = [];
+      for (var d = 1; d <= max; d++) out.push(d);
+      if (state.day > max) state.day = max;
+      fill(cols.day, out);
+      go(cols.day, state.day - 1, false);
+    }
+    function age() {
+      var a = today.getFullYear() - state.year;
+      var m = today.getMonth() + 1;
+      if (m < state.month || (m === state.month && today.getDate() < state.day)) a -= 1;
+      return a;
+    }
+    function paintLine() {
+      var a = age(), ok = a >= minAge && a <= maxAge;
+      line.className = 'bw-line' + (!touched ? '' : ok ? ' bw-ok' : ' bw-bad');
+      line.textContent = !touched ? T('web.wheel_pick')
+                       : ok ? T('web.wheel_age', { n: a })
+                       : T('web.wheel_too_young', { n: minAge });
+      var iso = state.year + '-' + String(state.month).padStart(2, '0') + '-'
+                + String(state.day).padStart(2, '0');
+      var before = input.value;
+      input.value = touched && ok ? iso : '';
+      if (input.value !== before) {
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+    function settle() {
+      ['day', 'month', 'year'].forEach(function (key) {
+        state[key] = cols[key]._values[at(cols[key])];
+      });
+      if (state.day > daysIn(state.year, state.month) || cols.day._values.length !== daysIn(state.year, state.month)) {
+        days();
+      }
+      paintLine();
+    }
+    ['day', 'month', 'year'].forEach(function (key) {
+      var col = cols[key], timer = null;
+      col.addEventListener('scroll', function () {
+        mark(col, at(col));
+        clearTimeout(timer);
+        timer = setTimeout(function () {
+          if (Date.now() < (col._quietUntil || 0)) return;
+          touched = true;
+          settle();
+        }, 90);
+      }, { passive: true });
+      col.addEventListener('keydown', function (e) {
+        var step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+        if (!step) return;
+        e.preventDefault();
+        touched = true;
+        go(col, Math.max(0, Math.min(col._values.length - 1, at(col) + step)), true);
+      });
+    });
+
+    // يُنادى من `restore` — تاريخٌ كامل (`1998-06-15`) أو سنةٌ وحدها.
+    input._setValue = function (value) {
+      var text = String(value == null ? '' : value);
+      var m = /^(\d{4})(?:-(\d{2})-(\d{2}))?$/.exec(text);
+      if (!m) return;
+      state.year = +m[1];
+      if (m[2]) { state.month = +m[2]; state.day = +m[3]; }
+      touched = !!m[2];   // السنةُ وحدها نصفُ جواب: يبقى عليه اليومُ والشهر
+      if (years.indexOf(state.year) === -1) return;
+      go(cols.month, state.month - 1, false);
+      go(cols.year, years.indexOf(state.year), false);
+      days();
+      paintLine();
+    };
+
+    fill(cols.month, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], monthName);
+    fill(cols.year, years);
+    // ⚠️ بعد أن يُرسم الحقل: `scrollTo` على عنصرٍ لم يدخل الصفحة لا يحرّكه.
+    requestAnimationFrame(function () {
+      go(cols.month, state.month - 1, false);
+      go(cols.year, years.indexOf(state.year), false);
+      days();
+      paintLine();
+    });
+
+    wrap.appendChild(labels);
+    wrap.appendChild(box);
+    wrap.appendChild(line);
+    return input;
+  }
+
   function fieldNode(spec) {
-    var wrap = document.createElement('label');
+    // ⚠️ العجلةُ في `div` لا `label`: النقرُ داخل `label` يُحال إلى أوّل حقلٍ
+    // فيه — فكانت كلُّ نقرةٍ على يومٍ تقفز إلى الحقل المخفيّ.
+    var wrap = document.createElement(spec.kind === 'date' ? 'div' : 'label');
     wrap.className = 'fld';
     wrap.setAttribute('data-field', spec.name);
 
@@ -278,10 +579,27 @@
     // فظهر خمسةَ عشرَ عنواناً بمفتاحه الخام على الشاشة
     // (`lbl.nationality`، `lbl.religion`، `lbl.job`…). والمفاتيح
     // موجودةٌ في اللغات الستّ، لكنها لا تعبر الشبكة.
+    // ✅ **وسؤالُ البوت نفسُه لا عنوانٌ قصير** (`question` من الوسيط، ١٩
+    // أكتوبر ٢٠٢٦): سطرُه الأوّل عنوان، وما بعده توضيحٌ صغير تحته — كما يقرؤه
+    // صاحبه في تيليجرام («ولا نطلب اسم العائلة»). وحقلٌ بلا سؤال (تفضيلاتُ
+    // الشريك، ووسيطٌ أقدم) يبقى على عنوانه.
+    var lines = String(spec.question || spec.label || '').split('\n');
+    var optional = spec.required ? '' : ' (' + T('web.optional') + ')';
     var title = document.createElement('span');
-    title.textContent = spec.label
-                        + (spec.required ? '' : ' (' + T('web.optional') + ')');
+    // ⚠️ ونصُّ النبذة يقول «اختياري» بنفسه — فلا يُكرَّر. والمقارنةُ بلا
+    // تشكيل: «اختياريّ» هنا و«اختياري» هناك كلمةٌ واحدة.
+    var bare = function (x) { return String(x || '').replace(/[\u064B-\u0652]/g, ''); };
+    title.textContent = lines[0]
+      + (spec.question && bare(spec.question).indexOf(bare(T('web.optional'))) !== -1
+         ? '' : optional);
     wrap.appendChild(title);
+    var more = lines.slice(1).join(' ').trim();
+    if (more) {
+      var hint = document.createElement('small');
+      hint.className = 'fld__ask';
+      hint.textContent = more;
+      wrap.appendChild(hint);
+    }
 
     var input;
     if (spec.kind === 'choice') {
@@ -292,6 +610,7 @@
       (spec.options || []).forEach(function (o) {
         input.appendChild(new Option(o.label, o.key));
       });
+      if (spec.other) input.appendChild(new Option(spec.other_label, OTHER));
       // ⚠️ **والمذهب يتبع الدين كما تتبع المدينةُ الدولة.** وخياراته
       // تصل مجموعةً (تسعةٌ في المجموع) فلا تحتاج رحلةً ثانية.
       if (spec.options_by) {
@@ -333,6 +652,8 @@
       input = document.createElement('textarea');
       input.rows = 3;
       if (spec.max) input.maxLength = spec.max;
+    } else if (spec.kind === 'date') {
+      input = birthWheel(spec, wrap);
     } else {
       input = document.createElement('input');
       input.type = (spec.kind === 'year' || spec.kind === 'number')
@@ -353,7 +674,129 @@
     if (spec.kind === 'multi' || CHIP_FIELDS.indexOf(spec.name) !== -1) {
       wrap.appendChild(chipsFor(input));
     }
+    if (spec.other) {
+      wrap.appendChild(otherBox(spec));
+      // ⚠️ على الحاوية لا على القائمة: المدينةُ تُستبدل عنصراً كلما تبدّلت
+      // الدولة (`cityInput`)، فمستمعٌ على القائمة الأولى يموت معها.
+      wrap.addEventListener('change', function (e) {
+        if (e.target && e.target.name === spec.name) syncOther(wrap, true);
+      });
+    }
     return wrap;
+  }
+
+  // ✅ **«أخرى» تفتح نصّاً حرّاً** (١٩ أكتوبر ٢٠٢٦) — زرُّ `job_other`
+  // و`city_other` في البوت نفسه، وبحدّه: عشرون حرفاً (`other_max` من
+  // الوسيط لا رقماً هنا). كان الموقع يعرض القائمة وحدها، فمن كتب مهنته
+  // أو مدينته في البوت بيده يفتح «تعديل بياناتي» على خانةٍ فارغة.
+  //
+  // ⚠️ **والحقلُ النصّيّ بلا `name`**: `collect` يقرأ القائمة باسمها كما
+  // كان، ويأخذ النصَّ منها حين تكون على «أخرى» — فلا يُرسَل الحقل مرّتين،
+  // ولا يتغيّر شيءٌ في `restore` إلا قيمةٌ ليست في القائمة.
+  var OTHER = '__other__';
+
+  function otherBox(spec) {
+    var box = document.createElement('input');
+    box.type = 'text';
+    box.className = 'fld__other';
+    box.maxLength = spec.other_max || 20;
+    box.placeholder = spec.other_prompt || spec.other_label || '';
+    box.setAttribute('data-other-for', spec.name);
+    box.hidden = true;
+    return box;
+  }
+
+  function syncOther(wrap, focus) {
+    var box = wrap && wrap.querySelector('.fld__other');
+    if (!box) return;
+    var el = wrap.querySelector('[name]');
+    var on = !!(el && el.tagName === 'SELECT' && el.value === OTHER);
+    box.hidden = !on;
+    box.required = on && !!el.required;
+    if (on && focus) box.focus();
+  }
+
+  // ✅ **الأسئلةُ المشروطة — أسئلةُ التعدد كما في البوت** (١٩ أكتوبر ٢٠٢٦):
+  // «هل تقبلين التعدد؟» لمن لم تختره، وعددُ الزوجات للمتزوّج. والشرطُ من
+  // الوسيط (`show_if` في `services/profile_schema.py`) لا مكتوبٌ هنا.
+  //
+  // ⚠️ **والمخفيُّ معطَّلٌ لا مخفيٌّ وحده**: المتصفّح يرفض الإرسال لحقلٍ
+  // مطلوبٍ فارغ ولو لم يُرسم — فسؤالٌ لا يخصّ صاحبه كان سيمنعه الحفظَ بلا
+  // رسالة. و`collect` يتخطّى المعطَّل، فلا يُرسَل جوابٌ بقي من حالةٍ سابقة.
+  function condOn(cond) {
+    var src = document.querySelector('#complete-fields [name="' + cond.field + '"]');
+    if (!src) return false;
+    if (cond.equals !== undefined) return src.value === cond.equals;
+    var picked = src.multiple
+      ? Array.prototype.map.call(src.selectedOptions, function (o) { return o.value; })
+      : [src.value];
+    return picked.indexOf(cond.lacks) === -1;
+  }
+
+  // ✅ **خيارٌ مشروطٌ داخل سؤال** (`option_if` و`option_locked`): «زواج تعدد»
+  // للمتزوّج وحده وثابتٌ عليه — `marriage_keys_for` و`marriage_key_locked` في
+  // البوت. كان يُعرض لكل رجل، فيختاره الأعزب ويحذفه الخادم بصمت.
+  function applyOptionRules(spec) {
+    var el = document.querySelector('#complete-fields [name="' + spec.name + '"]');
+    if (!el) return;
+    var wrap = el.closest('.fld');
+    Array.prototype.forEach.call(el.options, function (o) {
+      var showIf = spec.option_if && spec.option_if[o.value];
+      var lockIf = spec.option_locked && spec.option_locked[o.value];
+      if (!showIf && !lockIf) return;
+      var shown = showIf ? condOn(showIf) : true;
+      var locked = shown && lockIf ? condOn(lockIf) : false;
+      if (!shown) o.selected = false;
+      if (locked) o.selected = true;
+      o.disabled = !shown;
+      var chip = wrap && wrap.querySelector('.chip[data-key="' + o.value + '"]');
+      if (chip) {
+        chip.hidden = !shown;
+        chip.disabled = locked;
+        // ⚠️ رسمٌ مباشر لا حدثُ `change`: هذه الدالّة تُنادى من مستمعه،
+        // وإطلاقُه منها دورانٌ لا ينتهي.
+        chip.classList.toggle('on', o.selected);
+        chip.setAttribute('aria-pressed', o.selected ? 'true' : 'false');
+      }
+    });
+  }
+
+  function applyConditions() {
+    Object.keys(SCHEMA).forEach(function (name) {
+      var spec = SCHEMA[name];
+      if (spec && (spec.option_if || spec.option_locked)) applyOptionRules(spec);
+      var cond = spec && spec.show_if;
+      if (!cond) return;
+      var wrap = document.querySelector('#complete-fields [data-field="' + name + '"]');
+      var el = wrap && wrap.querySelector('[name]');
+      if (!el) return;
+      var on = condOn(cond);
+      wrap.hidden = !on;
+      el.disabled = !on;
+      el.required = on && !!spec.required;
+    });
+  }
+
+  document.addEventListener('change', function (e) {
+    if (e.target && e.target.closest && e.target.closest('#complete-fields')) {
+      applyConditions();
+    }
+  });
+
+  // قيمةٌ ليست في القائمة = نصُّ «أخرى» (مهنةٌ أو مدينةٌ كُتبت في البوت).
+  function setChoice(el, value) {
+    var known = Array.prototype.some.call(el.options, function (o) {
+      return o.value === value;
+    });
+    var wrap = el.closest('.fld');
+    var box = wrap && wrap.querySelector('.fld__other');
+    if (!known && value && box && el.querySelector('option[value="' + OTHER + '"]')) {
+      el.value = OTHER;
+      box.value = value;
+    } else {
+      el.value = value;
+    }
+    syncOther(wrap);
   }
 
   // ✅ **الاختيارُ أزرارٌ تُضغط لا قائمةٌ منسدلة** (بطلب صاحب المشروع، ٢٣
@@ -452,7 +895,7 @@
     if (wantText) {
       el = document.createElement('input');
       el.type = 'text';
-      el.maxLength = 100;
+      el.maxLength = (SCHEMA.city || {}).other_max || 20;
       el.placeholder = T('web.type_country');
       el.addEventListener('change', function () { resolveCountry(el.value); });
     } else {
@@ -461,6 +904,7 @@
     el.name = 'city';
     el.required = old.required;
     old.parentNode.replaceChild(el, old);
+    syncOther(wrap);
     if (title) {
       title.textContent = wantText ? T('web.type_country')
                                    : title.getAttribute('data-city-label');
@@ -502,20 +946,28 @@
       (data.cities || []).forEach(function (c) {
         select.appendChild(new Option(c.label, c.key));
       });
+      var spec = SCHEMA.city || {};
+      if (spec.other) select.appendChild(new Option(spec.other_label, OTHER));
       select.disabled = false;
-      if (preselect) select.value = preselect;
+      if (preselect) setChoice(select, preselect);
     }).catch(function () { /* تبقى معطَّلة، والخادم يرفض الفراغ */ });
   }
 
   function collect() {
     var out = {};
     document.querySelectorAll('#complete-fields [name]').forEach(function (el) {
+      if (el.disabled) return;   // سؤالٌ مشروطٌ لا يخصّه — `applyConditions`
       if (el.multiple) {
         var picked = [];
         Array.prototype.forEach.call(el.selectedOptions, function (o) {
           picked.push(o.value);
         });
         if (picked.length) out[el.name] = picked;
+      } else if (el.value === OTHER) {
+        var box = document.querySelector(
+          '#complete-fields [data-other-for="' + el.name + '"]');
+        var typed = box ? box.value.trim() : '';
+        if (typed) out[el.name] = typed;
       } else if (el.value !== '') {
         out[el.name] = el.type === 'number' ? parseInt(el.value, 10) : el.value;
       }
@@ -548,13 +1000,16 @@
       // مثلُها — قائمتُه تُبنى من الدين لا من المخطَّط.
       if (name === 'city' || name === 'sect') return;
 
-      el.value = kept[name];
+      if (el._setValue) el._setValue(kept[name]);
+      else if (el.tagName === 'SELECT') setChoice(el, kept[name]);
+      else el.value = kept[name];
       if (CHIP_FIELDS.indexOf(name) !== -1) {
         el.dispatchEvent(new Event('change', { bubbles: true }));
       }
       if (name === 'country') loadCities(el.value, kept.city);
       if (name === 'religion') fillGrouped('religion', kept.sect);
     });
+    applyConditions();
   }
 
   function showApp() {
@@ -607,6 +1062,7 @@
         }
       });
       restore(values);
+      applyConditions();
     }).catch(function (err) {
       if (err.code === 'unauthorized') return boot();
       host.textContent = errorText(err);
@@ -5331,6 +5787,7 @@
   // ⚠️ **ولا يُحبس الخروجُ خلفها**: مهلةٌ قصيرة ثم يمضي مهما كان — عاملُ
   // خدمةٍ لم يُسجَّل يُبقي `serviceWorker.ready` معلّقةً إلى الأبد.
   function signOut() {
+    clearDraft();
     return withTimeout(pushOff(), 2500).then(function () {
       api.logout();
       deck = [];
@@ -5915,7 +6372,7 @@
         button.disabled = false;
         if (prefsMode) leavePrefs(true);
         else if (editMode) leaveEdit(true);
-        else showConsent();
+        else { clearDraft(); showPhotoStep(); }
       }).catch(function (err) {
         button.disabled = false;
         // ⚠️ واسمُ الحقل من الخادم يُبرز موضعَ الخطأ: رسالةٌ عامّة فوق
@@ -5943,6 +6400,7 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     bindGate();
+    bindPhotoStep();
     bindComplete();
     bindChat();
     bindNotes();
