@@ -330,10 +330,27 @@
     // فظهر خمسةَ عشرَ عنواناً بمفتاحه الخام على الشاشة
     // (`lbl.nationality`، `lbl.religion`، `lbl.job`…). والمفاتيح
     // موجودةٌ في اللغات الستّ، لكنها لا تعبر الشبكة.
+    // ✅ **وسؤالُ البوت نفسُه لا عنوانٌ قصير** (`question` من الوسيط، ١٩
+    // أكتوبر ٢٠٢٦): سطرُه الأوّل عنوان، وما بعده توضيحٌ صغير تحته — كما يقرؤه
+    // صاحبه في تيليجرام («ولا نطلب اسم العائلة»). وحقلٌ بلا سؤال (تفضيلاتُ
+    // الشريك، ووسيطٌ أقدم) يبقى على عنوانه.
+    var lines = String(spec.question || spec.label || '').split('\n');
+    var optional = spec.required ? '' : ' (' + T('web.optional') + ')';
     var title = document.createElement('span');
-    title.textContent = spec.label
-                        + (spec.required ? '' : ' (' + T('web.optional') + ')');
+    // ⚠️ ونصُّ النبذة يقول «اختياري» بنفسه — فلا يُكرَّر. والمقارنةُ بلا
+    // تشكيل: «اختياريّ» هنا و«اختياري» هناك كلمةٌ واحدة.
+    var bare = function (x) { return String(x || '').replace(/[\u064B-\u0652]/g, ''); };
+    title.textContent = lines[0]
+      + (spec.question && bare(spec.question).indexOf(bare(T('web.optional'))) !== -1
+         ? '' : optional);
     wrap.appendChild(title);
+    var more = lines.slice(1).join(' ').trim();
+    if (more) {
+      var hint = document.createElement('small');
+      hint.className = 'fld__ask';
+      hint.textContent = more;
+      wrap.appendChild(hint);
+    }
 
     var input;
     if (spec.kind === 'choice') {
@@ -432,7 +449,7 @@
     box.type = 'text';
     box.className = 'fld__other';
     box.maxLength = spec.other_max || 20;
-    box.placeholder = spec.other_label || '';
+    box.placeholder = spec.other_prompt || spec.other_label || '';
     box.setAttribute('data-other-for', spec.name);
     box.hidden = true;
     return box;
@@ -455,23 +472,54 @@
   // ⚠️ **والمخفيُّ معطَّلٌ لا مخفيٌّ وحده**: المتصفّح يرفض الإرسال لحقلٍ
   // مطلوبٍ فارغ ولو لم يُرسم — فسؤالٌ لا يخصّ صاحبه كان سيمنعه الحفظَ بلا
   // رسالة. و`collect` يتخطّى المعطَّل، فلا يُرسَل جوابٌ بقي من حالةٍ سابقة.
+  function condOn(cond) {
+    var src = document.querySelector('#complete-fields [name="' + cond.field + '"]');
+    if (!src) return false;
+    if (cond.equals !== undefined) return src.value === cond.equals;
+    var picked = src.multiple
+      ? Array.prototype.map.call(src.selectedOptions, function (o) { return o.value; })
+      : [src.value];
+    return picked.indexOf(cond.lacks) === -1;
+  }
+
+  // ✅ **خيارٌ مشروطٌ داخل سؤال** (`option_if` و`option_locked`): «زواج تعدد»
+  // للمتزوّج وحده وثابتٌ عليه — `marriage_keys_for` و`marriage_key_locked` في
+  // البوت. كان يُعرض لكل رجل، فيختاره الأعزب ويحذفه الخادم بصمت.
+  function applyOptionRules(spec) {
+    var el = document.querySelector('#complete-fields [name="' + spec.name + '"]');
+    if (!el) return;
+    var wrap = el.closest('.fld');
+    Array.prototype.forEach.call(el.options, function (o) {
+      var showIf = spec.option_if && spec.option_if[o.value];
+      var lockIf = spec.option_locked && spec.option_locked[o.value];
+      if (!showIf && !lockIf) return;
+      var shown = showIf ? condOn(showIf) : true;
+      var locked = shown && lockIf ? condOn(lockIf) : false;
+      if (!shown) o.selected = false;
+      if (locked) o.selected = true;
+      o.disabled = !shown;
+      var chip = wrap && wrap.querySelector('.chip[data-key="' + o.value + '"]');
+      if (chip) {
+        chip.hidden = !shown;
+        chip.disabled = locked;
+        // ⚠️ رسمٌ مباشر لا حدثُ `change`: هذه الدالّة تُنادى من مستمعه،
+        // وإطلاقُه منها دورانٌ لا ينتهي.
+        chip.classList.toggle('on', o.selected);
+        chip.setAttribute('aria-pressed', o.selected ? 'true' : 'false');
+      }
+    });
+  }
+
   function applyConditions() {
     Object.keys(SCHEMA).forEach(function (name) {
       var spec = SCHEMA[name];
+      if (spec && (spec.option_if || spec.option_locked)) applyOptionRules(spec);
       var cond = spec && spec.show_if;
       if (!cond) return;
       var wrap = document.querySelector('#complete-fields [data-field="' + name + '"]');
       var el = wrap && wrap.querySelector('[name]');
       if (!el) return;
-      var src = document.querySelector('#complete-fields [name="' + cond.field + '"]');
-      var on = false;
-      if (src && cond.equals !== undefined) on = src.value === cond.equals;
-      if (src && cond.lacks !== undefined) {
-        var picked = src.multiple
-          ? Array.prototype.map.call(src.selectedOptions, function (o) { return o.value; })
-          : [src.value];
-        on = picked.indexOf(cond.lacks) === -1;
-      }
+      var on = condOn(cond);
       wrap.hidden = !on;
       el.disabled = !on;
       el.required = on && !!spec.required;

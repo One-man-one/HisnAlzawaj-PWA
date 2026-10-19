@@ -1132,6 +1132,7 @@ body.is-app {
   font-size: 1rem;   /* ⚠️ دون 16px يكبّر سفاري الصفحةَ عند التركيز */
 }
 .fld .fld__other { margin-top: 8px; }
+.fld .fld__ask { display: block; color: var(--muted); font-size: .75rem; margin: -2px 0 6px; }
 .fld input:focus, .fld select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .fld__row { display: flex; gap: 10px; }
 .fld__hint { display: block; color: var(--muted); font-size: .75rem; margin-top: 4px; }
