@@ -299,6 +299,10 @@ body {
 /* ⚠️ الرزمةُ مطلقةُ الموضع (`inset: 12px`) فتغطّي الشريط — تُزاح تحته
    ما دام ظاهراً، وإلا لم يُعرف أنها نتائج بحث لا مقترحات. */
 .view--deck.is-search .stack { top: 64px; }
+/* 💌 والرزمةُ تنزل تحت شريط الترشيح كما تنزل تحت شريط البحث — وإلا
+   غطّتها البطاقةُ (`position: absolute`) فلا يُرى ولا يُضغط. */
+.view--deck.has-rec .stack { top: 98px; }
+.view--deck.has-rec.is-search .stack { top: 150px; }
 
 /* الحظر والإبلاغ */
 .chat__more { margin-inline-start: auto; font-size: 1.3rem; }
@@ -1543,3 +1547,61 @@ div.stile { cursor: default; }
 }
 .sheet__link--mod { background: rgba(224, 133, 133, .16); color: var(--danger); }
 .sheet__link:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+/* ============================================================
+   💌 ترشيحُ «الخاطبة» — الشريطُ أعلى التصفّح، والبطاقةُ في نافذة `mod`
+   ============================================================
+   ⚠️ رموزُ `:root` وحدها — لونٌ مكتوبٌ هنا مباشرةً يخالف الصفحة. */
+.recbar {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0 0 10px; padding: 10px 12px;
+  border: 1px solid var(--brand); border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+.recbar--wait { border-color: var(--border); background: var(--surface); }
+.recbar__icon { font-size: 1.5rem; }
+.recbar__txt { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.recbar__txt small { color: var(--muted); font-size: .85rem; }
+.recbar__go {
+  font: inherit; font-weight: 700; font-size: .9rem; border: 0; cursor: pointer;
+  background: var(--brand); color: var(--brand-ink); border-radius: 12px; padding: 8px 14px;
+}
+
+.rec { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 20px; }
+.rec__intro, .rec__note {
+  margin: 0; padding: 6px 12px; border-inline-start: 3px solid var(--accent);
+  white-space: pre-line; line-height: 1.7;
+}
+.rec__note { font-style: italic; }
+.rec__score {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--sunk); border-radius: var(--radius); padding: 10px 12px;
+}
+.rec__ring {
+  --p: 0;
+  flex: none; width: 56px; height: 56px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: .9rem;
+  background:
+    radial-gradient(closest-side, var(--sunk) 78%, transparent 80%),
+    conic-gradient(var(--brand) calc(var(--p) * 1%), var(--border) 0);
+}
+.rec__scoreline { margin: 0; font-weight: 700; }
+.rec__reasons { margin: 4px 0 0; color: var(--accent); font-size: .9rem; line-height: 1.6; }
+.rec__card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px;
+}
+.rec__fine { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.6; }
+.rec__pair { display: flex; gap: 8px; }
+.rec__pair .btn { flex: 1; }
+.rec__stop { align-self: center; color: var(--muted); font-size: .85rem; }
+.rec__done { margin: 24px 0 8px; text-align: center; white-space: pre-line; line-height: 1.8; }
+.rec__done--yay { font-size: 1.05rem; }
+.rec__lock {
+  display: flex; flex-direction: column; gap: 10px; text-align: center;
+  background: var(--gold-soft); border: 1px solid var(--gold);
+  border-radius: var(--radius); padding: 16px;
+}
+.rec__teaser { margin: 0; white-space: pre-line; line-height: 1.8; }
+.rec__gold { background: var(--gold); color: var(--gold-ink); }

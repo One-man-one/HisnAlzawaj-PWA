@@ -514,6 +514,11 @@
       return request('/api/me/by-code?code=' + encodeURIComponent(code || ''));
     },
     // ✅ «راسل الدعم» — الوسيط يكتب، والبوتُ يدفعها إلى المشرفين.
+    // 💌 ترشيحُ «الخاطبة» — `services/recommendations.py` في مستودع البوت.
+    recommendation: function () { return request('/api/me/recommendation'); },
+    recommendationAnswer: function (id, yes) {
+      return request('/api/me/recommendation', { method: 'POST', body: { id: id, yes: !!yes } });
+    },
     support: function (text) {
       return request('/api/me/support', { method: 'POST', body: { text: text } });
     },
