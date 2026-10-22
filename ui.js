@@ -1020,6 +1020,7 @@
     $('app').hidden = false;
     openTab('browse');
     startBell();
+    loadRecommendation();
   }
 
   // ==========================================================
@@ -1291,7 +1292,8 @@
       // ✅ **وشارةُ «المحادثات» تُسأل حين يتغيّر الجرس لا في كل دورة**:
       // رسالةٌ جديدة تصل جرساً، فتغيّرُ عدّه هو إشارةُ السؤال. وسؤالُ
       // الصندوق كلَّ دقيقة لكل صفحةٍ مفتوحة ثمنٌ بلا مقابل.
-      if (n !== lastBellCount) refreshChatsBadge();
+      // 💌 والترشيحُ مثلها: يصل جرساً، فتغيّرُ العدّ إشارةُ السؤال.
+      if (n !== lastBellCount) { refreshChatsBadge(); loadRecommendation(); }
       lastBellCount = n;
     }).catch(function () { /* الجرس زينةٌ لا شرط — يعيد في الدورة التالية */ });
   }
@@ -1465,6 +1467,14 @@
         $('notes').hidden = true;
         openSheet(card);
       }).catch(function (err) { toast(errorText(err)); });
+      return;
+    }
+    if (go === 'recommendation') {
+      // 💌 بحاله الآن لا عند كتابة الإشعار: ترشيحٌ انتهى لا يُفتح.
+      $('notes').hidden = true;
+      loadRecommendation().then(function (r) {
+        if (r) openRecommendation(); else toast(T('web.rec_waiting_sub'));
+      });
       return;
     }
     if (go === 'photo_requests') {
@@ -2437,6 +2447,157 @@
     $('mod').hidden = false;
   }
 
+  // ==========================================================
+  // 💌 ترشيحُ «الخاطبة»
+  // ==========================================================
+  // ✅ **القاعدة كلُّها في الوسيط** (`services/recommendations.py`): الدورُ
+  // (رجلٌ ينتظر ردَّه، امرأةٌ تنتظر ردَّها، أو بانتظار الطرف الآخر) والنصوصُ
+  // بلغة القارئ — مفاتيح `rec.*` التي يقرؤها البوت نفسها. والصفحةُ ترسم.
+  // ⚠️ **ولا صورة في البطاقة**: لا صورة قبل موافقة الطرفين، والبطاقةُ نصٌّ
+  // يُرسم بـ`cardBody` كبطاقات التصفّح.
+  var recState = null;
+
+  function loadRecommendation() {
+    return api.recommendation().then(function (d) {
+      recState = (d && d.recommendation) || null;
+      renderRecBar();
+      return recState;
+    }).catch(function () { /* الشريطُ زينةٌ لا شرط — يُعاد مع الجرس */ });
+  }
+
+  function renderRecBar() {
+    var bar = $('rec-bar');
+    $('view-browse').classList.toggle('has-rec', !!recState);
+    if (!recState) { bar.hidden = true; return; }
+    var waiting = recState.role === 'waiting';
+    $('rec-bar-title').textContent = T(waiting ? 'web.rec_waiting' : 'web.rec_bar_title');
+    $('rec-bar-sub').textContent = waiting ? T('web.rec_waiting_sub')
+                                           : (recState.texts && recState.texts.bar) || '';
+    bar.classList.toggle('recbar--wait', waiting);
+    $('rec-bar-go').hidden = waiting;
+    bar.hidden = false;
+  }
+
+  function recLine(box, text, cls) {
+    if (!text) return null;
+    var p = document.createElement('p');
+    p.className = cls;
+    p.textContent = text;
+    box.appendChild(p);
+    return p;
+  }
+
+  function openRecommendation() {
+    var r = recState;
+    if (!r) return;
+    var tx = r.texts || {};
+    modTarget = null;
+    $('mod-name').textContent = tx.title || '';
+    var body = $('mod-body');
+    body.textContent = '';
+    var box = document.createElement('div');
+    box.className = 'rec';
+    body.appendChild(box);
+
+    if (r.role === 'waiting') {
+      recLine(box, tx.waiting, 'rec__done');
+    } else if (r.locked) {
+      // 💎 للمميّزين: النسبةُ وحدها، وزرُّ الترقية بلون الميزات المدفوعة.
+      var lock = document.createElement('div');
+      lock.className = 'rec__lock';
+      recLine(lock, tx.teaser, 'rec__teaser');
+      var up = document.createElement('button');
+      up.type = 'button';
+      up.className = 'btn rec__gold';
+      up.textContent = tx.unlock || '';
+      up.addEventListener('click', function () { closeModeration(); openPay(); });
+      lock.appendChild(up);
+      box.appendChild(lock);
+    } else {
+      recLine(box, tx.note, 'rec__note');
+      recLine(box, tx.intro, 'rec__intro');
+      var score = document.createElement('div');
+      score.className = 'rec__score';
+      var ring = document.createElement('span');
+      ring.className = 'rec__ring';
+      ring.style.setProperty('--p', String(Math.max(0, Math.min(100, r.score || 0))));
+      ring.textContent = (r.score || 0) + '%';
+      score.appendChild(ring);
+      var why = document.createElement('div');
+      recLine(why, tx.score, 'rec__scoreline');
+      recLine(why, tx.reasons, 'rec__reasons');
+      score.appendChild(why);
+      box.appendChild(score);
+      if (r.card) {
+        var card = document.createElement('div');
+        card.className = 'rec__card';
+        cardBody(card, r.card.card, { code: r.card.public_id, sections: true });
+        box.appendChild(card);
+      }
+      recLine(box, tx.no_photos, 'rec__fine');
+      recLine(box, tx.disclaimer, 'rec__fine');
+
+      var pair = document.createElement('div');
+      pair.className = 'rec__pair';
+      [[true, tx.yes, 'btn btn--primary'], [false, tx.no, 'btn btn--ghost']].forEach(function (b) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = b[2];
+        btn.textContent = b[1] || '';
+        btn.addEventListener('click', function () { answerRecommendation(r, b[0], pair); });
+        pair.appendChild(btn);
+      });
+      box.appendChild(pair);
+    }
+
+    if (r.role !== 'waiting') {
+      var stop = document.createElement('button');
+      stop.type = 'button';
+      stop.className = 'linkbtn rec__stop';
+      stop.textContent = tx.stop || '';
+      stop.addEventListener('click', function () {
+        // ⚠️ **الإيقافُ لا يُغلق الترشيح المفتوح**: إغلاقُه يُخبر الطرفَ الآخر
+        // ضمناً — يُغلق بالمهلة كأيّ ترشيح، ولا يصل بعده جديد.
+        api.saveSettings({ recommendations: false }).then(function () {
+          toast(T('web.saved'));
+        }).catch(function (err) { toast(errorText(err)); });
+      });
+      box.appendChild(stop);
+    }
+    modFromSheet = false;
+    $('mod').hidden = false;
+  }
+
+  function answerRecommendation(r, yes, pair) {
+    pair.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+    api.recommendationAnswer(r.id, yes).then(function (out) {
+      var box = $('mod-body');
+      box.textContent = '';
+      var done = document.createElement('div');
+      done.className = 'rec';
+      box.appendChild(done);
+      recLine(done, out.text, out.result === 'accepted' ? 'rec__done rec__done--yay' : 'rec__done');
+      if (out.result === 'accepted' && out.public_id) {
+        // ✅ **«ابدأ المحادثة» وحده** — الملفُّ في «توافقاتي» أصلاً.
+        var chat = document.createElement('button');
+        chat.type = 'button';
+        chat.className = 'btn btn--primary';
+        chat.textContent = T('web.rec_chat');
+        chat.addEventListener('click', function () {
+          closeModeration();
+          openChat(refId(out.public_id), r.who || '');
+        });
+        done.appendChild(chat);
+      }
+      if (out.result === 'locked') { closeModeration(); openPay(); }
+      loadRecommendation();
+    }).catch(function (err) {
+      pair.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+      if (err.code === 'unauthorized') return boot();
+      toast(errorText(err));
+    });
+  }
+
   function openModeration(publicId, label) {
     if (!publicId) return;
     modTarget = publicId;
@@ -2552,6 +2713,7 @@
 
   function bindNotes() {
     $('bell').addEventListener('click', openNotes);
+    $('rec-bar-go').addEventListener('click', openRecommendation);
     $('notes-back').addEventListener('click', function () {
       $('notes').hidden = true;
       refreshBell();
@@ -4410,6 +4572,10 @@
       settingsToggle(toggles, T('web.reminders'), st.reminders, 'reminders');
       if (st.publish && st.publish.available) {
         settingsToggle(toggles, T('web.publish_profile'), st.publish.on, 'publish');
+      }
+      // 💌 الجدولُ نفسه الذي يبدّله زرُّ «تفضيلاتي» في البوت.
+      if ('recommendations' in st) {
+        settingsToggle(toggles, T('web.rec_toggle'), st.recommendations, 'recommendations');
       }
 
       // ☰ ما بقي: اللغة، الاشتراك، التوثيق، المساعدة، التثبيت، البوت

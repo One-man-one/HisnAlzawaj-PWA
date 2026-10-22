@@ -195,6 +195,14 @@
 
   <!-- التصفّح: رزمةُ بطاقاتٍ واحدةٌ فوق أخرى -->
   <section class="view view--deck" id="view-browse">
+    <!-- 💌 ترشيحُ «الخاطبة» — شريطٌ حتى يُردّ عليه (`/api/me/recommendation`).
+         ⚠️ **نصّه من الوسيط**: العنوانُ مفتاحٌ، والنسبةُ في `texts.bar`. -->
+    <div class="recbar" id="rec-bar" hidden>
+      <span class="recbar__icon" aria-hidden="true">💌</span>
+      <span class="recbar__txt"><b id="rec-bar-title"></b><small id="rec-bar-sub"></small></span>
+      <button class="recbar__go" id="rec-bar-go" type="button"
+              data-i18n="web.rec_bar_go"></button>
+    </div>
     <!-- شريطُ «أنت ترى نتائج بحث» — بدونه تبدو الرزمةُ مقترحاتٍ عادية. -->
     <div class="searchon" id="search-on" hidden>
       <span id="search-label"></span>

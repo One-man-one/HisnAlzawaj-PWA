@@ -23,6 +23,7 @@
     // ✅ **كلُّ أبواب الدخول تمرّ من هنا** (جوجل وفيسبوك والبريد وتيليجرام
     // وتجديدُ الجلسة) — فإسنادُ الحملة يُعلَّق هنا مرّةً لا في كل باب.
     if (value) setTimeout(flushAd, 0);
+    if (value) setTimeout(flushRef, 0);
   }
 
   // ==========================================================
@@ -514,6 +515,11 @@
       return request('/api/me/by-code?code=' + encodeURIComponent(code || ''));
     },
     // ✅ «راسل الدعم» — الوسيط يكتب، والبوتُ يدفعها إلى المشرفين.
+    // 💌 ترشيحُ «الخاطبة» — `services/recommendations.py` في مستودع البوت.
+    recommendation: function () { return request('/api/me/recommendation'); },
+    recommendationAnswer: function (id, yes) {
+      return request('/api/me/recommendation', { method: 'POST', body: { id: id, yes: !!yes } });
+    },
     support: function (text) {
       return request('/api/me/support', { method: 'POST', body: { text: text } });
     },
@@ -537,9 +543,61 @@
     }
   };
 
+  // ==========================================================
+  // الدعوة — «من دعاك؟» (٢٢ أكتوبر ٢٠٢٦)
+  // ==========================================================
+  //
+  // ✅ **نسخةُ إسناد الحملة للدعوة، بقاعدتها نفسها**: رابطُ الدعوة صار صفحةَ
+  // المنصّة، وسكربتُها يمرّر `?ref=` إلى زرّ الموقع؛ فيُحفظ هنا قبل الدخول
+  // ويُرسَل بعده إلى `/api/me/ref-source`، والوسيطُ يحتسبه بخدمة البوت
+  // نفسها (`referral_service.record_web_ref`).
+  // ⚠️ **وصامتٌ بقرار صاحب المشروع**: لا شريطَ ولا رسالة «وصلتَ بدعوة».
+  // ⚠️ **وأوّلُ رمزٍ يبقى** — في الوسيط أوّلُ داعٍ يملك، والنسختان تتّفقان.
+  var REF_KEY = 'hisn_ref';
+  var REF_RE = /^[A-Z0-9]{4,16}$/;              // نمطُ `REF_CODE_PATTERN` في صفحة المنصّة
+  var refSending = false;
+
+  function captureRef() {
+    try {
+      var code = (new URLSearchParams(window.location.search).get('ref') || '')
+        .trim().toUpperCase();
+      if (!REF_RE.test(code) || window.localStorage.getItem(REF_KEY)) return;
+      window.localStorage.setItem(REF_KEY,
+        JSON.stringify({ code: code, at: Date.now() }));
+    } catch (e) { /* تصفّحٌ خاصّ — تضيع الدعوة وحدها، ولا يتعطّل شيء */ }
+  }
+
+  function pendingRef() {
+    try {
+      var saved = JSON.parse(window.localStorage.getItem(REF_KEY) || 'null');
+      if (!saved || !saved.code) return '';
+      if (Date.now() - (saved.at || 0) > AD_MAX_AGE_MS) {
+        window.localStorage.removeItem(REF_KEY);
+        return '';
+      }
+      return saved.code;
+    } catch (e) { return ''; }
+  }
+
+  function flushRef() {
+    // ⚠️ القفلُ لسبب `adSending` نفسه: ردٌّ بتوكنٍ مجدَّد يعود إلى هنا.
+    if (refSending || !readToken()) return;
+    var code = pendingRef();
+    if (!code) return;
+    refSending = true;
+    request('/api/me/ref-source', { method: 'POST', body: { code: code } })
+      .then(function () {
+        try { window.localStorage.removeItem(REF_KEY); } catch (e) { /* لا شيء */ }
+      })
+      .catch(function () { /* شبكةٌ أو جلسةٌ منتهية — يبقى للدخول القادم */ })
+      .then(function () { refSending = false; });
+  }
+
   // ✅ الكودُ يُلتقط من الرابط عند كل إقلاع، ويُرسَل فوراً إن كان صاحبه
   // داخلاً أصلاً (نقر إعلاناً وهو مسجَّل — يُعدّ `existing` في اللوحة،
   // وهو رقمٌ مقصود: يقول إن الإعلان يُعرض على جمهورك القائم).
   captureAd();
   flushAd();
+  captureRef();
+  flushRef();
 })();
