@@ -500,7 +500,11 @@
     }
     function paintLine() {
       var a = age(), ok = a >= minAge && a <= maxAge;
-      line.className = 'bw-line' + (!touched ? '' : ok ? ' bw-ok' : ' bw-bad');
+      line.className = 'bw-line' + (!touched ? ' bw-ask' : ok ? ' bw-ok' : ' bw-bad');
+      // ✅ **قبل اللمس تبدو العجلةُ مثالاً لا جواباً** (٢٣ أكتوبر ٢٠٢٦، بطلب
+      // صاحب المشروع): الصفُّ الأوسط كان مضيئاً عريضاً من أوّل لحظة — شكلُ
+      // القيمة المختارة تماماً — فيضغط صاحبُها «التالي» ويُردّ بلا أن يفهم.
+      box.classList.toggle('bw--idle', !touched);
       line.textContent = !touched ? T('web.wheel_pick')
                        : ok ? T('web.wheel_age', { n: a })
                        : T('web.wheel_too_young', { n: minAge });

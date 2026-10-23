@@ -1206,6 +1206,11 @@ body.is-app {
 .bw-line { margin: 6px 0 0; font-size: .85rem; color: var(--muted); }
 .bw-line.bw-ok { color: var(--ok); }
 .bw-line.bw-bad { color: var(--danger); }
+/* قبل أن يلمسها صاحبها — الشرح عند `paintLine` في ui.js: لا شريطَ مضيء
+   ولا خطَّ عريض، والسطرُ تحتها يقول ما المطلوب بلون العلامة. */
+.bw.bw--idle::before { background: transparent; border: 1px dashed var(--border); }
+.bw.bw--idle .bw-item.on { color: var(--muted); font-weight: 400; }
+.bw-line.bw-ask { color: var(--accent); font-weight: 600; }
 .fld .fld__ask { display: block; color: var(--muted); font-size: .75rem; margin: -2px 0 6px; }
 .fld input:focus, .fld select:focus, .fld textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .fld__row { display: flex; gap: 10px; }
