@@ -1068,6 +1068,7 @@ body.is-app {
   cursor: pointer;
 }
 .tab i { font-size: 19px; font-style: normal; }
+.tab i svg { display: block; width: 24px; height: 24px; }
 .tab.on { color: var(--accent); }
 /* ✅ **التبويب الحاليّ في جيبٍ منحنٍ يقطع الشريط** (بطلب صاحب المشروع،
    ٢٤ سبتمبر ٢٠٢٦، برسمٍ على نموذجٍ مرسوم): خطٌّ ورديّ على حافة الشريط،
