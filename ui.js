@@ -1991,12 +1991,18 @@
     $('search-fields').textContent = T('web.loading');
     // ⚠️ **المخطَّط والحساب معاً قبل الرسم**: شاشةُ المميّز غيرُ شاشة
     // غيره، ورسمُ إحداهما قبل أن يُعرف أيُّهما يُظهر القفل لمن دفع.
-    Promise.all([
-      api.me().catch(function () { return null; }),
-      // الحجاب في المخطَّط للنساء وحدهنّ، والبحث عنهنّ يحتاجه.
-      api.profileSchema(LANG, 'female')
-    ]).then(function (both) {
-      var mine = both[0], data = both[1];
+    //
+    // ⚠️ **والمخطَّط بجنس من يُبحث عنه، فيأتي بعد الحساب لا معه**
+    // (٢٣ أكتوبر ٢٠٢٦): الخياراتُ صارت بصيغة الجنس («عزباء» لا
+    // «أعزب/عزباء» — `marital_status_text` في مستودع البوت)، وكان يُطلب
+    // دائماً بـ`female` لأجل الحجاب، فترى من تبحث عن رجلٍ «عزباء،
+    // مطلقة». والحجابُ يبقى: هو في مخطَّط `female` وحده، أي حين يُبحث
+    // عن امرأة — وهو وحده من يحتاجه. ورحلةٌ ثانية ثمنُ ذلك، مرّةً للجلسة.
+    var mine = null;
+    api.me().catch(function () { return null; }).then(function (me) {
+      mine = me;
+      return api.profileSchema(LANG, (me && me.search_gender) || 'female');
+    }).then(function (data) {
       searchPremium = !!(mine && mine.is_premium);
       searchFor = (mine && mine.search_gender) || null;
       searchSpecs = {};
