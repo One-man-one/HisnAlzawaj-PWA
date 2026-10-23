@@ -980,6 +980,10 @@ body.is-app {
 .pcard--v2 .pcard__id { margin: 12px 16px 0; font-size: .75rem; font-weight: 600; color: var(--muted); }
 .pcard--v2 .pcard__hint { margin-top: 12px; }
 
+/* «ملفّي»: البطاقةُ نفسُها ثابتةً في الصفحة لا في الرزمة — الشرح عند `loadProfile`. */
+.pcard.pcard--self { position: relative; inset: auto; overflow: visible; touch-action: auto; margin-bottom: 12px; }
+.self__full .pcard__name, .self__full .pcard__place { display: none; }
+
 /* ختما القرار أثناء السحب — والتوهّج بلونَي الزرّين تحت البطاقة */
 .pcard__stamp {
   position: absolute;

@@ -4558,11 +4558,20 @@
     api.me().then(function (mine) {
       view.textContent = '';
 
+      // ✅ **«ملفّي» كما يراه الآخرون** (٢٣ أكتوبر ٢٠٢٦، بطلب صاحب المشروع):
+      // بطاقةُ التصفّح نفسُها (`cardNode`) لا سطورُ نصٍّ تبدأ برموز، وتحتها
+      // الجدولُ كاملاً بأقسامه (`cardBody`) — فلا تضيع معلومةٌ كانت تُرى.
+      // ⚠️ **ونصُّها من البوت نفسه لا من نسخةٍ ثانية** — `mine.card` هو ما
+      // يُعرض لغيره، و`mine.text` ما يراه هو في البوت؛ والبطاقةُ بالأوّل.
       var card = document.createElement('section');
-      card.className = 'card';
-      // ⚠️ **ونصُّ «ملفّي» من البوت نفسه لا من نسخةٍ ثانية** — هو ما
-      // يراه صاحبه هناك حرفياً.
-      lines(card, mine && (mine.text || mine.card));
+      card.className = 'self';
+      var preview = cardNode(mine || {}, 'pcard--self');
+      preview.querySelectorAll('.pcard__hint, .pcard__stamp').forEach(function (n) { n.remove(); });
+      card.appendChild(preview);
+      var full = document.createElement('div');
+      full.className = 'card self__full';
+      cardBody(full, mine && mine.card, { code: mine && mine.public_id, sections: true });
+      card.appendChild(full);
       // الصورةُ فوق النصّ — أوّلُ ما يُرى في أي ملفٍّ شخصيّ.
       var photo = photoBlock(mine);
       if (photo) view.appendChild(photo);
