@@ -1136,6 +1136,24 @@ body.is-app {
   font-size: 1rem;   /* ⚠️ دون 16px يكبّر سفاري الصفحةَ عند التركيز */
 }
 .fld .fld__other { margin-top: 8px; }
+/* ⚠️ **خانةُ النبذة كانت بشكل المتصفّح الافتراضيّ** — رماديّةً بنصف عرض
+ * السطر وسط استمارةٍ داكنة، لأن القاعدة أعلاه تذكر `input` و`select`
+ * وحدهما. و`:not(.mod-details)` لأن مربّعَي البلاغ والدعم داخل `.fld`
+ * أيضاً (`payField`) ولهما قاعدتُهما — فلا تتغيّر حشوتُهما من هنا. */
+.fld textarea:not(.mod-details) {
+  display: block;
+  width: 100%;
+  min-height: 96px;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;   /* ⚠️ دون 16px يكبّر سفاري الصفحةَ عند التركيز */
+  line-height: 1.6;
+  resize: vertical;
+}
 
 /* عجلةُ تاريخ الميلاد — داخل النموذج (الشرح عند `birthWheel` في ui.js) */
 .bw-labels { display: flex; gap: 6px; padding: 0 6px; margin-bottom: 4px; }
@@ -1168,7 +1186,7 @@ body.is-app {
 .bw-line.bw-ok { color: var(--ok); }
 .bw-line.bw-bad { color: var(--danger); }
 .fld .fld__ask { display: block; color: var(--muted); font-size: .75rem; margin: -2px 0 6px; }
-.fld input:focus, .fld select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.fld input:focus, .fld select:focus, .fld textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .fld__row { display: flex; gap: 10px; }
 .fld__hint { display: block; color: var(--muted); font-size: .75rem; margin-top: 4px; }
 /* «ابحث بـ: الرمز» — البادئة ثابتةٌ داخل الإطار، والحقلُ بجوارها بلا إطارٍ ثانٍ */
