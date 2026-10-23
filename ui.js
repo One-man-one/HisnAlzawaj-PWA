@@ -155,7 +155,9 @@
     $('app').hidden = true;
     $('complete').hidden = false;
     langPicker($('complete-lang'));
-    renderSchema().then(restoreDraft).then(prefillComplete);
+    step = 0;
+    stepTouched = false;
+    renderSchema().then(restoreDraft).then(prefillComplete).then(openFirstStep);
   }
 
   // ==========================================================
@@ -240,7 +242,9 @@
   // ⚠️ **وعونٌ لا شرط**: وسيطٌ أقدم بلا المسار، أو عطلٌ، = الشاشة كما كانت.
   function prefillComplete() {
     if (editMode || !api.profilePrefill) return;
-    api.profilePrefill().then(function (d) {
+    // ⚠️ **الوعدُ يُعاد**: `openFirstStep` بعده يختار الخطوةَ الأولى الناقصة
+    // — ولو اختارها قبل الملء لَفتح الخطوة الأولى لمن لم ينقصه إلا التدخين.
+    return api.profilePrefill().then(function (d) {
       var values = (d && d.values) || {};
       if (!Object.keys(values).length || editMode) return;
       var fill = function () {
@@ -378,6 +382,7 @@
         host.appendChild(fieldNode(spec));
       });
       applyConditions();
+      paintStep();
     }).catch(function (err) {
       if (err.code === 'unauthorized') return boot();
       host.textContent = '';
@@ -6453,6 +6458,171 @@
     });
   }
 
+  // ==========================================================
+  // «أكمل ملفّك» خطواتٌ لا صفحةٌ واحدة (٢٣ أكتوبر ٢٠٢٦)
+  // ==========================================================
+  // ✅ (بطلب صاحب المشروع) كانت الأسئلةُ الأربعة والعشرون صفحةً واحدة
+  // بطول أربعة آلاف بكسل على الهاتف، بلا ما يقول لصاحبها أين هو ولا كم
+  // بقي. فصارت ستَّ شاشات — **الأسئلةُ نفسها بنصّها وخياراتها وإلزامها**،
+  // لا يُحذف منها شيء ولا يُضاف (الإلزامُ قرارٌ في ثلاثة مواضع: CLAUDE.md
+  // في مستودع البوت ← «أسئلةُ التسجيل واحدةٌ في البابين»).
+  //
+  // ⚠️ **الحدودُ أسماءُ حقولٍ لا أرقامُ مواضع**: الحقلُ يتبع آخرَ حدٍّ مرّ
+  // قبله في ترتيب الوسيط. فسؤالٌ يُضاف هناك (كالحجاب للنساء) يدخل خطوةَ
+  // ما قبله من نفسه، ولا يضيع سؤالٌ لا يعرفه هذا الملفّ. وحدٌّ غاب عن
+  // المخطّط لا يترك خطوةً فارغة — تُسقط.
+  //
+  // ⚠️ **ولكتابة ملفٍّ جديد وحده**: التعديلُ والتفضيلات تملأ النموذجَ نفسه
+  // وتبقى صفحةً واحدة — من يعدّل حقلاً لا يمرّ بستّ شاشات ليصل إليه.
+  //
+  // ⚠️ **والإخفاءُ بصنفٍ لا بسمة `hidden`**: `hidden` على الحاوية هي ما
+  // تخفي به الشروطُ سؤالاً لا يخصّ صاحبه (`applyConditions`)، وخلطُ
+  // الاثنين يُظهر سؤالاً شرطُه غائب حين تعود خطوتُه.
+  var STEP_STARTS = ['full_name', 'nationality', 'religion',
+                     'marital_status', 'height', 'personality_traits'];
+  var step = 0;
+  var stepTouched = false;
+
+  function wizardOn() { return !editMode && !prefsMode; }
+
+  // نصٌّ من الوسيط، أو بديلُه حين لا يحمله وسيطٌ أقدم من هذه الصفحة.
+  function TF(key, fallback) {
+    var text = T(key);
+    return text === key ? (fallback ? T(fallback) : '') : text;
+  }
+
+  function stepGroups() {
+    var groups = [], cur = -1, at = 0;
+    Array.prototype.forEach.call($('complete-fields').children, function (wrap) {
+      var name = wrap.getAttribute && wrap.getAttribute('data-field');
+      if (!name) return;
+      var start = STEP_STARTS.indexOf(name);
+      if (start !== -1 || cur === -1) {
+        at = Math.max(at, start);
+        if (!groups[at]) groups[at] = [];
+        cur = at;
+      }
+      groups[cur].push(wrap);
+    });
+    return groups.filter(Boolean);
+  }
+
+  function stepWrapOf(node) {
+    var host = $('complete-fields');
+    while (node && node.parentNode !== host) node = node.parentNode;
+    return node;
+  }
+
+  function stepTitle(groups) {
+    var first = groups[step] && groups[step][0];
+    var name = first && first.getAttribute('data-field');
+    var index = STEP_STARTS.indexOf(name);
+    return index === -1 ? '' : TF('web.step_t' + (index + 1));
+  }
+
+  function digits(n) {
+    try { return n.toLocaleString(LANG); } catch (e) { return String(n); }
+  }
+
+  function paintStep() {
+    var host = $('complete-fields');
+    var head = $('complete-steps');
+    if (!wizardOn()) {
+      if (head) head.remove();
+      return;
+    }
+    var groups = stepGroups();
+    if (!groups.length) return;
+    step = Math.max(0, Math.min(step, groups.length - 1));
+    groups.forEach(function (group, i) {
+      group.forEach(function (wrap) { wrap.classList.toggle('fld--later', i !== step); });
+    });
+
+    if (!head) {
+      head = document.createElement('div');
+      head.id = 'complete-steps';
+      head.className = 'wz';
+      var row = document.createElement('div');
+      row.className = 'wz__row';
+      var count = document.createElement('span');
+      count.className = 'wz__n';
+      var back = document.createElement('button');
+      back.type = 'button';
+      back.className = 'linkbtn wz__back';
+      back.addEventListener('click', function () { goStep(step - 1); });
+      row.appendChild(count);
+      row.appendChild(back);
+      var bar = document.createElement('div');
+      bar.className = 'wz__bar';
+      bar.setAttribute('aria-hidden', 'true');
+      var title = document.createElement('p');
+      title.className = 'wz__title';
+      head.appendChild(row);
+      head.appendChild(bar);
+      head.appendChild(title);
+    }
+    if (head.parentNode !== host || host.firstChild !== head) host.insertBefore(head, host.firstChild);
+
+    head.querySelector('.wz__n').textContent = digits(step + 1) + ' / ' + digits(groups.length);
+    var backBtn = head.querySelector('.wz__back');
+    backBtn.textContent = TF('web.step_back', 'web.email_back');
+    backBtn.hidden = step === 0;
+    var barEl = head.querySelector('.wz__bar');
+    barEl.textContent = '';
+    groups.forEach(function (g, i) {
+      var seg = document.createElement('i');
+      if (i <= step) seg.className = 'on';
+      barEl.appendChild(seg);
+    });
+    var titleEl = head.querySelector('.wz__title');
+    titleEl.textContent = stepTitle(groups);
+    titleEl.hidden = !titleEl.textContent;
+
+    var last = step === groups.length - 1;
+    document.querySelector('#form-complete button[type="submit"]').textContent =
+      last ? T('web.complete_btn') : TF('web.step_next', 'web.complete_btn');
+  }
+
+  function goStep(index) {
+    stepTouched = true;
+    step = index;
+    paintStep();
+    $('form-complete').querySelector('[data-err]').hidden = true;
+    $('complete').scrollIntoView({ block: 'start' });
+  }
+
+  function showStepOf(node) {
+    if (!wizardOn()) return;
+    var wrap = stepWrapOf(node);
+    var groups = stepGroups();
+    for (var i = 0; i < groups.length; i++) {
+      if (groups[i].indexOf(wrap) !== -1) {
+        if (i !== step) { step = i; paintStep(); }
+        return;
+      }
+    }
+  }
+
+  // ✅ **من لم ينقصه إلا سؤالٌ واحد لا يمرّ بخمس شاشاتٍ مكتملة** (مستخدمُ
+  // البوت القديم، أو من عاد إلى مسوّدته): يبدأ من أوّل خطوةٍ فيها سؤالٌ
+  // مطلوبٌ فارغ. ⚠️ **وإلا بقي حيث هو**: من بدأ يتنقّل قبل أن يصل الملءُ
+  // لا يُنقل من تحت يده.
+  function openFirstStep() {
+    if (!wizardOn() || stepTouched || $('complete').hidden) return;
+    var groups = stepGroups();
+    for (var i = 0; i < groups.length; i++) {
+      var open = groups[i].some(function (wrap) {
+        return Array.prototype.some.call(
+          wrap.querySelectorAll('input, select, textarea'),
+          function (el) { return !el.disabled && !el.checkValidity(); });
+      });
+      if (open) { if (i !== step) { step = i; paintStep(); } return; }
+    }
+    // كلُّها مكتملة: الأخيرة، حيث زرُّ الحفظ.
+    step = groups.length - 1;
+    paintStep();
+  }
+
   // ✅ **الحقلُ المطلوب الفارغ يُحدَّد بالأحمر — كلُّها لا أوّلُها** (بطلب
   // صاحب المشروع، ٢٤ سبتمبر ٢٠٢٦). فحصُ المتصفّح الأصليّ يعرض فقاعةً على
   // أوّل حقلٍ وحده وتختفي بعد ثانيتين، فمن ترك خمسةً يكتشفها واحداً واحداً
@@ -6460,13 +6630,14 @@
   // فالنموذج `novalidate`، وهذا يحدّد كلَّ حقلٍ ناقص ويعلّق تحته سببه.
   // ⚠️ **والمعطَّل لا يُفحص** (المدينة قبل الدولة): `checkValidity` تتخطّاه
   // أصلاً، فلا يُطالَب صاحبه بما لا يستطيع ملأه.
-  function markMissing(form) {
+  function markMissing(form, only) {
     form.querySelectorAll('.fld--missing').forEach(clearMissing);
     var marked = [];
     form.querySelectorAll('input, select, textarea').forEach(function (el) {
       if (el.disabled || el.checkValidity()) return;
       var wrap = el.closest('.fld');
       if (!wrap || marked.indexOf(wrap) !== -1) return;
+      if (only && only.indexOf(stepWrapOf(wrap)) === -1) return;
       flagField(wrap, el.validity.valueMissing ? T('web.field_required')
                                                : T('web.field_invalid'));
       marked.push(wrap);
@@ -6512,9 +6683,25 @@
       var box = form.querySelector('[data-err]');
       var button = form.querySelector('button[type="submit"]');
 
+      if (wizardOn() && step < stepGroups().length - 1) {
+        var here = markMissing(form, stepGroups()[step]);
+        if (here.length) {
+          box.textContent = T('web.fill_required', { n: here.length });
+          box.hidden = false;
+          here[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
+        box.hidden = true;
+        goStep(step + 1);
+        return;
+      }
+
       form.dataset.tried = '1';
       var missing = markMissing(form);
       if (missing.length) {
+        // ⚠️ النقصُ قد يكون في خطوةٍ سابقة (مدينةٌ وصلت قائمتُها متأخّرة):
+        // يُفتح موضعُه، وإلا قيل «حقلٌ ناقص» ولا حقلَ ظاهراً.
+        showStepOf(missing[0]);
         box.textContent = T('web.fill_required', { n: missing.length });
         box.hidden = false;
         missing[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -6546,6 +6733,7 @@
         var field = err.data && err.data.field;
         var at = field && document.querySelector('#complete-fields [data-field="' + field + '"]');
         if (at) {
+          showStepOf(at);
           flagField(at, errorText(err));
           at.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
