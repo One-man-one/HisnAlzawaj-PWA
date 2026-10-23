@@ -1104,6 +1104,8 @@ body.is-app {
 }
 .row__main { flex: 1; min-width: 0; }
 .row__name { font-weight: 700; color: var(--accent); }
+/* الرمزُ تحت الاسم صغيراً — الشرح عند `fillIdentity` في ui.js. */
+.row__code { display: block; margin-top: 1px; color: var(--muted); font-size: .72rem; font-weight: 600; }
 .row__sub  { color: var(--muted); font-size: .8rem; white-space: pre-wrap; }
 
 .empty { text-align: center; color: var(--muted); padding: 48px 16px; }

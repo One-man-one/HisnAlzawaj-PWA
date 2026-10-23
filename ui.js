@@ -1464,6 +1464,19 @@
     return who || codesWhole(pid) || '';
   }
 
+  // ✅ **في صفوف القوائم: الاسمُ سطرٌ، والرمزُ صغيراً تحته** (٢٣ أكتوبر ٢٠٢٦).
+  // ⚠️ «ريم (25) · HS-NNH6SB» في سطرٍ واحد كان أطولَ من عرض الصفّ على الهاتف،
+  // فينكسر الاسمُ نفسُه على سطرين ويضيع الرمزُ في آخره. و`identity` باقٍ لما
+  // هو سطرٌ واحدٌ بطبيعته — رأسُ المحادثة، ووسمُ القارئ (`aria-label`).
+  function fillIdentity(el, who, pid) {
+    el.textContent = who || codesWhole(pid) || '';
+    if (!who || !pid) return;
+    var code = document.createElement('span');
+    code.className = 'row__code';
+    code.textContent = codesWhole(pid);
+    el.appendChild(code);
+  }
+
   // ✅ **المعرّفُ كتلةٌ واحدة لا تنكسر عند الشَّرطة** (٣٠ سبتمبر ٢٠٢٦).
   // ⚠️ المتصفّح يجيز كسرَ السطر **بعد** الشرطة، فكان «HS-4NDCWZ» في سطرٍ
   // عربيٍّ ضيّق يخرج «HS-» آخرَ السطر و«4NDCWZ» أوّلَ التالي — رمزٌ لا
@@ -2767,7 +2780,7 @@
         main.className = 'row__main';
         var name = document.createElement('div');
         name.className = 'row__name';
-        name.textContent = identity(p.name, p.public_id);
+        fillIdentity(name, p.name, p.public_id);
         main.appendChild(name);
         row.appendChild(main);
 
@@ -3987,7 +4000,7 @@
       main.className = 'row__main';
       var name = document.createElement('div');
       name.className = 'row__name';
-      name.textContent = identity(card.who, card.public_id);
+      fillIdentity(name, card.who, card.public_id);
       var sub = document.createElement('div');
       sub.className = 'row__sub';
       sub.textContent = codesWhole(String(card.card || '').split('\n')[0]);
@@ -4090,7 +4103,7 @@
         main.className = 'row__main';
         var name = document.createElement('div');
         name.className = 'row__name';
-        name.textContent = who;
+        fillIdentity(name, chat.who || chat.name, chat.public_id);
         // ⚠️ **عقدةُ نصٍّ لا `innerHTML`** — آخرُ رسالةٍ كتبها إنسانٌ آخر
         // (الشرح عند `bubble`).
         var sub = document.createElement('div');
@@ -4179,7 +4192,7 @@
         main.className = 'row__main';
         var name = document.createElement('div');
         name.className = 'row__name';
-        name.textContent = identity(card.who, card.public_id);
+        fillIdentity(name, card.who, card.public_id);
         var sub = document.createElement('div');
         sub.className = 'row__sub';
         // أوّل سطرٍ من البطاقة يكفي في قائمة — والباقي في الورقة.
