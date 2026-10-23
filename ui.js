@@ -849,7 +849,91 @@
     });
     select.addEventListener('change', paint);
     paint();
-    return box;
+    return chipSearch(select, box);
+  }
+
+  // ==========================================================
+  // بحثٌ فوق الأزرار الكثيرة (٢٣ أكتوبر ٢٠٢٦، بطلب صاحب المشروع)
+  // ==========================================================
+  // ✅ المهنةُ ستّةٌ وعشرون زرّاً متتالية تملأ شاشتين على الهاتف. فما زاد
+  // على `CHIP_SEARCH_MIN` يُعرض أوّلُ `CHIP_SHOWN` منه، ومعه «أخرى» والمختار،
+  // وزرُّ «عرض الكلّ» — وخانةُ بحثٍ فوقه تُظهر المطابق من الكلّ.
+  //
+  // ⚠️ **الأزرارُ نفسها لا قائمةٌ ثانية**: البحثُ يُخفي ويُظهر، والاختيارُ
+  // يمرّ بالقائمة المخفيّة كما كان — فلا يتغيّر `collect` ولا `restore`
+  // ولا فحصُ الإلزام.
+  //
+  // ⚠️ **والإخفاءُ بصنفٍ لا بسمة `hidden`**: `hidden` على الزرّ هي ما يُخفي
+  // به `applyOptionRules` خياراً لا يخصّ صاحبه، وخلطُ الاثنين يُظهره.
+  //
+  // ⚠️ **والعربيةُ تُطبَّع قبل المقارنة**: من كتب «مهندس» يجد «الهندسة»،
+  // ومن كتب «اداره» يجد «الإدارة» — الهمزاتُ والتاءُ المربوطة والتشكيل.
+  var CHIP_SEARCH_MIN = 20;
+  var CHIP_SHOWN = 8;
+
+  function fold(text) {
+    return String(text || '').toLowerCase()
+      .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+      .replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي');
+  }
+
+  function chipSearch(select, box) {
+    var chips = Array.prototype.slice.call(box.querySelectorAll('.chip'));
+    var more = T('web.chips_more');
+    // وسيطٌ أقدم بلا المفاتيح = الأزرارُ كلُّها كما كانت.
+    if (chips.length < CHIP_SEARCH_MIN || more === 'web.chips_more') return box;
+
+    var wrap = document.createElement('div');
+    var input = document.createElement('input');
+    input.type = 'search';
+    input.className = 'chips__find';
+    input.placeholder = TF('web.chips_search');
+    input.setAttribute('aria-label', TF('web.chips_search'));
+    input.autocomplete = 'off';
+    var toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'linkbtn chips__more';
+    var none = document.createElement('p');
+    none.className = 'chips__none';
+    none.textContent = TF('web.chips_none');
+    var open = false;
+
+    function shown(chip, i) {
+      var key = chip.getAttribute('data-key');
+      var opt = select.querySelector('option[value="' + key + '"]');
+      return open || i < CHIP_SHOWN || key === OTHER || !!(opt && opt.selected);
+    }
+
+    function filter() {
+      var q = fold(input.value.trim());
+      var hits = 0;
+      chips.forEach(function (chip, i) {
+        var on = q ? fold(chip.textContent).indexOf(q) !== -1 || chip.getAttribute('data-key') === OTHER
+                   : shown(chip, i);
+        chip.classList.toggle('chip--off', !on);
+        if (on && !chip.hidden && chip.getAttribute('data-key') !== OTHER) hits++;
+      });
+      none.hidden = !q || hits > 0;
+      toggle.hidden = !!q;
+      toggle.textContent = open ? TF('web.chips_less')
+                                : T('web.chips_more', { n: chips.length });
+    }
+
+    input.addEventListener('input', filter);
+    // ⚠️ «إدخال» في خانة البحث يُرسل النموذجَ كلَّه (ينتقل إلى الخطوة
+    // التالية) — وهو ليس ما قصده من يبحث.
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') e.preventDefault();
+    });
+    toggle.addEventListener('click', function () { open = !open; filter(); });
+    select.addEventListener('change', filter);
+
+    wrap.appendChild(input);
+    wrap.appendChild(box);
+    wrap.appendChild(none);
+    wrap.appendChild(toggle);
+    filter();
+    return wrap;
   }
 
   // يملأ كلَّ حقلٍ خياراتُه مجموعةٌ بمفتاحِ حقلٍ آخر (المذهب بالدين).
