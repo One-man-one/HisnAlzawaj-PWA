@@ -1464,6 +1464,19 @@
     return who || codesWhole(pid) || '';
   }
 
+  // ✅ **في صفوف القوائم: الاسمُ سطرٌ، والرمزُ صغيراً تحته** (٢٣ أكتوبر ٢٠٢٦).
+  // ⚠️ «ريم (25) · HS-NNH6SB» في سطرٍ واحد كان أطولَ من عرض الصفّ على الهاتف،
+  // فينكسر الاسمُ نفسُه على سطرين ويضيع الرمزُ في آخره. و`identity` باقٍ لما
+  // هو سطرٌ واحدٌ بطبيعته — رأسُ المحادثة، ووسمُ القارئ (`aria-label`).
+  function fillIdentity(el, who, pid) {
+    el.textContent = who || codesWhole(pid) || '';
+    if (!who || !pid) return;
+    var code = document.createElement('span');
+    code.className = 'row__code';
+    code.textContent = codesWhole(pid);
+    el.appendChild(code);
+  }
+
   // ✅ **المعرّفُ كتلةٌ واحدة لا تنكسر عند الشَّرطة** (٣٠ سبتمبر ٢٠٢٦).
   // ⚠️ المتصفّح يجيز كسرَ السطر **بعد** الشرطة، فكان «HS-4NDCWZ» في سطرٍ
   // عربيٍّ ضيّق يخرج «HS-» آخرَ السطر و«4NDCWZ» أوّلَ التالي — رمزٌ لا
@@ -2767,7 +2780,7 @@
         main.className = 'row__main';
         var name = document.createElement('div');
         name.className = 'row__name';
-        name.textContent = identity(p.name, p.public_id);
+        fillIdentity(name, p.name, p.public_id);
         main.appendChild(name);
         row.appendChild(main);
 
@@ -3461,51 +3474,136 @@
     }
   }
 
+  // ==========================================================
+  // بطاقةُ التصفّح: صورةٌ كبيرة، ثم الأهمّ رقائق، ثم النبذة (٢٣ أكتوبر ٢٠٢٦)
+  // ==========================================================
+  // ✅ (بطلب صاحب المشروع) كانت البطاقةُ جدولاً من ١٥ صفاً يبدأ بـ«الجنس»
+  // — وهو معروفٌ دائماً — والنبذةُ مدفونةٌ تحته. الآن: رأسٌ بالصورة والاسم
+  // والمدينة، ثم خمسُ معلوماتٍ رقائق، والسمات، والنبذة. **والجدولُ كاملاً
+  // باقٍ في ورقة التفاصيل** (`openSheet` ← `cardBody` بأقسامه) بلمسة.
+  //
+  // ⚠️ **البطاقةُ نصُّ البوت نفسه لا حقولٌ جديدة من الوسيط**: يُقرأ السطرُ
+  // برمزه الأوّل (كما يفعل `cardBody`)، فلا مسارَ ثانٍ يتباعد عن البوت. وسطرٌ
+  // غاب (حقلٌ فارغ) لا يُرسم له شيء.
+  var CARD_CHIPS = ['💼', '🎓', '💍', '🕌', '📏'];
+  var CARD_TRAITS = '🧠';
+
+  function cardFacts(text) {
+    var facts = {}, name = '', place = '', bio = null;
+    String(text || '').split('\n').forEach(function (raw) {
+      if (bio !== null) { bio += '\n' + raw; return; }
+      var line = raw.trim();
+      var cut = line.indexOf(': ');
+      if (cut < 1) return;
+      var head = line.slice(0, cut).replace(/️/g, '');
+      var value = line.slice(cut + 2);
+      var mark = Array.from(head)[0] || '';
+      if (mark === CARD_NAME && !name) { name = value; return; }
+      if (mark === CARD_PLACE && !place) { place = value; return; }
+      if (mark === CARD_BIO) { bio = value; return; }
+      // ⚠️ **الأوّلُ يغلب**: «💍» سطران — الحالةُ ثم نوعُ الزواج — والحالةُ هي المقصودة.
+      if (!(mark in facts)) facts[mark] = value;
+    });
+    return { facts: facts, name: name, place: place,
+             bio: bio === null ? '' : bio.replace(/\s+$/, '') };
+  }
+
   function cardNode(card, cls) {
     var node = document.createElement('article');
-    node.className = 'pcard ' + cls;
+    node.className = 'pcard pcard--v2 ' + cls;
+    var info = cardFacts(card.card);
+    var name = withoutCode(info.name, card.public_id);
 
-    var head = document.createElement('div');
-    head.className = 'pcard__head';
-
-    var left = document.createElement('div');
-    var pid = document.createElement('div');
-    pid.className = 'pcard__id';
-    pid.textContent = card.public_id || '';
-    copyableCode(pid, card.public_id);
-    left.appendChild(pid);
+    var hero = document.createElement('div');
+    hero.className = 'pcard__hero';
+    // بلا صورة: لونٌ متدرّج بالحرف الأوّل — لا رمزٌ رماديّ يقول «لا شيء هنا».
+    var face = document.createElement('div');
+    face.className = 'pcard__face';
+    face.textContent = (Array.from(name.trim())[0] || '').toUpperCase();
+    face.setAttribute('aria-hidden', 'true');
+    hero.appendChild(face);
 
     if (typeof card.score === 'number') {
-      var score = document.createElement('div');
-      score.className = 'pcard__score';
-      score.textContent = T('web.score', { score: card.score });
-      left.appendChild(score);
+      var ring = document.createElement('div');
+      ring.className = 'pcard__ring';
+      ring.style.setProperty('--p', Math.max(0, Math.min(100, card.score)));
+      var inner = document.createElement('span');
+      inner.textContent = T('web.score', { score: card.score });
+      ring.appendChild(inner);
+      hero.appendChild(ring);
     }
-    if (card._random) {
-      var tag = document.createElement('span');
-      tag.className = 'pcard__badge pcard__badge--random';
-      tag.textContent = T('web.random_tag');
-      left.appendChild(tag);
-    }
+
+    var who = document.createElement('div');
+    who.className = 'pcard__who';
+    var nm = document.createElement('div');
+    nm.className = 'pcard__name';
+    nm.textContent = name;
+    who.appendChild(nm);
+    var tags = document.createElement('div');
+    tags.className = 'pcard__tags';
     if (card.is_verified) {
       var badge = document.createElement('span');
       badge.className = 'pcard__badge';
       // ✅ رمزُ الشارة كما في البوت (يختاره المشرف) — لا الكلمة وحدها.
       badge.textContent = (card.verified_badge ? card.verified_badge + ' ' : '')
         + T('web.verified');
-      left.appendChild(badge);
+      tags.appendChild(badge);
     }
-    head.appendChild(left);
+    if (card._random) {
+      var tag = document.createElement('span');
+      tag.className = 'pcard__badge pcard__badge--random';
+      tag.textContent = T('web.random_tag');
+      tags.appendChild(tag);
+    }
+    if (tags.firstChild) who.appendChild(tags);
+    if (info.place) {
+      var pl = document.createElement('div');
+      pl.className = 'pcard__place';
+      pl.textContent = info.place;
+      who.appendChild(pl);
+    }
+    hero.appendChild(who);
+    node.appendChild(hero);
+    if (card.has_photo) heroPhoto(hero, card);
 
-    var ava = document.createElement('div');
-    ava.className = 'ava';
-    ava.textContent = '👤';
-    head.appendChild(ava);
-    node.appendChild(head);
+    var chips = document.createElement('div');
+    chips.className = 'pcard__chips';
+    CARD_CHIPS.forEach(function (mark) {
+      var v = info.facts[mark];
+      if (!v) return;
+      var c = document.createElement('span');
+      c.textContent = v;
+      chips.appendChild(c);
+    });
+    if (chips.firstChild) node.appendChild(chips);
 
-    if (card.has_photo) attachPhoto(ava, card, node);
+    var traits = (info.facts[CARD_TRAITS] || '').split(/\s*[,،]\s*/).filter(Boolean);
+    if (traits.length) {
+      var tw = document.createElement('div');
+      tw.className = 'pcard__chips pcard__chips--soft';
+      traits.slice(0, 6).forEach(function (v) {
+        var c = document.createElement('span');
+        c.textContent = v;
+        tw.appendChild(c);
+      });
+      node.appendChild(tw);
+    }
 
-    cardBody(node, card.card, { code: card.public_id });
+    if (info.bio) {
+      var b = document.createElement('div');
+      b.className = 'pcard__bio';
+      // ⚠️ `dir=auto`: نبذةٌ إنجليزية في صفحةٍ عربية تنقلب نقطتُها إلى أوّلها.
+      b.dir = 'auto';
+      b.textContent = info.bio;
+      node.appendChild(b);
+    }
+
+    // الرمزُ «HS-…» أسفلَ البطاقة صغيراً، يُنسخ بلمسة — لا عنوانٌ فوق الاسم.
+    var pid = document.createElement('div');
+    pid.className = 'pcard__id';
+    pid.textContent = card.public_id || '';
+    copyableCode(pid, card.public_id);
+    node.appendChild(pid);
 
     // ✅ **ختما القرار** — يظهران أثناء السحب وحده (`bindSwipe`)، فيعرف
     // الساحب قبل أن يُفلت ماذا سيحدث، ويتراجع بإعادة البطاقة للوسط.
@@ -3526,6 +3624,27 @@
     node.appendChild(hint);
 
     return node;
+  }
+
+  // صورةُ رأس البطاقة: المموّهةُ نفسها من الوسيط (`api.photoUrl`)، تملأ
+  // الرأسَ بدل دائرةٍ صغيرة، ومعها قفلٌ يقول إنها تُطلب. والفشلُ صامت:
+  // الحرفُ الأوّل يبقى، والبطاقةُ كاملةٌ بدونها — كما في `attachPhoto`.
+  function heroPhoto(hero, card) {
+    var id = refId(card.public_id);
+    if (!id) return;
+    api.photoUrl(id).then(function (url) {
+      photoUrls.push(url);
+      var img = document.createElement('img');
+      img.className = 'pcard__photo';
+      img.alt = '';
+      img.src = url;
+      hero.insertBefore(img, hero.firstChild);
+      hero.classList.add('has-photo');
+      var lock = document.createElement('span');
+      lock.className = 'pcard__lock';
+      lock.textContent = T('web.blurred_note');
+      hero.appendChild(lock);
+    }).catch(function () { /* الحرفُ الأوّل يبقى */ });
   }
 
   // ⚠️ **الصورة تُجلب بايتاتٍ ثم تُعرض من `blob:`** — الشرح في
@@ -3881,7 +4000,7 @@
       main.className = 'row__main';
       var name = document.createElement('div');
       name.className = 'row__name';
-      name.textContent = identity(card.who, card.public_id);
+      fillIdentity(name, card.who, card.public_id);
       var sub = document.createElement('div');
       sub.className = 'row__sub';
       sub.textContent = codesWhole(String(card.card || '').split('\n')[0]);
@@ -3984,7 +4103,7 @@
         main.className = 'row__main';
         var name = document.createElement('div');
         name.className = 'row__name';
-        name.textContent = who;
+        fillIdentity(name, chat.who || chat.name, chat.public_id);
         // ⚠️ **عقدةُ نصٍّ لا `innerHTML`** — آخرُ رسالةٍ كتبها إنسانٌ آخر
         // (الشرح عند `bubble`).
         var sub = document.createElement('div');
@@ -4073,7 +4192,7 @@
         main.className = 'row__main';
         var name = document.createElement('div');
         name.className = 'row__name';
-        name.textContent = identity(card.who, card.public_id);
+        fillIdentity(name, card.who, card.public_id);
         var sub = document.createElement('div');
         sub.className = 'row__sub';
         // أوّل سطرٍ من البطاقة يكفي في قائمة — والباقي في الورقة.
@@ -4439,11 +4558,20 @@
     api.me().then(function (mine) {
       view.textContent = '';
 
+      // ✅ **«ملفّي» كما يراه الآخرون** (٢٣ أكتوبر ٢٠٢٦، بطلب صاحب المشروع):
+      // بطاقةُ التصفّح نفسُها (`cardNode`) لا سطورُ نصٍّ تبدأ برموز، وتحتها
+      // الجدولُ كاملاً بأقسامه (`cardBody`) — فلا تضيع معلومةٌ كانت تُرى.
+      // ⚠️ **ونصُّها من البوت نفسه لا من نسخةٍ ثانية** — `mine.card` هو ما
+      // يُعرض لغيره، و`mine.text` ما يراه هو في البوت؛ والبطاقةُ بالأوّل.
       var card = document.createElement('section');
-      card.className = 'card';
-      // ⚠️ **ونصُّ «ملفّي» من البوت نفسه لا من نسخةٍ ثانية** — هو ما
-      // يراه صاحبه هناك حرفياً.
-      lines(card, mine && (mine.text || mine.card));
+      card.className = 'self';
+      var preview = cardNode(mine || {}, 'pcard--self');
+      preview.querySelectorAll('.pcard__hint, .pcard__stamp').forEach(function (n) { n.remove(); });
+      card.appendChild(preview);
+      var full = document.createElement('div');
+      full.className = 'card self__full';
+      cardBody(full, mine && mine.card, { code: mine && mine.public_id, sections: true });
+      card.appendChild(full);
       // الصورةُ فوق النصّ — أوّلُ ما يُرى في أي ملفٍّ شخصيّ.
       var photo = photoBlock(mine);
       if (photo) view.appendChild(photo);
