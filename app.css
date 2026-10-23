@@ -1136,6 +1136,38 @@ body.is-app {
   font-size: 1rem;   /* ⚠️ دون 16px يكبّر سفاري الصفحةَ عند التركيز */
 }
 .fld .fld__other { margin-top: 8px; }
+/* ⚠️ **خانةُ النبذة كانت بشكل المتصفّح الافتراضيّ** — رماديّةً بنصف عرض
+ * السطر وسط استمارةٍ داكنة، لأن القاعدة أعلاه تذكر `input` و`select`
+ * وحدهما. و`:not(.mod-details)` لأن مربّعَي البلاغ والدعم داخل `.fld`
+ * أيضاً (`payField`) ولهما قاعدتُهما — فلا تتغيّر حشوتُهما من هنا. */
+.fld textarea:not(.mod-details) {
+  display: block;
+  width: 100%;
+  min-height: 96px;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;   /* ⚠️ دون 16px يكبّر سفاري الصفحةَ عند التركيز */
+  line-height: 1.6;
+  resize: vertical;
+}
+
+/* «أكمل ملفّك» خطوات — الشرح عند `STEP_STARTS` في ui.js.
+ * ⚠️ صنفٌ لا `[hidden]`: السمةُ للأسئلة المشروطة، والخلطُ يُظهر سؤالاً
+ * شرطُه غائب حين تعود خطوتُه. */
+.fld.fld--later { display: none; }
+.wz { margin: 0 0 18px; }
+.wz__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.wz__n { color: var(--muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
+/* ⚠️ `.linkbtn` عرضٌ كامل وهامشٌ علويّ — وهنا رابطٌ صغيرٌ في الطرف. */
+.wz .wz__back { width: auto; margin: 0; padding: 8px 4px; min-height: 44px; }
+.wz__bar { display: flex; gap: 4px; margin: 6px 0 14px; }
+.wz__bar i { flex: 1; height: 5px; border-radius: 3px; background: var(--border); }
+.wz__bar i.on { background: var(--brand); }
+.wz__title { margin: 0; color: var(--text); font-size: 1.15rem; font-weight: 700; }
 
 /* عجلةُ تاريخ الميلاد — داخل النموذج (الشرح عند `birthWheel` في ui.js) */
 .bw-labels { display: flex; gap: 6px; padding: 0 6px; margin-bottom: 4px; }
@@ -1168,7 +1200,7 @@ body.is-app {
 .bw-line.bw-ok { color: var(--ok); }
 .bw-line.bw-bad { color: var(--danger); }
 .fld .fld__ask { display: block; color: var(--muted); font-size: .75rem; margin: -2px 0 6px; }
-.fld input:focus, .fld select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.fld input:focus, .fld select:focus, .fld textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .fld__row { display: flex; gap: 10px; }
 .fld__hint { display: block; color: var(--muted); font-size: .75rem; margin-top: 4px; }
 /* «ابحث بـ: الرمز» — البادئة ثابتةٌ داخل الإطار، والحقلُ بجوارها بلا إطارٍ ثانٍ */
