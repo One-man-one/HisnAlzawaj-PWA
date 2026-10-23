@@ -929,6 +929,57 @@ body.is-app {
   overflow-wrap: anywhere;
 }
 
+/* ✅ بطاقةُ التصفّح الجديدة (٢٣ أكتوبر ٢٠٢٦) — الشرح عند `cardNode` في ui.js.
+   الرأسُ يملأ عرض البطاقة (هوامشُ سالبة بقدر حشوتها)، والاسمُ فوق تدرّجٍ
+   داكن أسفل الصورة كي يُقرأ على أيّ صورة. والأصنافُ تحت `.pcard--v2` كي لا
+   تمسّ ورقةَ التفاصيل التي تستعمل `.pcard__name` و`.pcard__place` نفسيهما. */
+.pcard--v2 { padding: 0 0 16px; }
+.pcard__hero {
+  position: relative; height: 46%; min-height: 220px; max-height: 340px;
+  overflow: hidden; border-radius: 20px 20px 0 0;
+  background: radial-gradient(120% 90% at 70% 10%, color-mix(in srgb, var(--accent) 55%, transparent), transparent 60%),
+              linear-gradient(160deg, var(--brand), #5b2a44);
+}
+.pcard__hero::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, transparent 40%, rgba(19, 13, 17, .92));
+}
+.pcard__photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scale(1.08); }
+.pcard__face {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-size: 5.5rem; font-weight: 800; color: rgba(255, 255, 255, .28);
+}
+.pcard__hero.has-photo .pcard__face { display: none; }
+.pcard__lock {
+  position: absolute; top: 12px; inset-inline-start: 12px; z-index: 2;
+  padding: 5px 10px; border-radius: 999px; font-size: .72rem; font-weight: 600;
+  background: rgba(19, 13, 17, .62); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--text);
+}
+.pcard__ring {
+  position: absolute; top: 12px; inset-inline-end: 12px; z-index: 2;
+  width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center;
+  background: conic-gradient(var(--accent) calc(var(--p) * 1%), rgba(255, 255, 255, .14) 0);
+}
+.pcard__ring span {
+  width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; text-align: center;
+  background: rgba(19, 13, 17, .88); color: var(--text); font-size: .68rem; font-weight: 700; line-height: 1.2; padding: 4px;
+}
+.pcard__who { position: absolute; bottom: 12px; inset-inline: 16px; z-index: 2; }
+.pcard--v2 .pcard__name { color: var(--text); text-align: start; font-size: 1.45rem; margin: 0; line-height: 1.3; }
+.pcard--v2 .pcard__place { color: color-mix(in srgb, var(--text) 75%, transparent); text-align: start; font-weight: 500; }
+.pcard__tags { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 2px; }
+.pcard__chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 14px 16px 0; }
+.pcard__chips span {
+  padding: 5px 11px; border-radius: 999px; font-size: .84rem;
+  border: 1px solid var(--border); background: rgba(255, 255, 255, .03);
+}
+.pcard__chips--soft { padding-top: 8px; }
+.pcard__chips--soft span { color: var(--muted); border-style: dashed; }
+.pcard--v2 .pcard__bio { margin: 14px 16px 0; }
+.pcard--v2 .pcard__id { margin: 12px 16px 0; font-size: .75rem; font-weight: 600; color: var(--muted); }
+.pcard--v2 .pcard__hint { margin-top: 12px; }
+
 /* ختما القرار أثناء السحب — والتوهّج بلونَي الزرّين تحت البطاقة */
 .pcard__stamp {
   position: absolute;
